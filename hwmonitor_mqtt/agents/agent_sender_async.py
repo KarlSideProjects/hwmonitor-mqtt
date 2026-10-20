@@ -8,7 +8,6 @@ CPU/MEM/NET 每秒、DISK 每 3 秒、TEMP 每 10 秒
 """
 
 import asyncio
-import json
 import os
 import re
 import socket
@@ -17,8 +16,8 @@ import glob
 from typing import Any, Dict, Optional
 
 import psutil
-from paho.mqtt import client as mqtt
 from dotenv import load_dotenv
+from hwmonitor_mqtt.transport.mqtt import configuration, create_client, publish
 
 load_dotenv()
 
@@ -32,12 +31,13 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 # ===== MQTT CONFIG =====
-BROKER_HOST = os.getenv("BROKER_HOST", "192.168.5.32")
-BROKER_PORT = int(os.getenv("BROKER_PORT", "1883"))
-MQTT_USER   = os.getenv("MQTT_USER", "mqtter")
-MQTT_PASS   = os.getenv("MQTT_PASS", "seven777")
 HOSTNAME    = socket.gethostname()
-TOPIC       = f"sys/agents/{HOSTNAME}/metrics"
+MQTT_CONFIG = configuration(HOSTNAME, default_broker_host="192.168.5.32")
+BROKER_HOST = MQTT_CONFIG["broker_host"]
+BROKER_PORT = MQTT_CONFIG["broker_port"]
+MQTT_USER   = MQTT_CONFIG["username"]
+MQTT_PASS   = MQTT_CONFIG["password"]
+TOPIC       = MQTT_CONFIG["topic"]
 SENDER_PROFILE = os.getenv("SENDER_PROFILE", "full").strip().lower()
 if SENDER_PROFILE not in {"full", "esp"}:
     print(f"⚠️ Unknown SENDER_PROFILE='{SENDER_PROFILE}', fallback to full")
@@ -53,33 +53,7 @@ ESP_DISK_DELTA_BYTES = _env_float("ESP_DISK_DELTA_BYTES", 65536.0)
 ESP_GPU_DELTA = _env_float("ESP_GPU_DELTA", 3.0)
 
 # ===== MQTT Client =====
-mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"agent-{HOSTNAME}")
-mqtt_client.username_pw_set(MQTT_USER, MQTT_PASS)
-
-mqtt_stats = {
-    "publish_ok": 0,
-    "publish_err": 0,
-    "last_publish_rc": None,
-    "reconnects": 0,
-    "is_connected": False,
-    "last_error": None,
-}
-
-def on_connect(client, userdata, connect_flags, reason_code, properties=None):
-    mqtt_stats["is_connected"] = (reason_code == 0)
-    if reason_code == 0:
-        print(f"✅ MQTT connected to {BROKER_HOST}:{BROKER_PORT}")
-        mqtt_stats["last_error"] = None
-    else:
-        print(f"❌ MQTT connect failed: reason_code={reason_code}")
-        mqtt_stats["last_error"] = f"Connect failed: {reason_code}"
-mqtt_client.on_connect = on_connect
-
-def on_disconnect(client, userdata, disconnect_flags, reason_code, properties=None):
-    mqtt_stats["is_connected"] = False
-    print(f"⚠️ MQTT disconnected: reason_code={reason_code}")
-    mqtt_stats["last_error"] = f"Disconnected: {reason_code}"
-mqtt_client.on_disconnect = on_disconnect
+mqtt_client, mqtt_stats, on_connect, on_disconnect = create_client(MQTT_CONFIG)
 
 def mqtt_connect():
     try:
@@ -885,16 +859,7 @@ def _publish_payload(payload: Dict[str, Any]):
     payload = {
         **payload
     }
-    try:
-        info = mqtt_client.publish(TOPIC, json.dumps(payload, separators=(',', ':')), qos=0, retain=False)
-        mqtt_stats["last_publish_rc"] = info.rc
-        if info.rc == mqtt.MQTT_ERR_SUCCESS:
-            mqtt_stats["publish_ok"] += 1
-        else:
-            mqtt_stats["publish_err"] += 1
-    except Exception as e:
-        mqtt_stats["publish_err"] += 1
-        mqtt_stats["last_error"] = str(e)
+    publish(mqtt_client, mqtt_stats, TOPIC, payload)
 
 
 def publish_metrics():
