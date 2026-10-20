@@ -143,7 +143,7 @@ u=https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/refs/heads/m
 
 若 PVE 套件來源回報 Enterprise repository 的 401，且目前沒有有效訂閱，bootstrap 會警告後嘗試以現有套件索引安裝必要套件；這不代表 Debian 官方套件來源無法使用。它不會修改或停用任何 PVE/Ceph 套件來源，也不會關閉簽章或來源驗證。
 
-若 PVE 尚未設定 API，第一次執行 bootstrap 會建立私有範本並停止。請完成下方 API 與 CA 步驟，再重新執行；bootstrap 不會建立 API token，也不會替你信任未知 CA。一般 Linux 不需要 PVE 設定。
+若 PVE 尚未設定 API，第一次執行 bootstrap 會建立私有範本並停止。看到 `PVE sender is not installed yet` 代表採集服務尚未安裝完成，R36 此時不會收到 CT／VM 清單。請完成下方 API 與 CA 步驟，再重新執行；bootstrap 不會建立 API token，也不會替你信任未知 CA。一般 Linux 不需要 PVE 設定。
 
 PVE 需要 HTTPS API 唯讀 token、可信 CA，以及穩定的 cluster ID 和 node 名稱。token 需透過 ACL 繼承取得 `/vms` 的 `VM.Audit`，並以 `Sys.Audit` 讀取 `/access` ACL；每個明列的 `/vms` ACL 範圍也需有 `VM.Audit`。目前所有有效權限都必須以 `.Audit` 結尾，且可見的叢集 ACL 不可包含 `/pool/...` 項目。完整權限與 scope 限制見 [PVE sender 設定說明](docs/configuration/env-vars.md#proxmox-ve-sender)。bootstrap 第一次執行會從已下載的 `/opt/hwmonitor-mqtt/docs/configuration/pve.env.example` 建立私有範本；既有設定檔會保留。
 
