@@ -13,6 +13,9 @@ jobs:
     name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
+      EXPECTED_PYTHON_VERSION: ${{ matrix.python-version }}
     strategy:
       fail-fast: false
       matrix:
@@ -28,7 +31,7 @@ jobs:
       - name: Confirm Linux PowerShell test prerequisite
         run: pwsh --version
       - name: Install locked dependencies
-        run: uv sync --locked
+        run: uv sync --locked --python "$UV_PYTHON"
       - name: Run sender checks
         run: make check
 

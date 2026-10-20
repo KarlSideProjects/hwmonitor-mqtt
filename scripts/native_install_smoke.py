@@ -37,6 +37,7 @@ def main(argv=None):
         parser.error("systemctl, python3, and mosquitto are required")
 
     old_umask = os.umask(0o077)
+    exit_code = 0
     install_root = None
     service_name = f"hwmonitor-mqtt-smoke-{os.getpid()}-{uuid.uuid4().hex[:8]}.service"
     broker = None
@@ -105,7 +106,15 @@ def main(argv=None):
             unit_text = (systemd_dir / service_name).read_text()
             if "DynamicUser=yes" not in unit_text or stat_mode(config) != 0o600:
                 raise RuntimeError("installed service or private fixture configuration has unsafe permissions")
-            subprocess.run([str(runtime_root / "venv" / "bin" / "python"), "-m", "pip", "--version"],
+            service_python = runtime_root / "venv" / "bin" / "python"
+            version = subprocess.run(
+                [str(service_python), "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"],
+                check=True, capture_output=True, text=True, timeout=10,
+            ).stdout.strip()
+            expected_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+            if version != expected_version:
+                raise RuntimeError(f"native venv uses Python {version}; expected {expected_version}")
+            subprocess.run([str(service_python), "-m", "pip", "--version"],
                            check=True, capture_output=True, text=True, timeout=10)
             try:
                 topic, payload = messages.get(timeout=args.timeout)
@@ -122,20 +131,12 @@ def main(argv=None):
             subscriber.disconnect()
     finally:
         if install_root is not None:
-            try:
-                subprocess.run(["systemctl", "disable", "--now", service_name], check=False,
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
-            except (OSError, subprocess.TimeoutExpired):
-                pass
             wants = systemd_dir / "multi-user.target.wants"
-            if wants.is_dir():
-                (wants / service_name).unlink(missing_ok=True)
-            (systemd_dir / service_name).unlink(missing_ok=True)
-            try:
-                subprocess.run(["systemctl", "daemon-reload"], check=False, timeout=20)
-            except (OSError, subprocess.TimeoutExpired):
-                pass
-            shutil.rmtree(install_root, ignore_errors=True)
+            unit = systemd_dir / service_name
+            link = wants / service_name
+            exit_code, cleanup_error = cleanup_smoke_install(service_name, unit, link, install_root)
+            if cleanup_error:
+                print(f"Smoke cleanup failed: {cleanup_error}; inspect {install_root} and {unit}", file=sys.stderr)
         try:
             if broker is not None:
                 broker.terminate()
@@ -148,11 +149,61 @@ def main(argv=None):
         finally:
             os.umask(old_umask)
             pve.INSTALL_ROOT, pve.APP_ROOT, pve.SERVICE_VENV, pve.SERVICE_NAME, pve.SYSTEMD_DIR = old_installer_paths
-    return 0
+    return exit_code
 
 
 def stat_mode(path):
     return Path(path).stat().st_mode & 0o777
+
+
+def cleanup_smoke_install(service_name, unit, wants_link, install_root, run=subprocess.run):
+    error = cleanup_systemd_service(service_name, unit, wants_link, run=run)
+    if error:
+        return 1, error
+    try:
+        shutil.rmtree(install_root)
+    except OSError as error:
+        return 1, f"could not remove the smoke files: {error}"
+    return 0, None
+
+
+def cleanup_systemd_service(service_name, unit, wants_link, run=subprocess.run):
+    unit, wants_link = Path(unit), Path(wants_link)
+    if not unit.exists() and not wants_link.exists():
+        return None
+
+    def systemctl(*args, timeout=20):
+        command = ["systemctl", *args]
+        try:
+            return run(command, check=False, capture_output=True, text=True, timeout=timeout)
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+
+    disabled = systemctl("disable", service_name)
+    stopped = systemctl("stop", service_name)
+    if stopped is None or stopped.returncode:
+        systemctl("kill", "--kill-who=all", "--signal=KILL", service_name)
+        systemctl("stop", service_name)
+
+    state = systemctl("show", "--property=ActiveState", "--value", service_name, timeout=10)
+    pid = systemctl("show", "--property=MainPID", "--value", service_name, timeout=10)
+    if (state is None or state.returncode or state.stdout.strip() != "inactive"
+            or pid is None or pid.returncode or pid.stdout.strip() != "0"):
+        active_state = state.stdout.strip() if state is not None else "unknown"
+        main_pid = pid.stdout.strip() if pid is not None else "unknown"
+        return f"systemd reported ActiveState={active_state}, MainPID={main_pid}"
+    if disabled is None or disabled.returncode:
+        return "systemctl disable failed"
+
+    try:
+        wants_link.unlink(missing_ok=True)
+        unit.unlink(missing_ok=True)
+    except OSError as error:
+        return f"could not remove the unit files: {error}"
+    reloaded = systemctl("daemon-reload")
+    if reloaded is None or reloaded.returncode:
+        return "systemctl daemon-reload failed after unit removal"
+    return None
 
 
 if __name__ == "__main__":
