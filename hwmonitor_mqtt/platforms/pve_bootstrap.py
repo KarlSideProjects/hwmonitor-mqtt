@@ -9,6 +9,7 @@ import subprocess
 import sys
 
 from hwmonitor_mqtt.clients.pve import PveApiClient, PveConfig, PveError
+from hwmonitor_mqtt.platforms.pve_token import PveTokenError, provision_token
 
 
 DEFAULT_CA = Path("/etc/hwmonitor-mqtt/pve-root-ca.pem")
@@ -149,7 +150,7 @@ def preflight(config_file, client_factory=PveApiClient):
         raise PveSetupError("PVE sender is not installed yet: replace the PVE_TOKEN_SECRET placeholder with a real read-only API token secret")
     token_id = values.get("PVE_TOKEN_ID", "")
     if not token_id:
-        raise PveSetupError("PVE sender is not installed yet: set PVE_TOKEN_ID to the human-created API token ID")
+        raise PveSetupError("PVE sender is not installed yet: set a valid PVE_TOKEN_ID")
     if not _dynamic_user_can_read(values.get("PVE_CA_FILE", "")):
         raise PveSetupError("PVE validation failed: CA file and parent directories must be readable by systemd DynamicUser")
     try:
@@ -171,9 +172,10 @@ def main(argv=None):
     parser.add_argument("--template", required=True)
     args = parser.parse_args(argv)
     try:
-        config = prepare(args.config, args.template)
+        config = Path(args.config)
+        provision_token(config, prepare_config=lambda: prepare(args.config, args.template))
         preflight(config)
-    except PveSetupError as error:
+    except (PveSetupError, PveTokenError) as error:
         print(str(error), file=sys.stderr)
         return 2
     return 0

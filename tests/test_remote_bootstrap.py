@@ -13,7 +13,7 @@ BOOTSTRAP = REPO / "bootstrap.sh"
 
 def make_tools(tmp_path, *, fail_download=False, fail_install=False, docker_present=True, conflicting_packages=False,
                base_installed=False, missing_base_packages=(), fail_base_install=False, fail_update=False,
-               existing_sender=False, docker_error=False, fail_pve_validation=False):
+               existing_sender=False, docker_error=False, fail_pve_validation=False, fail_pve_token_setup=False):
     bindir = tmp_path / "bin"
     bindir.mkdir(exist_ok=True)
     log = tmp_path / "calls.log"
@@ -34,10 +34,19 @@ def make_tools(tmp_path, *, fail_download=False, fail_install=False, docker_pres
         "dpkg": "#!/bin/sh\necho amd64\n",
         **({"docker": "#!/bin/sh\nif [ \"$1\" = inspect ]; then\n" + ("exit 0\n" if existing_sender else "echo \"Cannot connect to Docker daemon\" >&2; exit 1\n" if docker_error else "echo \"Error: No such object: sys-agent\" >&2; exit 1\n") + "fi\nexit 0\n"} if docker_present else {}),
     }
-    # Use the real PVE preparation module; replace only its network client.
+    scripts["pveum"] = (
+        "#!/usr/bin/python3\nimport json, sys\n"
+        f"with open({str(log)!r}, 'a') as log: log.write('pveum:' + ' '.join(sys.argv[1:]) + '\\n')\n"
+        + ("sys.stderr.write('sensitive-pveum-error-secret'); sys.exit(42)\n" if fail_pve_token_setup else "")
+        + "args=sys.argv[1:]\n"
+        "if args[:3] == ['user','token','add']:\n"
+        "    print(json.dumps({'value':'fixture-provisioned-secret','full-tokenid':args[3]+'!'+args[4], 'info':{'privsep':1}}))\n"
+        "elif 'list' in args: print('[]')\n"
+    )
+    # Run the real PVE setup with a fake local pveum and network client.
     scripts["tar"] += (
         f"mkdir -p \"$out/hwmonitor-mqtt-master/hwmonitor_mqtt/clients\"\n"
-        f"cp '{REPO}/hwmonitor_mqtt/platforms/pve_bootstrap.py' \"$out/hwmonitor-mqtt-master/hwmonitor_mqtt/platforms/\"\n"
+        f"cp '{REPO}/hwmonitor_mqtt/platforms/pve_bootstrap.py' '{REPO}/hwmonitor_mqtt/platforms/pve_token.py' \"$out/hwmonitor-mqtt-master/hwmonitor_mqtt/platforms/\"\n"
         f"cp '{REPO}/hwmonitor_mqtt/clients/pve.py' \"$out/hwmonitor-mqtt-master/hwmonitor_mqtt/clients/\"\n"
         "printf 'PVE_URL=https://pve.example.invalid:8006\\nPVE_TOKEN_ID=monitor@pve!readonly\\nPVE_TOKEN_SECRET=replace-with-private-token-secret\\nPVE_CA_FILE=/etc/ssl/certs/ca-certificates.crt\\nPVE_CLUSTER_ID=lab\\nPVE_NODE=pve-node-a\\n' > \"$out/hwmonitor-mqtt-master/docs/configuration/pve.env.example\"\n"
     )
@@ -213,14 +222,39 @@ def test_readme_windows_command_is_the_short_admin_installer():
 
 
 
-def test_pve_first_run_creates_private_template_and_stops(tmp_path):
-    result, root, log = run_bootstrap(tmp_path, target_system="pve", pve_config=False, stdin="")
-
+def test_pve_first_run_provisions_private_token_and_installs(tmp_path):
+    result, root, log = run_bootstrap(tmp_path, target_system="pve", pve_config=False)
     config = tmp_path / "pve.env"
-    assert result.returncode == 2
-    assert "PVE_TOKEN_SECRET" in config.read_text()
+    assert result.returncode == 0, result.stderr
+    assert "PVE_TOKEN_SECRET=fixture-provisioned-secret" in config.read_text()
     assert config.stat().st_mode & 0o777 == 0o600
-    assert "read-only API token" in result.stderr
+    assert "--privsep 1" in log.read_text()
+    assert "--roles PVEAuditor" in log.read_text()
+    assert "python:" in log.read_text()
+    assert "fixture-provisioned-secret" not in result.stdout + result.stderr + log.read_text()
+    assert (root / ".env").exists()
+
+
+def test_existing_pve_credentials_are_reused_without_local_account_changes(tmp_path):
+    result, _, log = run_bootstrap(tmp_path, target_system="pve")
+    assert result.returncode == 0, result.stderr
+    assert "pveum:" not in log.read_text()
+    assert "private-real-value" in (tmp_path / "pve.env").read_text()
+
+
+def test_linux_install_does_not_provision_pve_identity(tmp_path):
+    result, _, log = run_bootstrap(tmp_path)
+    assert result.returncode == 0
+    assert "pveum:" not in log.read_text()
+    assert not (tmp_path / "pve.env").exists()
+
+
+def test_pve_provision_failure_stops_before_mqtt_without_leaking_cli_output(tmp_path):
+    result, root, log = run_bootstrap(tmp_path, target_system="pve", pve_config=False,
+                                     stdin="", fail_pve_token_setup=True)
+    assert result.returncode == 2
+    assert "sensitive-pveum-error-secret" not in result.stdout + result.stderr
+    assert "MQTT broker" not in result.stdout
     assert "python:" not in log.read_text()
     assert not (root / ".env").exists()
 

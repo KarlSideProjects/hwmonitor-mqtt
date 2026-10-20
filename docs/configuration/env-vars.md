@@ -43,12 +43,14 @@
 | 設定 | 用途 | 安裝入口的處理 |
 | --- | --- | --- |
 | `PVE_URL` | HTTPS API 位址，名稱需符合憑證 | 預設使用本機完整主機名稱與 8006 埠，可自訂 |
-| `PVE_TOKEN_ID` | 唯讀 API token 識別碼 | 必須對應自行建立的 token |
-| `PVE_TOKEN_SECRET` | API token 密鑰 | 必須自行填入，安裝入口拒絕範例密鑰 |
+| `PVE_TOKEN_ID` | 唯讀 API token 識別碼 | 缺少憑證時由本機 PVE 安裝模組建立並填入；既有實際設定沿用 |
+| `PVE_TOKEN_SECRET` | API token 密鑰 | 缺少或為範本密鑰時自動建立並私下保存；也可自行填入既有密鑰 |
 | `PVE_CA_FILE` | 驗證 PVE HTTPS 憑證 | 預設複製本機 CA 到服務可讀的位置；自訂檔案需可供服務讀取 |
 | `PVE_CLUSTER_ID` | guest ID 的命名空間，避免不同叢集的 VMID 混淆 | 使用偵測到的叢集名稱，單機則使用本機完整主機名稱；可自訂，投入使用後應保持穩定 |
 | `PVE_NODE` | 篩選該節點的 CT／VM | 由本機節點名稱填入，可自訂 |
 | `PVE_TIMEOUT_SEC` | 每次 API 請求逾時秒數 | 可省略，預設 3，須大於 0 且不超過 30 |
+
+token 建立、權限變更、私有檔案與失敗重跑流程見 [安裝檔會做什麼](../../README.md#安裝檔會做什麼)。此自動準備流程只在 PVE 宿主的 Shell 安裝入口執行；手動 Docker 部署仍需先提供有效設定。
 
 PVE systemd service 由 systemd 讀取既有 `.env` 的 MQTT 設定，不覆寫該檔；sender 程式及依賴安裝到 root-owned `/opt/hwmonitor-mqtt-pve`，服務以 transient unprivileged identity 執行。重裝會重新部署程式並重啟服務。服務固定使用 full payload。API 輪詢每 10 秒執行一次，使用者可用 `PVE_TIMEOUT_SEC` 調整每次請求 timeout；值必須大於 0 且不超過 30 秒。CA 檔需可供 systemd service identity 讀取。
 

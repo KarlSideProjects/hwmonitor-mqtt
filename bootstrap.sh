@@ -44,7 +44,7 @@ curl --fail --location --silent --show-error "$archive" --output "$tmp/source.ta
 mkdir "$tmp/unpacked"
 tar -xzf "$tmp/source.tar.gz" -C "$tmp/unpacked"
 source_dir=$(find "$tmp/unpacked" -mindepth 1 -maxdepth 1 -type d -print -quit)
-[[ -n "$source_dir" && -f "$source_dir/install.sh" && -f "$source_dir/hwmonitor_mqtt/platforms/install.py" && -f "$source_dir/hwmonitor_mqtt/platforms/pve_bootstrap.py" ]] || { echo "Downloaded archive did not contain the project." >&2; exit 1; }
+[[ -n "$source_dir" && -f "$source_dir/install.sh" && -f "$source_dir/hwmonitor_mqtt/platforms/install.py" && -f "$source_dir/hwmonitor_mqtt/platforms/pve_bootstrap.py" && -f "$source_dir/hwmonitor_mqtt/platforms/pve_token.py" ]] || { echo "Downloaded archive did not contain the project." >&2; exit 1; }
 # Download and validate before refreshing code; preserve host-specific configuration.
 python3 - "$source_dir" "$root" <<'PYCODE'
 from pathlib import Path
@@ -67,6 +67,7 @@ if [[ "$target_system" == pve ]]; then
             exit 2
         fi
     fi
+    echo "PVE setup prepares local CA/node settings and creates a dedicated read-only PVE account/token only when credentials are missing. Secrets are saved privately, not printed."
     pve_config=${PVE_CONFIG_FILE:-/etc/hwmonitor-mqtt/pve.env}
     if ! PYTHONPATH="$root" python3 -m hwmonitor_mqtt.platforms.pve_bootstrap --config "$pve_config" --template "$root/docs/configuration/pve.env.example"; then
         echo "Review $pve_config, then rerun this download installer." >&2
