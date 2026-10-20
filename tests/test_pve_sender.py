@@ -481,6 +481,8 @@ def test_installer_deploys_unprivileged_idempotent_service_and_restarts(tmp_path
     calls = []
     def run(args, check=False):
         calls.append(args)
+        if args[1:3] == ["-m", "venv"]:
+            os.makedirs(args[3], exist_ok=True)
         return subprocess.CompletedProcess(args, 0)
     first_unit = None
     for iteration in range(2):
@@ -510,6 +512,7 @@ def test_installer_deploys_unprivileged_idempotent_service_and_restarts(tmp_path
     assert (project / ".env").read_bytes() == original_env
     assert sum(call[-2:] == ["restart", pve.SERVICE_NAME] for call in calls) == 2
     assert calls.count(["/usr/bin/systemctl", "enable", "--now", pve.SERVICE_NAME]) == 2
+    assert calls.count(["/usr/bin/systemctl", "is-active", "--quiet", pve.SERVICE_NAME]) == 2
 
 
 def test_installer_refuses_nonroot_before_deploying(tmp_path, monkeypatch):
@@ -700,3 +703,85 @@ def test_legacy_pve_ca_without_key_usage_retries_without_strict_mode_only(tmp_pa
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_native_installer_repairs_umask_restricted_runtime_permissions_without_chmodding_symlinks(tmp_path, monkeypatch):
+    from hwmonitor_mqtt.platforms.installers import pve
+
+    project = tmp_path / "source"
+    sender = project / "hwmonitor_mqtt/agents/agent_sender_async.py"
+    sender.parent.mkdir(parents=True)
+    sender.write_text("# sender source\n")
+    mqtt_env = project / ".env"
+    mqtt_env.write_text("MQTT_PASS=private\n")
+    mqtt_env.chmod(0o600)
+    pve_env = tmp_path / "pve.env"
+    pve_env.write_text("PVE_TOKEN_SECRET=private\n")
+    pve_env.chmod(0o600)
+    install_root = tmp_path / "runtime"
+    app = install_root / "app"
+    venv = install_root / "venv"
+    systemd_dir = tmp_path / "systemd"
+    external_target = tmp_path / "external-private"
+    external_target.write_text("private\n")
+    external_target.chmod(0o600)
+    monkeypatch.setattr(pve, "APP_ROOT", str(app))
+    monkeypatch.setattr(pve, "SERVICE_VENV", str(venv))
+    monkeypatch.setattr(pve, "SYSTEMD_DIR", str(systemd_dir))
+
+    def run(args, check=False):
+        if args[1:3] == ["-m", "venv"]:
+            (venv / "bin").mkdir(parents=True, mode=0o700)
+            (venv / "lib/python3/site-packages/psutil").mkdir(parents=True, mode=0o700)
+            (venv / "bin/python").write_text("#!/bin/sh\n")
+            (venv / "bin/python").chmod(0o700)
+            (venv / "lib/python3/site-packages/psutil/__init__.py").write_text("# package\n")
+            (venv / "lib/python3/site-packages/psutil/__init__.py").chmod(0o600)
+            (venv / "bin/python3.11").symlink_to(external_target)
+        return subprocess.CompletedProcess(args, 0)
+
+    old_umask = os.umask(0o077)
+    try:
+        assert pve.install(project, str(pve_env), run=run,
+                           which=lambda name: {"systemctl": "/usr/bin/systemctl", "python3": "/usr/bin/python3"}.get(name),
+                           geteuid=lambda: 0) == 0
+    finally:
+        os.umask(old_umask)
+
+    assert stat.S_IMODE(install_root.stat().st_mode) == 0o755
+    assert stat.S_IMODE(app.stat().st_mode) == 0o755
+    assert stat.S_IMODE((app / "hwmonitor_mqtt/agents/agent_sender_async.py").stat().st_mode) == 0o644
+    assert stat.S_IMODE(venv.stat().st_mode) == 0o755
+    assert stat.S_IMODE((venv / "bin").stat().st_mode) == 0o755
+    assert stat.S_IMODE((venv / "lib/python3/site-packages/psutil").stat().st_mode) == 0o755
+    assert stat.S_IMODE((venv / "lib/python3/site-packages/psutil/__init__.py").stat().st_mode) == 0o644
+    assert stat.S_IMODE((venv / "bin/python").stat().st_mode) == 0o755
+    assert (venv / "bin/python3.11").is_symlink()
+    assert stat.S_IMODE(external_target.stat().st_mode) == 0o600
+    assert stat.S_IMODE(mqtt_env.stat().st_mode) == 0o600
+    assert stat.S_IMODE(pve_env.stat().st_mode) == 0o600
+
+
+def test_native_installer_returns_failure_when_service_is_not_active(tmp_path, monkeypatch):
+    from hwmonitor_mqtt.platforms.installers import pve
+    sender = tmp_path / "source/hwmonitor_mqtt/agents/agent_sender_async.py"
+    sender.parent.mkdir(parents=True)
+    sender.write_text("# sender source\n")
+    runtime = tmp_path / "runtime"
+    monkeypatch.setattr(pve, "APP_ROOT", str(runtime / "app"))
+    monkeypatch.setattr(pve, "SERVICE_VENV", str(runtime / "venv"))
+    monkeypatch.setattr(pve, "SYSTEMD_DIR", str(tmp_path / "systemd"))
+    calls = []
+
+    def run(args, check=False):
+        calls.append(args)
+        if args[1:3] == ["-m", "venv"]:
+            os.makedirs(args[3], exist_ok=True)
+        return subprocess.CompletedProcess(args, 3 if args[:3] == ["/usr/bin/systemctl", "is-active", "--quiet"] else 0)
+
+    result = pve.install(sender.parents[2], str(tmp_path / "missing.env"), run=run,
+                         which=lambda name: {"systemctl": "/usr/bin/systemctl", "python3": "/usr/bin/python3"}.get(name),
+                         geteuid=lambda: 0)
+
+    assert result == 3
+    assert calls[-1] == ["/usr/bin/systemctl", "is-active", "--quiet", pve.SERVICE_NAME]
