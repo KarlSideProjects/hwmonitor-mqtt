@@ -1,5 +1,7 @@
 """Fixed sender and installer dispatch; importing this module has no effects."""
 
+from pathlib import Path
+
 COLLECTORS = {
     "windows": "hwmonitor_mqtt.agents.agent_sender_windows",
     "linux": "hwmonitor_mqtt.agents.agent_sender_async",
@@ -25,6 +27,9 @@ def install_command(target, project_root):
     """Return the existing platform installer command without running it."""
     from .installers import linux, windows
 
+    if target.system == "pve" and target.runtime not in {"native", "vm"}:
+        from .installers import pve_docker
+        return pve_docker.command(project_root)
     if target.system == "pve":
         from .installers import pve
         return pve.command(project_root)

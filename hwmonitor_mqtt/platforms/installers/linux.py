@@ -5,7 +5,7 @@ import subprocess
 
 def command(project_root):
     compose = str(Path(project_root) / "docker-compose.linux.yml")
-    return ["docker", "compose", "-f", compose, "--profile", "agent", "up", "-d"]
+    return ["docker", "compose", "-f", compose, "--profile", "agent", "up", "--build", "-d"]
 
 
 def preflight(which=shutil.which, run=subprocess.run):

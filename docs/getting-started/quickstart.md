@@ -34,11 +34,13 @@ docker compose --profile full up -d
 
 ## 安裝目標預覽
 
-在實際要安裝的主機執行以下命令，可預覽偵測到的 OS、系統類型、執行環境與安裝命令；`--dry-run` 不會安裝或啟動服務。PVE 目前只會顯示已辨識及待支援狀態。
+在實際要安裝的主機執行以下命令，可預覽偵測到的 OS、系統類型、執行環境與安裝命令；`--dry-run` 不會安裝或啟動服務。
 
 ```bash
 uv run --no-sync python -m hwmonitor_mqtt.platforms.install --dry-run
 ```
+
+PVE Docker sender 使用已偵測的宿主證據、PVE 專用 Compose 設定及唯讀 API 配置。準備私有設定後執行 `sudo uv run --no-sync python -m hwmonitor_mqtt.platforms.install --deployment docker --pve-config /etc/hwmonitor-mqtt/pve.env --dry-run` 檢查，細節見 [Docker profiles](../deployment/docker-profiles.md)。
 
 ## 4. 觀察資料
 

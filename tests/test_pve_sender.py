@@ -492,6 +492,26 @@ def test_installer_refuses_nonroot_before_deploying(tmp_path, monkeypatch):
     assert not install_root.exists()
 
 
+def test_native_installer_fails_closed_when_docker_duplicate_check_is_unavailable(tmp_path):
+    from hwmonitor_mqtt.platforms.installers import pve
+    sender = tmp_path / "source/hwmonitor_mqtt/agents/agent_sender_async.py"
+    sender.parent.mkdir(parents=True)
+    sender.write_text("# sender source\n")
+    install_root = tmp_path / "installed"
+    calls = []
+    def run(args, **kwargs):
+        calls.append(args)
+        if args[0] == "/usr/bin/docker":
+            return subprocess.CompletedProcess(args, 1, "", "Cannot connect to Docker daemon")
+        return subprocess.CompletedProcess(args, 0)
+    with pytest.raises(RuntimeError, match="could not verify"):
+        pve.install(sender.parents[2], str(tmp_path / "missing.env"), run=run,
+                    which=lambda name: {"systemctl": "/usr/bin/systemctl", "python3": "/usr/bin/python3", "docker": "/usr/bin/docker"}.get(name),
+                    geteuid=lambda: 0)
+    assert calls == [["/usr/bin/docker", "inspect", "sys-agent"]]
+    assert not install_root.exists()
+
+
 def test_generated_service_unit_parses_with_systemd_when_available(tmp_path, monkeypatch):
     systemd_analyze = shutil.which("systemd-analyze")
     if not systemd_analyze:

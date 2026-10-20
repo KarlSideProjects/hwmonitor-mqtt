@@ -2,6 +2,7 @@ services:
   sys_agent:
     build: .
     container_name: sys-agent
+    hostname: ${SENDER_HOSTNAME:?run the host-aware installer or set SENDER_HOSTNAME}
     restart: unless-stopped
     network_mode: host
     pid: host
