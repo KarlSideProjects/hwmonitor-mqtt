@@ -38,7 +38,7 @@ try {
         $passwordPtr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
         try { $password = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPtr) }
         finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPtr) }
-        if ($user -match '\$\{[^}]+\}' -or $password -match '\$\{[^}]+\}') {
+        if ($user -match '\$\{[^}]*\}' -or $password -match '\$\{[^}]*\}') {
             throw 'MQTT username and password cannot contain ${...} because the existing dotenv reader expands that syntax.'
         }
 

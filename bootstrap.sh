@@ -89,7 +89,7 @@ from pathlib import Path
 def quote(value):
     if os.environ["target_system"] == "pve":
         return '"' + value.replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$").replace("`", "\\`") + '"'
-    return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"').replace("$", "$$") + '"'
 
 Path(sys.argv[1]).write_text("\n".join((
     f"BROKER_HOST={quote(os.environ['broker_host'])}",
@@ -103,7 +103,8 @@ PY
 fi
 
 if [[ "$target_system" == linux && ! -x "$(command -v docker || true)" ]]; then
-    if dpkg-query -W -f='${db:Status-Status}\n' containerd.io containerd docker-ce docker-ce-cli moby-engine runc 2>/dev/null | grep -qx installed; then
+    installed_packages=$(dpkg-query -W -f='${db:Status-Status}\n' containerd.io containerd docker-ce docker-ce-cli moby-engine runc 2>/dev/null || true)
+    if grep -qx installed <<<"$installed_packages"; then
         echo "A conflicting container runtime package is installed; resolve it before installing Docker." >&2
         exit 1
     fi

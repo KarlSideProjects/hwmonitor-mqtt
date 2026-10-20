@@ -135,24 +135,24 @@ uv run pytest -q
 
 ## 在 Linux 或 PVE 安裝 Sender
 
-在要監控的 Debian、Ubuntu、Raspberry Pi OS 或 Proxmox VE 主機執行以下命令。bootstrap 會下載到唯一暫存檔，再安裝；首次執行會詢問 MQTT 設定，密碼不會顯示，既有 `.env` 會保留。一般 Linux 會準備 Python 與 Docker Compose v2，PVE 使用原生 systemd sender。請在 root shell 執行；PVE root 通常不需要 sudo。
+在要監控的 Debian、Ubuntu、Raspberry Pi OS 或 Proxmox VE 主機執行以下命令。bootstrap 會下載到唯一暫存檔，再安裝；首次執行會詢問 MQTT 設定，密碼不會顯示，既有 `.env` 會保留。一般 Linux 會準備 Python 與 Docker Compose v2，PVE 使用原生 systemd sender。安裝需要 Python 3.11 以上；bootstrap 安裝系統的 `python3` 後若版本不足會停止，部分舊 Ubuntu（例如 22.04）需先自行安裝 Python 3.11+。請在 root shell 執行。
 
 ```bash
-(tmp=$(mktemp) && curl -fsSL https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/master/bootstrap.sh -o "$tmp" && bash "$tmp"; status=$?; rm -f "$tmp"; exit "$status")
+(tmp=$(mktemp) && (command -v curl >/dev/null || (apt-get update && apt-get install -y curl)) && curl -fsSL https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/master/bootstrap.sh -o "$tmp" && bash "$tmp"; status=$?; rm -f "$tmp"; exit "$status")
 ```
 
 若 PVE 尚未設定 API，第一次執行 bootstrap 會建立私有範本並停止。請完成下方 API 與 CA 步驟，再重新執行；bootstrap 不會建立 API token，也不會替你信任未知 CA。一般 Linux 不需要 PVE 設定。
 
-PVE 需要 HTTPS API 唯讀 token、可信 CA，以及穩定的 cluster ID 和 node 名稱。token 需透過 ACL 繼承取得 `/vms` 的 `VM.Audit`，並以 `Sys.Audit` 讀取 `/access` ACL；每個明列的 `/vms` ACL 範圍也需有 `VM.Audit`。目前所有有效權限都必須以 `.Audit` 結尾，且可見的叢集 ACL 不可包含 `/pool/...` 項目。完整權限與 scope 限制見 [PVE sender 設定說明](docs/configuration/env-vars.md#proxmox-ve-sender)。先建立私有設定檔；若檔案已存在，保留原檔並自行合併設定：
+PVE 需要 HTTPS API 唯讀 token、可信 CA，以及穩定的 cluster ID 和 node 名稱。token 需透過 ACL 繼承取得 `/vms` 的 `VM.Audit`，並以 `Sys.Audit` 讀取 `/access` ACL；每個明列的 `/vms` ACL 範圍也需有 `VM.Audit`。目前所有有效權限都必須以 `.Audit` 結尾，且可見的叢集 ACL 不可包含 `/pool/...` 項目。完整權限與 scope 限制見 [PVE sender 設定說明](docs/configuration/env-vars.md#proxmox-ve-sender)。bootstrap 第一次執行會從已下載的 `/opt/hwmonitor-mqtt/docs/configuration/pve.env.example` 建立私有範本；既有設定檔會保留。
 
-第一次 bootstrap 已建立私有設定檔範本。若需手動建立，請以 root 執行；編輯前確認設定檔不存在：
+請先取得 root shell，以下命令不需 sudo。若要手動建立，範本使用已下載到固定安裝位置的檔案：
 
 ```bash
-sudo install -d -m 0755 /etc/hwmonitor-mqtt
-if ! sudo test -e /etc/hwmonitor-mqtt/pve.env; then
-  sudo install -m 0600 /opt/hwmonitor-mqtt/docs/configuration/pve.env.example /etc/hwmonitor-mqtt/pve.env
+install -d -m 0755 /etc/hwmonitor-mqtt
+if ! test -e /etc/hwmonitor-mqtt/pve.env; then
+  install -m 0600 /opt/hwmonitor-mqtt/docs/configuration/pve.env.example /etc/hwmonitor-mqtt/pve.env
 fi
-sudoedit /etc/hwmonitor-mqtt/pve.env
+${EDITOR:-vi} /etc/hwmonitor-mqtt/pve.env
 ```
 
 將範例中的 URL、token、cluster ID、node 和 CA 路徑改成實際值。不要把 token 貼進 Git 或公開輸出。範例 CA 路徑是 `/etc/hwmonitor-mqtt/pve-root-ca.pem`；將 `/path/to/trusted-pve-root-ca.pem` 換成 CA 檔的實際來源路徑：
@@ -160,14 +160,14 @@ sudoedit /etc/hwmonitor-mqtt/pve.env
 ```bash
 CA_SOURCE='/path/to/trusted-pve-root-ca.pem'
 test -f "$CA_SOURCE"
-if ! sudo test -e /etc/hwmonitor-mqtt/pve-root-ca.pem; then
-  sudo install -m 0644 "$CA_SOURCE" /etc/hwmonitor-mqtt/pve-root-ca.pem
+if ! test -e /etc/hwmonitor-mqtt/pve-root-ca.pem; then
+  install -m 0644 "$CA_SOURCE" /etc/hwmonitor-mqtt/pve-root-ca.pem
 fi
 ```
 
 `/etc/hwmonitor-mqtt` 目錄使用 `0755`，CA 檔使用 `0644`，讓服務身分可讀取 CA。確認 token、設定及 CA 已準備好後，在 PVE 宿主重新執行上方 bootstrap 命令。
 
-安裝器支援 Debian、Ubuntu 與 Raspberry Pi OS；其他 Linux 發行版會停止並回報不支援。Windows 請使用 [Windows sender 安裝方式](#windows-sender-安裝與注意事項)。
+安裝器支援 Debian、Ubuntu 與 Raspberry Pi OS；其他 Linux 發行版會停止並回報不支援。PVE 原生安裝與 Windows 排程安裝尚未在實體目標主機驗證。Windows 請使用 [Windows sender 安裝方式](#windows-sender-安裝與注意事項)。
 
 ## 授權
 
