@@ -133,6 +133,62 @@ uv sync
 uv run pytest -q
 ```
 
+## 在 Linux 或 PVE 安裝 Sender
+
+在要監控的 Linux 或 Proxmox VE 主機執行以下準備步驟。安裝器需要 Git 與 Python 3.11 以上；一般 Linux 使用 Docker Compose v2，PVE 原生安裝另需 `python3-venv` 與 systemd。一般 Linux 的 Docker 必須先由管理者安裝。
+
+```bash
+git clone https://github.com/KarlSideProjects/hwmonitor-mqtt.git
+cd hwmonitor-mqtt
+test -e .env || cp .env.example .env
+chmod 600 .env
+nano .env
+```
+
+在 `.env` 設定 `BROKER_HOST`、`BROKER_PORT`、`MQTT_USER` 與 `MQTT_PASS`。`chmod 600` 限制 MQTT 憑證檔案的讀取權限。
+
+一般 Linux 使用 Docker Compose。先預覽系統判斷與安裝命令，再安裝並啟動 sender：
+
+```bash
+bash install.sh --dry-run
+sudo bash install.sh
+```
+
+dry-run 不會安裝或啟動服務。PVE 預設使用原生 systemd sender；先依下列步驟完成私有 API 設定和 CA，再以 sudo 預覽並安裝。
+
+PVE 需要 HTTPS API 唯讀 token、可信 CA，以及穩定的 cluster ID 和 node 名稱。token 需透過 ACL 繼承取得 `/vms` 的 `VM.Audit`，並以 `Sys.Audit` 讀取 `/access` ACL；每個明列的 `/vms` ACL 範圍也需有 `VM.Audit`。目前所有有效權限都必須以 `.Audit` 結尾，且可見的叢集 ACL 不可包含 `/pool/...` 項目。完整權限與 scope 限制見 [PVE sender 設定說明](docs/configuration/env-vars.md#proxmox-ve-sender)。先建立私有設定檔；若檔案已存在，保留原檔並自行合併設定：
+
+若已用 `root` 登入 PVE，以下命令可省略 `sudo`。建立私有設定檔、預覽與安裝都必須以 root 執行。
+
+```bash
+sudo install -d -m 0755 /etc/hwmonitor-mqtt
+if ! sudo test -e /etc/hwmonitor-mqtt/pve.env; then
+  sudo install -m 0600 docs/configuration/pve.env.example /etc/hwmonitor-mqtt/pve.env
+fi
+sudoedit /etc/hwmonitor-mqtt/pve.env
+```
+
+將範例中的 URL、token、cluster ID、node 和 CA 路徑改成實際值。不要把 token 貼進 Git 或公開輸出。範例 CA 路徑是 `/etc/hwmonitor-mqtt/pve-root-ca.pem`；將 `/path/to/trusted-pve-root-ca.pem` 換成 CA 檔的實際來源路徑：
+
+```bash
+CA_SOURCE='/path/to/trusted-pve-root-ca.pem'
+test -f "$CA_SOURCE"
+if ! sudo test -e /etc/hwmonitor-mqtt/pve-root-ca.pem; then
+  sudo install -m 0644 "$CA_SOURCE" /etc/hwmonitor-mqtt/pve-root-ca.pem
+fi
+```
+
+`/etc/hwmonitor-mqtt` 目錄使用 `0755`，CA 檔使用 `0644`，讓服務身分可讀取 CA。確認 token、設定及 CA 已準備好後，在 PVE 宿主以 sudo 預覽，再安裝原生 systemd sender：
+
+```bash
+sudo bash install.sh --dry-run
+sudo bash install.sh
+```
+
+若要選用 Docker Compose，改以 `sudo bash install.sh --deployment docker` 安裝；Docker 版也會驗證 PVE API 設定。
+
+安裝器支援目前已驗證的 Debian、Ubuntu 與 Raspberry Pi OS；其他 Linux 發行版會停止並回報不支援。Windows 請使用 [Windows sender 安裝方式](#windows-sender-安裝與注意事項)。PVE 原生與 Docker 安裝命令尚未在實際 PVE 主機執行；設定格式及安裝分支以自動化測試驗證，實際部署仍需操作者確認服務與資料流。
+
 ## 授權
 
 本專案採用 `GNU GPL v3.0`。  
