@@ -133,6 +133,35 @@ uv sync
 uv run pytest -q
 ```
 
+## 在 Linux 或 PVE 安裝 Sender
+
+在要監控的 Linux 或 Proxmox VE 主機執行以下命令。安裝器需要 Git 與 Python 3.11 以上；一般 Linux 使用 Docker Compose v2，PVE 原生安裝另需 `python3-venv` 與 systemd。一般 Linux 的 Docker 必須先由管理者安裝。
+
+```bash
+git clone https://github.com/KarlSideProjects/hwmonitor-mqtt.git
+cd hwmonitor-mqtt
+test -e .env || cp .env.example .env
+nano .env
+bash install.sh --dry-run
+sudo bash install.sh
+```
+
+在 `.env` 設定 `BROKER_HOST`、`BROKER_PORT`、`MQTT_USER` 與 `MQTT_PASS`。dry-run 預覽系統判斷與安裝命令，不會安裝或啟動服務。PVE 預設使用原生 systemd sender；一般 Linux 使用 Docker Compose。
+
+PVE 需要 HTTPS API 唯讀 token、可信 CA，以及穩定的 cluster ID 和 node 名稱。token 需有 `VM.Audit` 與 `Sys.Audit` 權限；目前可見的叢集 ACL 不可包含 `/pool/...` 項目。先建立私有設定檔；若檔案已存在，保留原檔並自行合併設定：
+
+```bash
+sudo install -d -m 0755 /etc/hwmonitor-mqtt
+if ! sudo test -e /etc/hwmonitor-mqtt/pve.env; then
+  sudo install -m 0600 docs/configuration/pve.env.example /etc/hwmonitor-mqtt/pve.env
+fi
+sudoedit /etc/hwmonitor-mqtt/pve.env
+```
+
+將範例中的 URL、token、cluster ID、node 和 CA 路徑改成實際值。不要把 token 貼進 Git 或公開輸出。CA 檔需安裝到設定指定的位置，權限設為 `0644`，讓服務身分能讀取。確認 dry-run 顯示 ready 後，在 PVE 宿主執行 `sudo bash install.sh`。若要改用 Docker Compose，執行 `sudo bash install.sh --deployment docker`；Docker 版也會驗證 PVE API 設定。
+
+安裝器支援目前已驗證的 Debian、Ubuntu 與 Raspberry Pi OS；其他 Linux 發行版會停止並回報不支援。Windows 請使用 [Windows sender 安裝方式](#windows-sender-安裝與注意事項)。PVE 原生與 Docker 安裝命令尚未在實際 PVE 主機執行；設定格式及安裝分支以自動化測試驗證，實際部署仍需操作者確認服務與資料流。
+
 ## 授權
 
 本專案採用 `GNU GPL v3.0`。  
