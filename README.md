@@ -167,6 +167,16 @@ PVE 分支依序執行下列操作：
 
 安裝入口會檢查有效的 `VM.Audit`、`Sys.Audit` 與 ACL 範圍；目前有效權限名稱都必須以 `.Audit` 結尾，且可見的叢集 ACL 不可包含 `/pool/...` 項目。完整限制見 [PVE 設定參考](docs/configuration/env-vars.md#proxmox-ve-sender)。看到 `PVE sender is not installed yet` 代表本次尚未安裝完成。一般 Linux 與 Windows 不會建立 PVE 帳號或 token。
 
+### PVE HTTPS 連線檢查
+
+HTTPS 連線必須通過設定 CA 的信任鏈與主機名稱驗證。[Python 3.13 起的預設嚴格憑證檢查](https://docs.python.org/3/library/ssl.html#ssl.create_default_context)可能拒絕缺少 key usage 擴充的既有 PVE CA。採集端只在 OpenSSL 明確回報此原因 (驗證碼 `92`) 時，針對該 PVE 連線取消嚴格格式檢查並重試一次；CA 信任、憑證有效期及主機名稱驗證仍保留，不會改動 PVE 的憑證或全域 TLS 設定。
+
+遇到此相容性問題時，在 PVE root Shell 重跑已下載的安裝入口即可更新採集端，無須重建 token：
+
+```bash
+bash /opt/hwmonitor-mqtt/bootstrap.sh
+```
+
 ### 從舊 Docker sender 遷移到 PVE 原生服務
 
 以下遷移步驟尚待 PVE 實機重裝驗證。先退出監控安裝程序，再以 root 執行。此步驟會暫停舊監控；保留舊容器作為回復備份，不影響 CT／VM：

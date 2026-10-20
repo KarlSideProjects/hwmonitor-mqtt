@@ -99,6 +99,22 @@ class PveApiClient:
         self.context = ssl.create_default_context(cafile=config.ca_file)
         self.opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=self.context), _NoRedirect())
 
+    def _open(self, request):
+        try:
+            return self.opener.open(request, timeout=self.config.timeout)
+        except urllib.error.URLError as error:
+            strict = getattr(ssl, "VERIFY_X509_STRICT", 0)
+            reason = error.reason
+            if (not strict or not self.context.verify_flags & strict
+                    or not isinstance(reason, ssl.SSLCertVerificationError)
+                    or reason.verify_code != 92):
+                raise
+            # Older PVE CAs may omit keyUsage; chain and hostname checks still apply.
+            self.context.verify_flags &= ~strict
+            self.opener = urllib.request.build_opener(
+                urllib.request.HTTPSHandler(context=self.context), _NoRedirect())
+            return self.opener.open(request, timeout=self.config.timeout)
+
     def _get(self, path):
         url = self.config.base_url.rstrip("/") + "/api2/json/" + path.lstrip("/")
         request = urllib.request.Request(url, headers={
@@ -106,7 +122,7 @@ class PveApiClient:
             "Accept": "application/json",
         })
         try:
-            with self.opener.open(request, timeout=self.config.timeout) as response:
+            with self._open(request) as response:
                 if response.status != 200:
                     raise PveError("http_error")
                 raw = response.read(262145)
