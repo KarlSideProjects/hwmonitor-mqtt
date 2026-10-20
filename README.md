@@ -159,13 +159,17 @@ PVE 分支依序執行下列操作：
 4. 將 token ID 與密鑰直接寫入 `/etc/hwmonitor-mqtt/pve.env`，權限為 `0600`，不在終端顯示密鑰。
 5. 為新帳號與 token 在 `/` 設定可繼承的 `PVEAuditor` 唯讀角色。token 使用分離權限 (`privsep=1`)，不授予 VM／CT 的啟停或修改權限。
 6. 驗證 CA、HTTPS API 與 token scope，再詢問缺少的 MQTT 設定。
-7. 將 sender 與 Python 環境安裝至 `/opt/hwmonitor-mqtt-pve`，啟用並重啟 `hwmonitor-mqtt-pve.service`。採集服務以非 root 的動態身分執行。
+7. 將 sender 與 Python 環境安裝至 `/opt/hwmonitor-mqtt-pve`，修正程式目錄與套件的讀取、執行權限，啟用並重啟 `hwmonitor-mqtt-pve.service`，再檢查服務是否為 active。採集服務以非 root 的動態身分執行；MQTT 與 PVE 密鑰檔維持私有權限。
 
 建立帳號、token 與 ACL 是 PVE 設定變更。安裝器為新安裝產生專用名稱，避免擴充其他帳號權限；不刪除或重設既有 token。既有自訂 token ID 缺少密鑰，或密鑰驗證失敗時會停止，不自動替換。只含安裝進度與專用識別碼的 `/etc/hwmonitor-mqtt/pve-token-state.json` 用於失敗重跑；實際密鑰只存在私有 `pve.env`。重裝沿用已保存的密鑰，接續未完成的權限設定。
 
 自動建立 token 的流程已以模擬 `pveum` 測試，實際 PVE 帳號建立與重裝仍待宿主驗證。若要撤銷自動建立的存取權，先停用採集服務，再依狀態檔中的識別碼，在 PVE「Datacenter → Permissions → API Tokens」刪除該 token；專用帳號可在「Users」確認無其他用途後刪除。保留舊容器的回復步驟見下節。
 
 安裝入口會檢查有效的 `VM.Audit`、`Sys.Audit` 與 ACL 範圍；目前有效權限名稱都必須以 `.Audit` 結尾，且可見的叢集 ACL 不可包含 `/pool/...` 項目。完整限制見 [PVE 設定參考](docs/configuration/env-vars.md#proxmox-ve-sender)。看到 `PVE sender is not installed yet` 代表本次尚未安裝完成。一般 Linux 與 Windows 不會建立 PVE 帳號或 token。
+
+### PVE 服務啟動權限
+
+若安裝完成後沒有監控資料，且服務日誌出現 `200/CHDIR` 或 `Permission denied`，可能是舊安裝器在 `umask 077` 下建立了服務無法讀取的程式目錄或 Python 環境。新版安裝器會修正這些執行檔案的權限，保留既有 MQTT 與 PVE token 設定；在 PVE root Shell 重跑 `bash /opt/hwmonitor-mqtt/bootstrap.sh` 即可更新修復。
 
 ### PVE HTTPS 連線檢查
 

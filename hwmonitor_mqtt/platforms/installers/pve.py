@@ -4,6 +4,7 @@ import argparse
 import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import sys
 
@@ -50,6 +51,27 @@ def unit_text(project_root, python=f"{SERVICE_VENV}/bin/python", config_file=DEF
             "Restart=on-failure\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\n")
 
 
+def _normalize_tree_permissions(root):
+    root = Path(root)
+    if root.is_symlink():
+        raise RuntimeError("installer runtime path must not be a symbolic link")
+    root.chmod(0o755)
+    for directory, subdirs, files in os.walk(root, topdown=True, followlinks=False):
+        current = Path(directory)
+        for name in tuple(subdirs):
+            path = current / name
+            if path.is_symlink():
+                subdirs.remove(name)
+            else:
+                path.chmod(0o755)
+        for name in files:
+            path = current / name
+            if path.is_symlink():
+                continue
+            mode = stat.S_IMODE(path.stat().st_mode)
+            path.chmod(0o755 if mode & 0o111 else 0o644)
+
+
 def install(project_root, config_file=DEFAULT_CONFIG, run=subprocess.run, which=shutil.which, geteuid=os.geteuid):
     config_file = Path(config_file).resolve()
     if not Path(project_root, "hwmonitor_mqtt", "agents", "agent_sender_async.py").is_file():
@@ -74,17 +96,21 @@ def install(project_root, config_file=DEFAULT_CONFIG, run=subprocess.run, which=
             raise RuntimeError("could not verify that no sys-agent container is running")
     source = Path(project_root).resolve() / "hwmonitor_mqtt"
     app = Path(APP_ROOT)
-    app.parent.mkdir(parents=True, exist_ok=True)
+    install_root = app.parent
+    if install_root.is_symlink():
+        raise RuntimeError("installer runtime path must not be a symbolic link")
+    install_root.mkdir(parents=True, exist_ok=True)
+    install_root.chmod(0o755)
     package = app / "hwmonitor_mqtt"
     shutil.copytree(source, package, dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-    for path in [app, *app.rglob("*")]:
-        path.chmod(0o755 if path.is_dir() else 0o644)
+    _normalize_tree_permissions(app)
     venv_python = Path(SERVICE_VENV) / "bin" / "python"
     for args in ([python3, "-m", "venv", SERVICE_VENV],
                  [str(venv_python), "-m", "pip", "install", "psutil>=7", "paho-mqtt>=2.1", "python-dotenv>=1.1"]):
         result = run(args, check=False)
         if result.returncode:
             return result.returncode
+    _normalize_tree_permissions(Path(SERVICE_VENV))
     unit = Path(SYSTEMD_DIR) / SERVICE_NAME
     unit.parent.mkdir(parents=True, exist_ok=True)
     unit.write_text(unit_text(project_root, str(venv_python), config_file))
@@ -93,7 +119,8 @@ def install(project_root, config_file=DEFAULT_CONFIG, run=subprocess.run, which=
         result = run(args, check=False)
         if result.returncode:
             return result.returncode
-    return 0
+    result = run([systemctl, "is-active", "--quiet", SERVICE_NAME], check=False)
+    return result.returncode
 
 
 def main(argv=None):
