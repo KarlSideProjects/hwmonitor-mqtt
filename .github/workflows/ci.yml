@@ -1,0 +1,70 @@
+name: Sender checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
+      EXPECTED_PYTHON_VERSION: ${{ matrix.python-version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: astral-sh/setup-uv@22695119d769bdb6f7032ad67b9bca0ef8c4a174 # v5.4.0
+      - name: Confirm Linux PowerShell test prerequisite
+        run: pwsh --version
+      - name: Install locked dependencies
+        run: uv sync --locked --python "$UV_PYTHON"
+      - name: Run sender checks
+        run: make check
+
+  native-install-smoke:
+    name: Native systemd and MQTT smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@22695119d769bdb6f7032ad67b9bca0ef8c4a174 # v5.4.0
+      - name: Install local broker and venv support
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes mosquitto python3-venv
+      - name: Install locked dependencies
+        run: uv sync --locked --python "$(command -v python3)"
+      - name: Verify systemd is available
+        run: test -d /run/systemd/system
+      - name: Verify DynamicUser can reach Python 3.13 base executable
+        run: |
+          sudo env PATH="$PATH" UV_PYTHON="$(command -v python3)" "$(command -v uv)" run --locked python -c '
+          import pathlib, sys
+          base = pathlib.Path(sys._base_executable).resolve()
+          assert sys.version_info[:2] == (3, 13), sys.version
+          assert "/opt/hostedtoolcache/" in str(base), base
+          assert base.stat().st_mode & 0o005 == 0o005, base
+          assert all(parent.stat().st_mode & 0o001 for parent in base.parents if parent != pathlib.Path("/")), base
+          print(f"Python {sys.version.split()[0]} base executable is accessible to DynamicUser: {base}")
+          '
+      - name: Install and observe isolated native sender
+        run: sudo env PATH="$PATH" UV_PYTHON="$(command -v python3)" "$(command -v uv)" run --locked python scripts/native_install_smoke.py --run
