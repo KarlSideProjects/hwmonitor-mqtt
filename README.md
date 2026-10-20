@@ -9,6 +9,30 @@
 
 Collect Windows/Linux hardware metrics, publish them over MQTT, and display them in web dashboards, terminal viewers or custom MQTT clients.
 
+## 一張圖看懂用途
+
+![電腦採集硬體狀態，透過 MQTT 同時傳給網頁與掌機顯示端](docs/assets/monitoring-overview.png)
+
+## 複製給 AI，協助你安裝
+
+把下面整段貼給**能讀取 GitHub 並執行本機終端指令的 AI 助理**，就能請它依環境協助安裝。你只需提供要監控的電腦與 MQTT 連線資訊；需要管理員權限或輸入帳密時，由你在本機完成。
+
+```text
+請幫我安裝 https://github.com/KarlSideProjects/hwmonitor-mqtt。
+目標是收集這台電腦的硬體資料，透過 MQTT 顯示在網頁或其他接收端。
+先讀 README、docs/getting-started/quickstart.md、docs/configuration/env-vars.md
+與適用的部署文件，確認作業系統、現有安裝、可用感測器及 MQTT broker。
+Windows 依 Windows sender 與排程安裝說明；Linux 先檢查 Docker profile
+的硬體掛載及驅動需求，再選擇適用的部署方式，不要直接假設路徑存在。
+保留既有設定；缺少主機或 broker 資訊時詢問我。帳密透過本機私有設定，
+不要寫進 Git 或公開輸出。使用既有 broker；若我沒有 broker，先說明需要的
+設定再協助建立。安裝依賴、啟動採集端，確認 MQTT 收到持續更新的資料，
+再確認選定的顯示端看得到。最後告訴我如何開啟、停止與檢查服務，
+並列出已通過的驗證和需要我實際確認的項目。
+若我要使用 Linux 掌機面板，再讀同組織 mqtt-handheld-hardware-monitor
+的 README 與設備清單，依機型選擇安裝方式。
+```
+
 ## 專案分工與適用設備
 
 本專案是通用的硬體監控資料採集與顯示工具，不限於特定掌機或顯示器。採集端、MQTT broker（訊息中繼服務）與顯示端可以部署在不同設備。
@@ -30,35 +54,11 @@ Collect Windows/Linux hardware metrics, publish them over MQTT, and display them
 
 這兩台掌機是顯示端的整合範例。其他設備需具備可用的 MQTT 接收程式，並依各自的作業系統、顯示方式及資料格式完成整合。
 
-## 為什麼值得用
+## 可以幫你做什麼
 
-- 低門檻：`docker compose` 一鍵起服務。
-- 低耦合：採集、訊息、顯示分離。
-- 可擴展：同時支援 Linux / Windows Agent 與 ESP 輕量 payload。
-- 可維護：文件與 Python 檔案已分層，路徑更清楚。
-
-## 架構圖（含圖例）
-
-```mermaid
-flowchart LR
-    A[Agent Sender\nLinux/Windows] -->|MQTT publish| B[(MQTT Broker)]
-    B -->|WebSocket subscribe| C[Web Monitor]
-    B -->|MQTT subscribe| D[TUI / Pygame Viewer]
-
-    classDef agent fill:#e3f2fd,stroke:#1e88e5,color:#0d47a1
-    classDef broker fill:#fff8e1,stroke:#f9a825,color:#e65100
-    classDef view fill:#e8f5e9,stroke:#43a047,color:#1b5e20
-    class A agent
-    class B broker
-    class C,D view
-```
-
-### 圖例說明
-
-- 藍色節點：資料生產者（Agent）
-- 黃色節點：訊息中樞（Broker）
-- 綠色節點：資料消費者（Web/TUI/Pygame）
-- 箭頭標籤：通訊方式（`MQTT publish` / `subscribe` / `WebSocket`）
+- **集中查看多台電腦：** 將各主機的負載與感測器資料送到同一個 MQTT broker，讓顯示端接收。
+- **選擇適合自己的畫面：** 在網頁、終端或 Pygame 圖形介面查看資料，也能接上掌機面板。
+- **沿用既有設備：** 已有 MQTT broker 或自訂顯示程式，可以依資料格式整合，採集端與顯示端分開部署。
 
 ## Viewer 預覽
 
@@ -69,31 +69,6 @@ flowchart LR
 ### TUI Viewer
 
 ![TUI Viewer Preview](./docs/assets/previews/tui-viewer-preview.svg)
-
-## 專案結構
-
-```text
-.
-├─ hwmonitor_mqtt/
-│  ├─ agents/
-│  │  ├─ agent_sender_async.py
-│  │  └─ agent_sender_windows.py
-│  └─ viewers/
-│     ├─ pygame_viewer.py
-│     └─ tui_viewer.py
-├─ wifi_portal/
-├─ docs/
-│  ├─ getting-started/
-│  ├─ architecture/
-│  ├─ deployment/
-│  ├─ configuration/
-│  ├─ hardware/
-│  └─ troubleshooting/
-├─ tests/
-└─ docker-compose.yml
-```
-
-> 主要執行入口已統一到 `hwmonitor_mqtt/` 套件路徑。
 
 ## 快速開始
 
