@@ -38,7 +38,7 @@
 
 ## Proxmox VE sender
 
-原生 PVE sender 使用獨立私有設定檔 `/etc/hwmonitor-mqtt/pve.env`，範例見 [pve.env.example](./pve.env.example)。設定需包含 HTTPS API URL、唯讀 token、可信 CA、穩定 cluster ID 與目標 node。scope 檢查要求有效的 `VM.Audit` 能涵蓋 `/vms`、`Sys.Audit` 能讀取 `/access` ACL，並確認每個明確列出的 `/vms` ACL 範圍也有有效 `VM.Audit`。第一版僅支援有效權限中所有 privilege 名稱均以 `.Audit` 結尾的 token；任何非 Audit 權限都會拒絕，即使其值為 `0`。這是目前支援範圍，不代表已驗證 PVE 全部唯讀權限分類。第一版也保守拒絕含 `/pool/...` ACL 的 token (`pool_scope_unsupported`)；pool 指派、缺少傳遞權限或 ACL 不完整時不發布 guest inventory，主機硬體仍持續發布。
+原生 PVE sender 使用獨立私有設定檔 `/etc/hwmonitor-mqtt/pve.env`，範例見 [pve.env.example](./pve.env.example)。設定需包含 HTTPS API URL、唯讀 token、可信 CA、穩定 cluster ID 與目標 node。scope 檢查要求有效的 `VM.Audit` 能涵蓋 `/vms`、`Sys.Audit` 能讀取 `/access` ACL，並確認每個明確列出的 `/vms` ACL 範圍也有有效 `VM.Audit`。第一版僅支援有效權限中所有 privilege 名稱均以 `.Audit` 結尾的 token；任何非 Audit 權限都會拒絕，即使其值為 `0`。這是目前支援範圍，不代表已驗證 PVE 全部唯讀權限分類。第一版要求目前可見的叢集 ACL 中沒有任何 `/pool/...` 條目 (`pool_scope_unsupported`)，無論該條目是否屬於此 token；缺少傳遞權限或 ACL 不完整時也不發布 guest inventory，主機硬體仍持續發布。
 
 PVE systemd service 由 systemd 讀取既有 `.env` 的 MQTT 設定，不覆寫該檔；sender 程式及依賴安裝到 root-owned `/opt/hwmonitor-mqtt-pve`，服務以 transient unprivileged identity 執行。重裝會重新部署程式並重啟服務。服務固定使用 full payload。API 輪詢每 10 秒執行一次，使用者可用 `PVE_TIMEOUT_SEC` 調整每次請求 timeout；值必須大於 0 且不超過 30 秒。CA 檔需可供 systemd service identity 讀取。
 
