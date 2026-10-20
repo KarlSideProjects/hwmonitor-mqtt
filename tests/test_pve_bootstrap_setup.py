@@ -126,6 +126,72 @@ def test_prepare_migrates_legacy_local_ca_path(tmp_path):
     assert target.stat().st_mode & 0o777 == 0o644
 
 
+def test_prepare_repairs_existing_default_ca_permissions(tmp_path):
+    config = tmp_path / "pve.env"
+    target = tmp_path / "etc/hwmonitor-mqtt/pve-root-ca.pem"
+    target.parent.mkdir(parents=True)
+    target.write_text("trusted existing CA")
+    target.chmod(0o600)
+    target.parent.chmod(0o700)
+    config.write_text(
+        "PVE_URL=https://pve01.example.test:8006\nPVE_TOKEN_ID=operator@pve!token\n"
+        "PVE_TOKEN_SECRET=real-secret\nPVE_CA_FILE=" + str(target) + "\n"
+        "PVE_CLUSTER_ID=cluster-a\nPVE_NODE=pve01\n"
+    )
+    template = Path(__file__).parents[1] / "docs/configuration/pve.env.example"
+    source = tmp_path / "local-ca.pem"
+    source.write_text("native CA")
+
+    pve_bootstrap.prepare(config, template, source, default_ca=target)
+
+    assert target.read_text() == "trusted existing CA"
+    assert target.stat().st_mode & 0o777 == 0o644
+    assert target.parent.stat().st_mode & 0o777 == 0o755
+
+
+def test_prepare_rewrites_whitespace_legacy_ca_setting(tmp_path):
+    config = tmp_path / "pve.env"
+    source = tmp_path / "local-ca.pem"
+    source.write_text("trusted")
+    target = tmp_path / "etc/hwmonitor-mqtt/pve-root-ca.pem"
+    config.write_text(
+        "PVE_URL=https://pve.example.invalid:8006\nPVE_TOKEN_ID=monitor@pve!readonly\n"
+        "PVE_TOKEN_SECRET=replace-with-private-token-secret\nPVE_CA_FILE = /etc/pve/pve-root-ca.pem\n"
+        "PVE_CLUSTER_ID=lab\nPVE_NODE=pve-node-a\n"
+    )
+    template = Path(__file__).parents[1] / "docs/configuration/pve.env.example"
+
+    pve_bootstrap.prepare(config, template, source, hostname="pve01.example.test", cluster_name="cluster-a",
+                          node_name="pve01", default_ca=target)
+
+    assert f"PVE_CA_FILE={target}" in config.read_text()
+    assert "PVE_CA_FILE = /etc/pve/pve-root-ca.pem" not in config.read_text()
+    assert target.read_text() == "trusted"
+
+
+def test_prepare_replaces_default_ca_symlink_without_chmodding_source(tmp_path):
+    config = tmp_path / "pve.env"
+    target = tmp_path / "etc/hwmonitor-mqtt/pve-root-ca.pem"
+    target.parent.mkdir(parents=True)
+    source = tmp_path / "pve-root-ca.pem"
+    source.write_text("trusted source")
+    source.chmod(0o600)
+    target.symlink_to(source)
+    config.write_text(
+        "PVE_URL=https://pve01.example.test:8006\nPVE_TOKEN_ID=operator@pve!token\n"
+        "PVE_TOKEN_SECRET=real-secret\nPVE_CA_FILE=" + str(target) + "\n"
+        "PVE_CLUSTER_ID=cluster-a\nPVE_NODE=pve01\n"
+    )
+    template = Path(__file__).parents[1] / "docs/configuration/pve.env.example"
+
+    pve_bootstrap.prepare(config, template, source, default_ca=target)
+
+    assert not target.is_symlink()
+    assert target.read_text() == "trusted source"
+    assert target.stat().st_mode & 0o777 == 0o644
+    assert source.stat().st_mode & 0o777 == 0o600
+
+
 def test_cluster_detection_parses_pvecm_name_field(monkeypatch):
     class Result:
         returncode = 0
@@ -158,6 +224,26 @@ def test_preflight_requires_ca_readable_by_dynamic_user(tmp_path):
     config.write_text(
         "PVE_URL=https://pve01.example.test:8006\nPVE_TOKEN_ID=real@pve!token\n"
         "PVE_TOKEN_SECRET=real-secret\nPVE_CA_FILE=" + str(ca) + "\n"
+        "PVE_CLUSTER_ID=pve01\nPVE_NODE=pve01\n"
+    )
+
+    with pytest.raises(pve_bootstrap.PveSetupError, match="DynamicUser"):
+        pve_bootstrap.preflight(config)
+
+
+def test_preflight_rejects_ca_symlink_into_private_directory(tmp_path):
+    private_dir = tmp_path / "private"
+    private_dir.mkdir()
+    private_dir.chmod(0o700)
+    target = private_dir / "ca.pem"
+    target.write_text("trusted")
+    target.chmod(0o644)
+    symlink = tmp_path / "ca-link.pem"
+    symlink.symlink_to(target)
+    config = tmp_path / "pve.env"
+    config.write_text(
+        "PVE_URL=https://pve01.example.test:8006\nPVE_TOKEN_ID=operator@pve!token\n"
+        "PVE_TOKEN_SECRET=real-secret\nPVE_CA_FILE=" + str(symlink) + "\n"
         "PVE_CLUSTER_ID=pve01\nPVE_NODE=pve01\n"
     )
 

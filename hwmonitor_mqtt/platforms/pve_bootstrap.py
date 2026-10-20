@@ -91,18 +91,17 @@ def prepare(config_file, template_file, ca_source="/etc/pve/pve-root-ca.pem", ho
         key, value = stripped.split("=", 1)
         key, value = key.strip(), value.strip().strip("\"'")
         seen.add(key)
-        if key in updates and (key not in current or (value == STOCK[key] and (key == "PVE_URL" or stock_config))):
+        if key == "PVE_CA_FILE" and current.get(key) in {str(DEFAULT_CA), str(LOCAL_CA)}:
+            output.append(f"PVE_CA_FILE={default_ca}")
+        elif key in updates and (key not in current or (value == STOCK[key] and (key == "PVE_URL" or stock_config))):
             output.append(f"{key}={updates[key]}")
         else:
             output.append(line)
     for key in ("PVE_URL", "PVE_CLUSTER_ID", "PVE_NODE"):
         if key not in seen:
             output.append(f"{key}={updates[key]}")
-    configured_ca = current.get("PVE_CA_FILE", str(DEFAULT_CA))
-    if "PVE_CA_FILE" not in seen or configured_ca in {str(DEFAULT_CA), str(LOCAL_CA)}:
-        output = [f"PVE_CA_FILE={default_ca}" if line.strip().startswith("PVE_CA_FILE=") else line for line in output]
-        if "PVE_CA_FILE" not in seen:
-            output.append(f"PVE_CA_FILE={default_ca}")
+    if "PVE_CA_FILE" not in seen:
+        output.append(f"PVE_CA_FILE={default_ca}")
 
     config_file.parent.mkdir(parents=True, exist_ok=True)
     config_file.write_text("\n".join(output).rstrip() + "\n", encoding="utf-8")
@@ -110,12 +109,20 @@ def prepare(config_file, template_file, ca_source="/etc/pve/pve-root-ca.pem", ho
 
     values = _read_values(config_file)
     ca_target = Path(values.get("PVE_CA_FILE", str(DEFAULT_CA)))
-    if ca_target == default_ca and not ca_target.exists():
-        if not ca_source.is_file():
-            raise PveSetupError("PVE sender is not installed yet: local trusted CA /etc/pve/pve-root-ca.pem is unavailable")
+    if ca_target == default_ca:
+        if ca_target.parent.is_symlink():
+            raise PveSetupError("PVE validation failed: default CA directory must not be a symbolic link")
         ca_target.parent.mkdir(parents=True, exist_ok=True)
         ca_target.parent.chmod(0o755)
-        shutil.copyfile(ca_source, ca_target)
+        if ca_target.is_symlink():
+            if not ca_source.is_file():
+                raise PveSetupError("PVE sender is not installed yet: local trusted CA /etc/pve/pve-root-ca.pem is unavailable")
+            ca_target.unlink()
+            shutil.copyfile(ca_source, ca_target)
+        if not ca_target.exists():
+            if not ca_source.is_file():
+                raise PveSetupError("PVE sender is not installed yet: local trusted CA /etc/pve/pve-root-ca.pem is unavailable")
+            shutil.copyfile(ca_source, ca_target)
         ca_target.chmod(0o644)
     return config_file
 
@@ -123,9 +130,10 @@ def prepare(config_file, template_file, ca_source="/etc/pve/pve-root-ca.pem", ho
 def _dynamic_user_can_read(path):
     path = Path(path)
     try:
-        if path.stat().st_mode & 0o004 == 0:
+        resolved = path.resolve(strict=True)
+        if not resolved.is_file() or resolved.stat().st_mode & 0o004 == 0:
             return False
-        for parent in path.parents:
+        for parent in set(path.absolute().parents) | set(resolved.parents):
             if parent.stat().st_mode & 0o001 == 0:
                 return False
     except OSError:
