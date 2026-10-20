@@ -51,7 +51,6 @@ def unit_text(project_root, python=f"{SERVICE_VENV}/bin/python", config_file=DEF
             "Restart=on-failure\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\n")
 
 
-
 def _normalize_tree_permissions(root):
     root = Path(root)
     if root.is_symlink():
