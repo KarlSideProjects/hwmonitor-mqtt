@@ -129,8 +129,16 @@ Web 介面預設：`http://localhost:8088`
 本專案有 `pyproject.toml`，建議使用 `uv`：
 
 ```bash
-uv sync
-uv run pytest -q
+uv sync --locked
+make check
+```
+
+`make check` 會執行完整 pytest 回歸測試。支援 Python 3.11 與 3.13，PowerShell 測試需 Linux 上的 `pwsh`。
+
+原生 PVE 安裝整合檢查只應在 GitHub-hosted CI 或可丟棄的 Linux VM 執行；它會暫時建立 `/opt` 專案與唯一的 systemd unit，使用 `umask 077`、0600 空白設定與 loopback MQTT broker，結束時移除測試服務及檔案。請勿在正式主機執行：
+
+```bash
+make native-install-smoke
 ```
 
 ## 在 Linux 或 PVE 安裝 Sender
