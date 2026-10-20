@@ -140,6 +140,42 @@ def test_installs_only_missing_base_prerequisites(tmp_path):
     assert "apt-get:install -y ca-certificates curl python3 python3-venv tar" not in calls
 
 
+@pytest.mark.parametrize("final_install_fails", [False, True])
+def test_readme_bootstrap_download_survives_unrelated_apt_refresh_failure(tmp_path, final_install_fails):
+    readme = (REPO / "README.md").read_text()
+    section = readme.split("## 在 Linux 或 PVE 安裝 Sender", 1)[1]
+    command = re.search(r"```bash\n(.*?)\n```", section, re.DOTALL).group(1)
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    counter = tmp_path / "apt-count"
+    apt = bindir / "apt-get"
+    apt.write_text(
+        "#!/bin/sh\n"
+        f"count=$(cat '{counter}' 2>/dev/null || echo 0)\n"
+        "case \"$1\" in\n"
+        "  install) count=$((count + 1)); printf '%s\\n' \"$count\" > \"$APT_COUNT_FILE\"; "
+        "if [ \"$count\" -eq 1 ]; then exit 100; fi; "
+        + ("exit 100\n" if final_install_fails else f"cat >'{bindir}/curl' <<'SCRIPT'\n#!/bin/sh\nwhile [ $# -gt 0 ]; do case \"$1\" in -o|--output) shift; printf '#!/bin/sh\\ntouch {tmp_path}/bootstrap-ran\\n' > \"$1\" ;; esac; shift; done\nSCRIPT\nchmod +x '{bindir}/curl'\nexit 0\n")
+        + "  ;;\n  update) exit 100 ;;\nesac\nexit 2\n"
+    )
+    apt.chmod(0o755)
+    for name, target in (("bash", "/bin/bash"), ("cat", "/usr/bin/cat"), ("chmod", "/usr/bin/chmod"),
+                         ("mktemp", "/usr/bin/mktemp"), ("rm", "/usr/bin/rm"), ("touch", "/usr/bin/touch")):
+        (bindir / name).symlink_to(target)
+    result = subprocess.run(
+        ["bash", "-c", command], cwd=tmp_path, text=True, capture_output=True, check=False,
+        env={**os.environ, "PATH": str(bindir), "APT_COUNT_FILE": str(counter)},
+    )
+
+    if final_install_fails:
+        assert result.returncode != 0
+        assert not (tmp_path / "bootstrap-ran").exists()
+    else:
+        assert result.returncode == 0, result.stderr
+        assert (tmp_path / "bootstrap-ran").exists()
+        assert "Warning:" in result.stderr
+
+
 
 def test_pve_first_run_creates_private_template_and_stops(tmp_path):
     result, root, log = run_bootstrap(tmp_path, target_system="pve", pve_config=False, stdin="")

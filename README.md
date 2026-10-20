@@ -138,8 +138,21 @@ uv run pytest -q
 在要監控的 Debian、Ubuntu、Raspberry Pi OS 或 Proxmox VE 主機執行以下命令。bootstrap 會下載到唯一暫存檔，再安裝；首次執行會詢問 MQTT 設定，密碼不會顯示，既有 `.env` 會保留。一般 Linux 會準備 Python 與 Docker Compose v2，PVE 使用原生 systemd sender。安裝需要 Python 3.11 以上；bootstrap 安裝系統的 `python3` 後若版本不足會停止，部分舊 Ubuntu（例如 22.04）需先自行安裝 Python 3.11+。請在 root shell 執行。
 
 ```bash
-(tmp=$(mktemp) && (command -v curl >/dev/null || (apt-get update && apt-get install -y curl)) && curl -fsSL https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/master/bootstrap.sh -o "$tmp" && bash "$tmp"; status=$?; rm -f "$tmp"; exit "$status")
+(tmp=$(mktemp) && (
+  if ! command -v curl >/dev/null; then
+    if ! apt-get install -y curl; then
+      echo "Warning: installing curl from current APT metadata/cache failed; refreshing indexes and retrying." >&2
+      if ! apt-get update; then
+        echo "Warning: APT index refresh failed; retrying curl install with existing signed metadata/cache." >&2
+      fi
+      apt-get install -y curl || exit $?
+    fi
+  fi
+  curl -fsSL https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/master/bootstrap.sh -o "$tmp" && bash "$tmp"
+); status=$?; rm -f "$tmp"; exit "$status")
 ```
+
+若 PVE 套件來源回報 Enterprise repository 的 401，且目前沒有有效訂閱，可能是該來源驗證失敗；這不代表 Debian 官方套件來源無法使用。此命令會警告後再嘗試安裝必要套件，不會修改或停用任何 PVE/Ceph 套件來源。請依你的訂閱狀態檢查 APT 輸出；不要為了安裝此 sender 關閉簽章或來源驗證。
 
 若 PVE 尚未設定 API，第一次執行 bootstrap 會建立私有範本並停止。請完成下方 API 與 CA 步驟，再重新執行；bootstrap 不會建立 API token，也不會替你信任未知 CA。一般 Linux 不需要 PVE 設定。
 
