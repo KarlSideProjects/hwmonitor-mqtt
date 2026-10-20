@@ -158,6 +158,8 @@ dry-run 不會安裝或啟動服務。PVE 預設使用原生 systemd sender；�
 
 PVE 需要 HTTPS API 唯讀 token、可信 CA，以及穩定的 cluster ID 和 node 名稱。token 需透過 ACL 繼承取得 `/vms` 的 `VM.Audit`，並以 `Sys.Audit` 讀取 `/access` ACL；每個明列的 `/vms` ACL 範圍也需有 `VM.Audit`。目前所有有效權限都必須以 `.Audit` 結尾，且可見的叢集 ACL 不可包含 `/pool/...` 項目。完整權限與 scope 限制見 [PVE sender 設定說明](docs/configuration/env-vars.md#proxmox-ve-sender)。先建立私有設定檔；若檔案已存在，保留原檔並自行合併設定：
 
+若已用 `root` 登入 PVE，以下命令可省略 `sudo`。建立私有設定檔、預覽與安裝都必須以 root 執行。
+
 ```bash
 sudo install -d -m 0755 /etc/hwmonitor-mqtt
 if ! sudo test -e /etc/hwmonitor-mqtt/pve.env; then
