@@ -1,0 +1,27 @@
+services:
+  sys_agent:
+    build: .
+    container_name: sys-agent
+    hostname: ${SENDER_HOSTNAME:?run the host-aware installer or set SENDER_HOSTNAME}
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    volumes:
+      - /sys:/sys:ro
+      - type: bind
+        source: ${PVE_CONFIG_HOST:?set by host-aware installer}
+        target: /run/secrets/pve.env
+        read_only: true
+      - type: bind
+        source: ${PVE_CA_HOST:?set by host-aware installer}
+        target: ${PVE_CA_TARGET:?set by host-aware installer}
+        read_only: true
+    environment:
+      BROKER_HOST: ${BROKER_HOST}
+      BROKER_PORT: ${BROKER_PORT:-1883}
+      MQTT_USER: ${MQTT_USER:-}
+      MQTT_PASS: ${MQTT_PASS:-}
+      PVE_ENABLED: "1"
+      PVE_CONFIG_FILE: /run/secrets/pve.env
+      SENDER_PROFILE: full
+    profiles: ["pve"]

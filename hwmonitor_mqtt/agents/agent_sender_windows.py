@@ -10,7 +10,6 @@ Async System Monitor for Windows (Multi-rate MQTT sender)
 import asyncio
 import csv
 import dataclasses
-import json
 import os
 import platform
 import re
@@ -23,7 +22,7 @@ from typing import Any, Dict, List, Optional
 try:
     import psutil
     from dotenv import load_dotenv
-    from paho.mqtt import client as mqtt
+    from hwmonitor_mqtt.transport.mqtt import configuration, create_client, publish
 except ImportError as e:
     print(f"A required package is not installed: {e}")
     print("Please install dependencies first.")
@@ -65,12 +64,13 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
 
 
 # ===== MQTT CONFIG =====
-BROKER_HOST = os.getenv("BROKER_HOST", "").strip()
-BROKER_PORT = int(os.getenv("BROKER_PORT", "1883"))
-MQTT_USER = os.getenv("MQTT_USER", "mqtter")
-MQTT_PASS = os.getenv("MQTT_PASS", "seven777")
 HOSTNAME = socket.gethostname()
-TOPIC = f"sys/agents/{HOSTNAME}/metrics"
+MQTT_CONFIG = configuration(HOSTNAME)
+BROKER_HOST = MQTT_CONFIG["broker_host"]
+BROKER_PORT = MQTT_CONFIG["broker_port"]
+MQTT_USER = MQTT_CONFIG["username"]
+MQTT_PASS = MQTT_CONFIG["password"]
+TOPIC = MQTT_CONFIG["topic"]
 
 SENDER_PROFILE = os.getenv("SENDER_PROFILE", "full").strip().lower()
 if SENDER_PROFILE not in {"full", "esp"}:
@@ -317,38 +317,7 @@ class LHMInProcessCollector:
 
 
 # ===== MQTT Client =====
-mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"agent-{HOSTNAME}")
-mqtt_client.username_pw_set(MQTT_USER, MQTT_PASS)
-
-mqtt_stats = {
-    "publish_ok": 0,
-    "publish_err": 0,
-    "last_publish_rc": None,
-    "reconnects": 0,
-    "is_connected": False,
-    "last_error": None,
-}
-
-
-def on_connect(client, userdata, connect_flags, reason_code, properties=None):
-    mqtt_stats["is_connected"] = reason_code == 0
-    if reason_code == 0:
-        print(f"MQTT connected to {BROKER_HOST}:{BROKER_PORT}")
-        mqtt_stats["last_error"] = None
-    else:
-        print(f"MQTT connect failed: reason_code={reason_code}")
-        mqtt_stats["last_error"] = f"Connect failed: {reason_code}"
-
-
-mqtt_client.on_connect = on_connect
-
-
-def on_disconnect(client, userdata, disconnect_flags, reason_code, properties=None):
-    mqtt_stats["is_connected"] = False
-    mqtt_stats["last_error"] = f"Disconnected: {reason_code}"
-
-
-mqtt_client.on_disconnect = on_disconnect
+mqtt_client, mqtt_stats, on_connect, on_disconnect = create_client(MQTT_CONFIG)
 
 
 # ===== GLOBAL STATE =====
@@ -1042,16 +1011,7 @@ def should_publish_esp_payload(payload: Dict[str, Any], now_monotonic: Optional[
 
 # ===== MQTT publish =====
 def _publish_payload(payload: Dict[str, Any]):
-    try:
-        info = mqtt_client.publish(TOPIC, json.dumps(payload, separators=(",", ":")), qos=0, retain=False)
-        mqtt_stats["last_publish_rc"] = info.rc
-        if info.rc == mqtt.MQTT_ERR_SUCCESS:
-            mqtt_stats["publish_ok"] += 1
-        else:
-            mqtt_stats["publish_err"] += 1
-    except Exception as e:
-        mqtt_stats["publish_err"] += 1
-        mqtt_stats["last_error"] = str(e)
+    publish(mqtt_client, mqtt_stats, TOPIC, payload)
 
 
 def publish_metrics() -> bool:
