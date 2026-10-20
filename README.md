@@ -135,35 +135,22 @@ uv run pytest -q
 
 ## 在 Linux 或 PVE 安裝 Sender
 
-在要監控的 Linux 或 Proxmox VE 主機執行以下準備步驟。安裝器需要 Git 與 Python 3.11 以上；一般 Linux 使用 Docker Compose v2，PVE 原生安裝另需 `python3-venv` 與 systemd。一般 Linux 的 Docker 必須先由管理者安裝。
+在要監控的 Debian、Ubuntu、Raspberry Pi OS 或 Proxmox VE 主機執行以下命令。bootstrap 會下載到唯一暫存檔，再安裝；首次執行會詢問 MQTT 設定，密碼不會顯示，既有 `.env` 會保留。一般 Linux 會準備 Python 與 Docker Compose v2，PVE 使用原生 systemd sender。請在 root shell 執行；PVE root 通常不需要 sudo。
 
 ```bash
-git clone https://github.com/KarlSideProjects/hwmonitor-mqtt.git
-cd hwmonitor-mqtt
-test -e .env || cp .env.example .env
-chmod 600 .env
-nano .env
+(tmp=$(mktemp) && curl -fsSL https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/master/bootstrap.sh -o "$tmp" && bash "$tmp"; status=$?; rm -f "$tmp"; exit "$status")
 ```
 
-在 `.env` 設定 `BROKER_HOST`、`BROKER_PORT`、`MQTT_USER` 與 `MQTT_PASS`。`chmod 600` 限制 MQTT 憑證檔案的讀取權限。
-
-一般 Linux 使用 Docker Compose。先預覽系統判斷與安裝命令，再安裝並啟動 sender：
-
-```bash
-bash install.sh --dry-run
-sudo bash install.sh
-```
-
-dry-run 不會安裝或啟動服務。PVE 預設使用原生 systemd sender；先依下列步驟完成私有 API 設定和 CA，再以 sudo 預覽並安裝。
+若 PVE 尚未設定 API，第一次執行 bootstrap 會建立私有範本並停止。請完成下方 API 與 CA 步驟，再重新執行；bootstrap 不會建立 API token，也不會替你信任未知 CA。一般 Linux 不需要 PVE 設定。
 
 PVE 需要 HTTPS API 唯讀 token、可信 CA，以及穩定的 cluster ID 和 node 名稱。token 需透過 ACL 繼承取得 `/vms` 的 `VM.Audit`，並以 `Sys.Audit` 讀取 `/access` ACL；每個明列的 `/vms` ACL 範圍也需有 `VM.Audit`。目前所有有效權限都必須以 `.Audit` 結尾，且可見的叢集 ACL 不可包含 `/pool/...` 項目。完整權限與 scope 限制見 [PVE sender 設定說明](docs/configuration/env-vars.md#proxmox-ve-sender)。先建立私有設定檔；若檔案已存在，保留原檔並自行合併設定：
 
-若已用 `root` 登入 PVE，以下命令可省略 `sudo`。建立私有設定檔、預覽與安裝都必須以 root 執行。
+第一次 bootstrap 已建立私有設定檔範本。若需手動建立，請以 root 執行；編輯前確認設定檔不存在：
 
 ```bash
 sudo install -d -m 0755 /etc/hwmonitor-mqtt
 if ! sudo test -e /etc/hwmonitor-mqtt/pve.env; then
-  sudo install -m 0600 docs/configuration/pve.env.example /etc/hwmonitor-mqtt/pve.env
+  sudo install -m 0600 /opt/hwmonitor-mqtt/docs/configuration/pve.env.example /etc/hwmonitor-mqtt/pve.env
 fi
 sudoedit /etc/hwmonitor-mqtt/pve.env
 ```
@@ -178,16 +165,9 @@ if ! sudo test -e /etc/hwmonitor-mqtt/pve-root-ca.pem; then
 fi
 ```
 
-`/etc/hwmonitor-mqtt` 目錄使用 `0755`，CA 檔使用 `0644`，讓服務身分可讀取 CA。確認 token、設定及 CA 已準備好後，在 PVE 宿主以 sudo 預覽，再安裝原生 systemd sender：
+`/etc/hwmonitor-mqtt` 目錄使用 `0755`，CA 檔使用 `0644`，讓服務身分可讀取 CA。確認 token、設定及 CA 已準備好後，在 PVE 宿主重新執行上方 bootstrap 命令。
 
-```bash
-sudo bash install.sh --dry-run
-sudo bash install.sh
-```
-
-若要選用 Docker Compose，改以 `sudo bash install.sh --deployment docker` 安裝；Docker 版也會驗證 PVE API 設定。
-
-安裝器支援目前已驗證的 Debian、Ubuntu 與 Raspberry Pi OS；其他 Linux 發行版會停止並回報不支援。Windows 請使用 [Windows sender 安裝方式](#windows-sender-安裝與注意事項)。PVE 原生與 Docker 安裝命令尚未在實際 PVE 主機執行；設定格式及安裝分支以自動化測試驗證，實際部署仍需操作者確認服務與資料流。
+安裝器支援 Debian、Ubuntu 與 Raspberry Pi OS；其他 Linux 發行版會停止並回報不支援。Windows 請使用 [Windows sender 安裝方式](#windows-sender-安裝與注意事項)。
 
 ## 授權
 
@@ -196,39 +176,19 @@ sudo bash install.sh
 
 ## Windows Sender 安裝與注意事項
 
-建議使用「系統管理員」PowerShell 執行以下步驟。
-
-### 1. 準備 `.env`
+在「系統管理員」PowerShell 執行以下命令。它會從官方 GitHub 下載 zip（不需要 Git），首次執行會隱藏 MQTT 密碼輸入，並建立僅 Administrators 與 SYSTEM 可讀的 `.env`；既有設定會保留。安裝器會準備 Python/uv 與 LibreHardwareMonitor，註冊開機排程並立即啟動 sender。
 
 ```powershell
-Copy-Item .env.example .env
+$ErrorActionPreference='Stop'; $p=Join-Path $env:TEMP ('hwmonitor-mqtt-'+[guid]::NewGuid().ToString('N')+'.ps1'); try { Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/master/bootstrap.ps1' -OutFile $p; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p; if ($LASTEXITCODE -ne 0) { throw "Bootstrap failed with exit code $LASTEXITCODE" } } finally { Remove-Item $p -Force -ErrorAction SilentlyContinue }
 ```
 
-請至少確認：
-- `BROKER_HOST`
-- `BROKER_PORT`
-- `MQTT_USER`
-- `MQTT_PASS`
-
-### 2. 安裝 Windows sender 排程（建議開機自動啟動）
+檢查排程狀態：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\windows\install_windows_sender_task.ps1 -AtStartup
-```
-
-說明：
-- 會優先使用 `uv`（若可用），並執行 `uv sync` 安裝依賴。
-- 會自動檢查/安裝 LibreHardwareMonitor 到 `third_party/librehardwaremonitor`（預設啟用）。
-- `-AtStartup` 會用 `SYSTEM` 建立排程，通常可避免 UAC 導致的 LHM 啟動問題。
-
-### 3. 啟動與檢查
-
-```powershell
-Start-ScheduledTask -TaskName HWMonitorMQTTSender
 Get-ScheduledTaskInfo -TaskName HWMonitorMQTTSender
 ```
 
-### 4. 重要注意事項
+### 2. 重要注意事項
 
 - 不要同時啟動多個 sender 實例，否則 viewer 可能出現 CPU/GPU 資料跳動或 `NA` 閃爍。
 - 若看到 `Access is denied (0x80070005)`，請改用系統管理員 PowerShell。
@@ -236,7 +196,7 @@ Get-ScheduledTaskInfo -TaskName HWMonitorMQTTSender
 - Windows sender 會先嘗試 WMI；若 WMI 回傳空資料，會改用 `LibreHardwareMonitorLib.dll`（`pythonnet`）讀取感測器，並保留 `nvidia-smi` fallback。
 - 安裝後通常不需要重開機。
 
-### 5. 清理重複 sender（必要時）
+### 3. 清理重複 sender（必要時）
 
 ```powershell
 Get-CimInstance Win32_Process |
