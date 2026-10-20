@@ -76,6 +76,49 @@ def test_snapshot_maps_resources_to_fixture_contract_and_filters_node(monkeypatc
     }
 
 
+def test_guest_io_rates_use_monotonic_intervals_and_reset_unknown_baselines():
+    class Clock:
+        value = 100.0
+        def __call__(self): return self.value
+    clock = Clock()
+    class Api:
+        config = config("https://pve.example:8006")
+        uptime, node, netin, netout, diskread, diskwrite = 100, "node-a", 1000, 2000, 3000, 4000
+        def resources(self):
+            return [{"type": "qemu", "vmid": 100, "node": self.node, "name": "vm", "status": "running",
+                     "uptime": self.uptime, "netin": self.netin, "netout": self.netout,
+                     "diskread": self.diskread, "diskwrite": self.diskwrite}]
+    api = Api()
+    collector = PveCollector(api, monotonic=clock)
+    first = collector.poll_once(now=1000)["guests"][0]
+    assert first["network_io"]["total"]["rate"] == {"rx_bytes_per_s": None, "tx_bytes_per_s": None}
+    clock.value += 10
+    api.netin += 5000; api.netout += 2500; api.diskread += 10000; api.diskwrite += 5000
+    second = collector.poll_once(now=1010)["guests"][0]
+    assert second["network_io"]["total"]["rate"] == {"rx_bytes_per_s": 500.0, "tx_bytes_per_s": 250.0}
+    assert second["disk_io"]["total"]["rate"] == {"read_bytes_per_s": 1000.0, "write_bytes_per_s": 500.0}
+    api.netin -= 1
+    clock.value += 10
+    reset = collector.poll_once(now=1020)["guests"][0]
+    assert reset["network_io"]["total"]["rate"] == {"rx_bytes_per_s": None, "tx_bytes_per_s": None}
+    assert reset["disk_io"]["total"]["rate"] == {"read_bytes_per_s": None, "write_bytes_per_s": None}
+    api.netin += 100; api.uptime = 1; clock.value += 10
+    uptime_reset = collector.poll_once(now=1030)["guests"][0]
+    assert uptime_reset["network_io"]["total"]["rate"]["rx_bytes_per_s"] is None
+    api.node = "node-b"
+    api.config = PveConfig("https://pve.example:8006", "monitor@pve!readonly", "secret-value",
+                           "/etc/ssl/certs/ca-certificates.crt", "cluster-a", "node-b")
+    clock.value += 10
+    node_reset = collector.poll_once(now=1040)["guests"][0]
+    assert node_reset["network_io"]["total"]["rate"]["rx_bytes_per_s"] is None
+    api.netin = None; clock.value += 10
+    missing = collector.poll_once(now=1050)["guests"][0]
+    assert missing["network_io"]["total"]["rate"]["rx_bytes_per_s"] is None
+    api.netin = 20000; clock.value += 10
+    restored = collector.poll_once(now=1060)["guests"][0]
+    assert restored["network_io"]["total"]["rate"]["rx_bytes_per_s"] is None
+
+
 def test_snapshot_uses_the_shared_virtualization_v1_fixture():
     fixture = json.loads(open("tests/fixtures/virtualization-v1.json").read())
     class Api:

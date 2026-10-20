@@ -71,6 +71,7 @@ class PveCollector:
         self._stop = threading.Event()
         self._thread = None
         self._last_good = None
+        self._baselines = {}
         self._snapshot = self._envelope(getattr(client, "config", None), "error" if client else "unconfigured")
         if client:
             self._snapshot["error"] = "not_observed"
@@ -106,6 +107,8 @@ class PveCollector:
             rows = self.client.resources()
             guests = []
             seen = set()
+            baselines = dict(self._baselines)
+            observed = self.monotonic()
             for row in rows:
                 guest = _guest(row, config)
                 if guest is None:
@@ -113,6 +116,26 @@ class PveCollector:
                 if guest["id"] in seen:
                     raise PveError("invalid_inventory")
                 seen.add(guest["id"])
+                counters = tuple(_number(row.get(key), integer=True) for key in ("netin", "netout", "diskread", "diskwrite"))
+                if any(value is not None and value > 2**63 - 1 for value in counters):
+                    raise PveError("invalid_inventory")
+                previous = self._baselines.get(guest["id"])
+                reset = previous is None
+                if previous:
+                    reset = (previous["node"] != guest["node"] or
+                             previous["uptime"] is not None and guest["uptime"] is not None and guest["uptime"] < previous["uptime"] or
+                             any(old is not None and new is not None and new < old
+                                 for old, new in zip(previous["counters"], counters)))
+                elapsed = observed - previous["time"] if previous else 0
+                values = [None] * 4
+                if previous and not reset and elapsed > 0:
+                    values = [round((new - old) / elapsed, 2) if old is not None and new is not None else None
+                              for old, new in zip(previous["counters"], counters)]
+                    if any(value is not None and (not math.isfinite(value) or value > 2**63 - 1) for value in values):
+                        raise PveError("invalid_inventory")
+                guest["network_io"]["total"]["rate"] = {"rx_bytes_per_s": values[0], "tx_bytes_per_s": values[1]}
+                guest["disk_io"]["total"]["rate"] = {"read_bytes_per_s": values[2], "write_bytes_per_s": values[3]}
+                baselines[guest["id"]] = {"node": guest["node"], "uptime": guest["uptime"], "counters": counters, "time": observed}
                 guests.append(guest)
             candidate = {"version": 1, "provider": "pve", "cluster_id": config.cluster_id,
                          "node": config.node, "observed_at": int(self.wall_clock() if now is None else now),
@@ -120,6 +143,7 @@ class PveCollector:
             if len(json.dumps(candidate, separators=(",", ":")).encode()) > MAX_PAYLOAD_BYTES:
                 raise PveError("capacity_error")
             self._last_good = candidate
+            self._baselines = {key: value for key, value in baselines.items() if key in seen}
             snapshot = candidate
         except (PveError, AttributeError, TypeError, ValueError) as error:
             code = str(error) if isinstance(error, PveError) else "invalid_inventory"
