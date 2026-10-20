@@ -147,15 +147,25 @@ PVE 安裝入口會先檢查舊的 `sys-agent` Docker 容器。容器存在時�
 
 PVE 本機的節點名稱與 CA 由 PVE 安裝模組準備。模組將本機 `/etc/pve/pve-root-ca.pem` 複製到服務可讀的 `/etc/hwmonitor-mqtt/pve-root-ca.pem`，預設 API URL 使用本機完整主機名稱；HTTPS 憑證仍需符合 URL。cluster ID 用於監控資料識別，並非 API 登入參數。各欄位來源與用途見 [PVE 設定參考](docs/configuration/env-vars.md#proxmox-ve-sender)。既有實際設定保留，範本中的已知範例值會依本機資料補正。
 
-API token 需要自行建立。安裝入口不會建立帳號、修改 PVE 權限或關閉 TLS 驗證。缺少 token 時會建立私有設定檔並停止，請在 PVE 的 root Shell 編輯：
+### 安裝檔會做什麼
 
-```bash
-nano /etc/hwmonitor-mqtt/pve.env
-```
+下載命令執行 `bootstrap.sh`，由它辨識系統並呼叫對應平台模組。它會檢查必要套件，缺少時透過 APT 安裝；一般 Linux 若需要 Docker 官方套件庫，會建立經簽章驗證的套件來源。它會下載或更新 `/opt/hwmonitor-mqtt` 內的程式，保留 MQTT `.env`、PVE 私有設定與 Docker 自訂覆寫檔。一般 Linux 使用 Docker Compose sender；PVE 使用原生 systemd sender。Windows 的 PowerShell 入口會準備 Python/uv、LibreHardwareMonitor 與開機排程。
 
-填入實際的 `PVE_TOKEN_ID` 與 `PVE_TOKEN_SECRET`；URL、CA、節點或 cluster ID 有自訂需求時再調整。不要把 token 貼進 Git、聊天或公開截圖。token 需透過 ACL 繼承取得 `/vms` 的 `VM.Audit`，並以 `Sys.Audit` 讀取 `/access` ACL；每個明列的 `/vms` ACL 範圍也需有 `VM.Audit`。目前所有有效權限都必須以 `.Audit` 結尾，且可見的叢集 ACL 不可包含 `/pool/...` 項目。完整限制見 [PVE 設定參考](docs/configuration/env-vars.md#proxmox-ve-sender)。
+PVE 分支依序執行下列操作：
 
-儲存後重跑上方下載安裝命令。入口會先驗證 CA、HTTPS API 與 token scope，再詢問缺少的 MQTT 設定與安裝服務。看到 `PVE sender is not installed yet` 代表本次尚未安裝完成，R36 此時不會收到這套服務的 CT／VM 清單。一般 Linux 不需要 PVE 設定。
+1. 檢查舊 `sys-agent` 容器；存在時停止安裝，請先完成下方遷移。
+2. 準備本機節點、API URL、cluster ID 與服務可讀的 CA。
+3. 沿用既有 token 設定；缺少或仍為範本密鑰時，透過本機 `pveum` 建立監控專用 PVE 帳號與 API token，不建立 Linux 帳號或登入密碼。
+4. 將 token ID 與密鑰直接寫入 `/etc/hwmonitor-mqtt/pve.env`，權限為 `0600`，不在終端顯示密鑰。
+5. 為新帳號與 token 在 `/` 設定可繼承的 `PVEAuditor` 唯讀角色。token 使用分離權限 (`privsep=1`)，不授予 VM／CT 的啟停或修改權限。
+6. 驗證 CA、HTTPS API 與 token scope，再詢問缺少的 MQTT 設定。
+7. 將 sender 與 Python 環境安裝至 `/opt/hwmonitor-mqtt-pve`，啟用並重啟 `hwmonitor-mqtt-pve.service`。採集服務以非 root 的動態身分執行。
+
+建立帳號、token 與 ACL 是 PVE 設定變更。安裝器為新安裝產生專用名稱，避免擴充其他帳號權限；不刪除或重設既有 token。既有自訂 token ID 缺少密鑰，或密鑰驗證失敗時會停止，不自動替換。只含安裝進度與專用識別碼的 `/etc/hwmonitor-mqtt/pve-token-state.json` 用於失敗重跑；實際密鑰只存在私有 `pve.env`。重裝沿用已保存的密鑰，接續未完成的權限設定。
+
+自動建立 token 的流程已以模擬 `pveum` 測試，實際 PVE 帳號建立與重裝仍待宿主驗證。若要撤銷自動建立的存取權，先停用採集服務，再依狀態檔中的識別碼，在 PVE「Datacenter → Permissions → API Tokens」刪除該 token；專用帳號可在「Users」確認無其他用途後刪除。保留舊容器的回復步驟見下節。
+
+安裝入口會檢查有效的 `VM.Audit`、`Sys.Audit` 與 ACL 範圍；目前有效權限名稱都必須以 `.Audit` 結尾，且可見的叢集 ACL 不可包含 `/pool/...` 項目。完整限制見 [PVE 設定參考](docs/configuration/env-vars.md#proxmox-ve-sender)。看到 `PVE sender is not installed yet` 代表本次尚未安裝完成。一般 Linux 與 Windows 不會建立 PVE 帳號或 token。
 
 ### 從舊 Docker sender 遷移到 PVE 原生服務
 
