@@ -5,10 +5,30 @@
 [![MQTT](https://img.shields.io/badge/MQTT-Realtime-FF6F00)](https://mqtt.org/)
 [![License](https://img.shields.io/badge/License-GPLv3-2ea44f)](./LICENSE)
 
-把硬體監控變成「即時可視化資料流」：
-- Agent 低負擔採集 CPU/RAM/Disk/Network/GPU/Temperature。
-- MQTT 做資料總線，支援多主機擴充。
-- Web 與本機 Viewer 即時呈現，不必重後端。
+收集 Windows／Linux 電腦的 CPU、GPU、記憶體、磁碟、網路與溫度資料，透過 MQTT 發送，供網頁、終端介面、小螢幕或自訂程式即時顯示。可用資料取決於主機硬體、驅動與感測器權限。
+
+Collect Windows/Linux hardware metrics, publish them over MQTT, and display them in web dashboards, terminal viewers or custom MQTT clients.
+
+## 專案分工與適用設備
+
+本專案是通用的硬體監控資料採集與顯示工具，不限於特定掌機或顯示器。採集端、MQTT broker（訊息中繼服務）與顯示端可以部署在不同設備。
+
+| 元件 | 用途與入口 |
+|---|---|
+| Linux 採集端 | 收集被監控主機的資料，見下方[快速開始](#快速開始) |
+| Windows 採集端 | 在被監控電腦安裝 sender，見 [Windows 安裝](#windows-sender-安裝與注意事項) |
+| MQTT broker | 轉送監控訊息，可使用既有 broker 或本專案的 Mosquitto 服務 |
+| Web、TUI、Pygame 顯示端 | 本專案提供的網頁、終端與圖形介面 |
+| 其他 MQTT 接收端 | 依本專案訊息格式整合自己的顯示器、設備或應用程式 |
+
+### 同一組織下的相關專案
+
+兩個專案都由 [KarlSideProjects](https://github.com/KarlSideProjects) 管理：
+
+- **[hwmonitor-mqtt](https://github.com/KarlSideProjects/hwmonitor-mqtt)**：提供電腦資料採集、MQTT 傳送與通用 Viewer。
+- **[mqtt-handheld-hardware-monitor](https://github.com/KarlSideProjects/mqtt-handheld-hardware-monitor)**：把 Linux 掌機作為 MQTT 顯示面板，提供設備安裝腳本、實體按鍵操作與關閉／喚醒螢幕功能。目前已有 R36 MAX 2 與 TrimUI Smart Pro S 的安裝與驗證紀錄，見[硬體清單](https://github.com/KarlSideProjects/mqtt-handheld-hardware-monitor#目前支援的硬體)及[實機操作圖解](https://github.com/KarlSideProjects/mqtt-handheld-hardware-monitor/blob/main/docs/device-controls.md)。
+
+這兩台掌機是顯示端的整合範例。其他設備需具備可用的 MQTT 接收程式，並依各自的作業系統、顯示方式及資料格式完成整合。
 
 ## 為什麼值得用
 
@@ -77,6 +97,8 @@ flowchart LR
 
 ## 快速開始
 
+若要監控 Windows，請依下方 [Windows Sender 安裝](#windows-sender-安裝與注意事項)操作。以下為 Docker 部署方式；掌機只作為顯示端時，請使用相關掌機專案的[安裝說明](https://github.com/KarlSideProjects/mqtt-handheld-hardware-monitor/blob/main/docs/installation.md)。
+
 ### 1. 設定環境
 
 ```bash
@@ -99,7 +121,7 @@ docker compose --profile agent up -d
 docker compose --profile full up -d
 ```
 
-ESP 輕量模式：
+供 ESP 等資源有限接收端使用的精簡資料模式（sender 仍在被監控主機執行）：
 
 ```bash
 docker compose --profile esp-agent up -d
