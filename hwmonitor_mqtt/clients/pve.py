@@ -1,6 +1,7 @@
 """Small, read-only HTTPS adapter for the Proxmox VE API."""
 
 from dataclasses import dataclass
+import http.client
 import json
 import math
 import os
@@ -120,7 +121,7 @@ class PveApiClient:
         except urllib.error.HTTPError as error:
             code = "unauthorized" if error.code == 401 else "forbidden" if error.code == 403 else "http_error"
             raise PveError(code) from None
-        except (urllib.error.URLError, TimeoutError, OSError):
+        except (urllib.error.URLError, http.client.HTTPException, TimeoutError, OSError):
             raise PveError("connection_error") from None
         except (ValueError, json.JSONDecodeError, RecursionError):
             raise PveError("invalid_response") from None
