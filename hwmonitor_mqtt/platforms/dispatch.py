@@ -23,7 +23,7 @@ def collector_for(target):
     return COLLECTORS[key], "ready"
 
 
-def install_command(target, project_root):
+def install_command(target, project_root, config_file=None):
     """Return the existing platform installer command without running it."""
     from .installers import linux, windows
 
@@ -32,7 +32,9 @@ def install_command(target, project_root):
         return pve_docker.command(project_root)
     if target.system == "pve":
         from .installers import pve
-        return pve.command(project_root)
+        if config_file is None:
+            return pve.command(project_root)
+        return pve.command(project_root, config_file=config_file)
     if target.system == "unknown":
         raise ValueError("Container target detected; host-aware installation support is pending")
     if target.os == "windows":

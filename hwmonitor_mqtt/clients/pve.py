@@ -152,6 +152,12 @@ class PveApiClient:
         )
         if not complete or not acl_audit:
             raise PveError("vm_audit_scope_missing")
+        if any(
+            not isinstance(privileges, dict)
+            or any(not isinstance(name, str) or not name.endswith(".Audit") for name in privileges)
+            for privileges in permissions.values()
+        ):
+            raise PveError("vm_read_only_scope_unsupported")
         acl = self._get("access/acl")
         if not isinstance(acl, list):
             raise PveError("vm_audit_scope_incomplete")

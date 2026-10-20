@@ -125,6 +125,28 @@ def test_detected_pve_host_can_select_docker_deployment(monkeypatch, capsys):
     assert result["command"][-7:] == ["-f", str(Path(__file__).resolve().parents[1] / "docker-compose.pve.yml"), "--profile", "pve", "up", "--build", "-d"]
 
 
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_windows_docker_deployment_is_rejected_without_dispatch_or_writes(monkeypatch, capsys, dry_run):
+    monkeypatch.setattr(install, "detect_target", lambda: Target("windows", "windows", "native", "fixture-win", "", ()))
+    calls = []
+    monkeypatch.setattr(install.subprocess, "run", lambda *args, **kwargs: calls.append(args) or subprocess.CompletedProcess(args[0], 0))
+
+    argv = ["--deployment", "docker"] + (["--dry-run"] if dry_run else [])
+    assert install.main(argv) == 2
+    assert "supported linux host" in capsys.readouterr().out.lower()
+    assert calls == []
+
+
+def test_native_pve_installer_receives_custom_config_through_dispatch(monkeypatch, capsys, tmp_path):
+    monkeypatch.setattr(install, "detect_target", lambda: Target("linux", "pve", "native", "fixture-pve", "debian", ()))
+    monkeypatch.setattr("hwmonitor_mqtt.platforms.installers.pve.readiness", lambda config: None)
+    config = tmp_path / "custom-pve.env"
+
+    assert install.main(["--dry-run", "--pve-config", str(config)]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["command"][-1] == str(config.resolve())
+
+
 def test_docker_compose_profiles_keep_stable_host_identity_and_private_mounts():
     base = Path(__file__).resolve().parents[1]
     linux = (base / "docker-compose.linux.yml").read_text()

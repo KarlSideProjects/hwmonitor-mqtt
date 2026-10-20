@@ -31,21 +31,20 @@ def main(argv=None):
         else "native"
     )
     if args.deployment:
-        if target.system in {"unknown", "unsupported"}:
-            print(json.dumps({"target": {**target.__dict__, "evidence": list(target.evidence)}, "status": "Host system must be explicit before selecting a deployment runtime"}, indent=2))
+        if target.system in {"unknown", "unsupported"} or target.os != "linux":
+            print(json.dumps({"target": {**target.__dict__, "evidence": list(target.evidence)}, "status": "Docker deployment requires a supported Linux host"}, indent=2))
             return 2
     selected_target = replace(target, runtime=deployment)
     collector = None
     pve_installer = None
     linux_installer = None
     try:
-        collector, collector_status = collector_for(selected_target)
-        command = install_command(selected_target, args.project_root)
         if target.system == "pve":
             args.pve_config = str(Path(args.pve_config).resolve())
+        collector, collector_status = collector_for(selected_target)
+        command = install_command(selected_target, args.project_root, config_file=args.pve_config)
+        if target.system == "pve":
             from .installers import pve as pve_installer
-            if deployment == "native":
-                command[-1] = args.pve_config
         if target.os == "linux" and (target.system == "linux" or deployment == "docker"):
             from .installers import linux as linux_installer
     except ValueError as error:
