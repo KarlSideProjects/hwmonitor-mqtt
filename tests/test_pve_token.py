@@ -308,3 +308,46 @@ def test_locked_prepare_runs_before_existing_credentials_are_read(tmp_path):
 def test_custom_config_uses_its_own_private_state_filename(tmp_path):
     assert pve_token._default_state_path(tmp_path / "pve.env") == tmp_path / "pve-token-state.json"
     assert pve_token._default_state_path(tmp_path / "custom.env") == tmp_path / "custom.env.token-state.json"
+
+
+def test_replacing_lost_secret_resets_completed_acl_state_for_retry(tmp_path):
+    config = _token_config(tmp_path)
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({
+        "version": 1,
+        "user_id": "hwmonitor-a1b2c3d4@pve",
+        "token_name": "hwmonitor-mqtt",
+        "token_id": "hwmonitor-a1b2c3d4@pve!hwmonitor-mqtt",
+        "acl_complete": True,
+    }))
+    token_add_count = 0
+    token_acl_attempts = 0
+    fail_new_token_acl = True
+    new_name = None
+
+    def run(command, **kwargs):
+        nonlocal token_add_count, token_acl_attempts, new_name
+        if command[:3] == ["pveum", "user", "list"]:
+            return _result(0, '[{"userid":"hwmonitor-a1b2c3d4@pve","comment":"Managed by hwmonitor-mqtt sender bootstrap"}]')
+        if command[:4] == ["pveum", "user", "token", "list"]:
+            return _result(0, '[{"tokenid":"hwmonitor-mqtt"}]')
+        if command[:4] == ["pveum", "user", "token", "add"]:
+            token_add_count += 1
+            new_name = command[5]
+            return _result(0, '{"value":"replacement-secret","full-tokenid":"' + command[4] + '!' + new_name + '"}')
+        if command[:3] == ["pveum", "acl", "modify"] and "--tokens" in command:
+            token_acl_attempts += 1
+            if fail_new_token_acl:
+                return _result(1, stderr="private error")
+        return _result(0)
+
+    with pytest.raises(pve_token.PveTokenError, match="ACL"):
+        pve_token.provision_token(config, state, run=run)
+
+    fail_new_token_acl = False
+    pve_token.provision_token(config, state, run=run)
+
+    assert token_add_count == 1
+    assert token_acl_attempts == 2
+    assert new_name and new_name != "hwmonitor-mqtt"
+    assert json.loads(state.read_text())["acl_complete"] is True

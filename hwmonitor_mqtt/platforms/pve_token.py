@@ -206,6 +206,7 @@ def _provision_token_locked(config_file, state_file, *, run, app_id):
         _save_state(state_file, state)
     token_id = f"{user_id}!{token_name}"
     state["token_id"] = token_id
+    state["acl_complete"] = False
     _save_state(state_file, state)
     result = _run(run, ["pveum", "user", "token", "add", user_id, token_name,
                         "--privsep", "1", "--comment", APP_COMMENT, "--output-format", "json"],
