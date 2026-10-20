@@ -638,3 +638,65 @@ def test_slow_api_poll_does_not_block_host_payload(monkeypatch):
     collector.stop()
     assert elapsed < .25
     assert payload["cpu"]["percent_total"] == 12
+
+
+def test_legacy_pve_ca_without_key_usage_retries_without_strict_mode_only(tmp_path):
+    ca_cert, ca_key = tmp_path / "ca.pem", tmp_path / "ca.key"
+    cert, key, csr = tmp_path / "cert.pem", tmp_path / "key.pem", tmp_path / "cert.csr"
+    subprocess.run([
+        "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", str(ca_key),
+        "-out", str(ca_cert), "-days", "1", "-subj", "/CN=legacy-ca",
+        "-addext", "basicConstraints=critical,CA:TRUE",
+    ], check=True, capture_output=True)
+    subprocess.run(["openssl", "req", "-new", "-newkey", "rsa:2048", "-nodes", "-keyout", str(key),
+                    "-out", str(csr), "-subj", "/CN=localhost"], check=True, capture_output=True)
+    extensions = tmp_path / "leaf.cnf"
+    extensions.write_text("basicConstraints=critical,CA:FALSE\nsubjectAltName=DNS:localhost\nextendedKeyUsage=serverAuth\n")
+    subprocess.run(["openssl", "x509", "-req", "-in", str(csr), "-CA", str(ca_cert), "-CAkey", str(ca_key),
+                    "-CAcreateserial", "-out", str(cert), "-days", "1", "-extfile", str(extensions)],
+                   check=True, capture_output=True)
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            body = b'{"data": [{"node":"node-a"}]}'
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        def log_message(self, *args): pass
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    server_context.load_cert_chain(cert, key)
+    server.socket = server_context.wrap_socket(server.socket, server_side=True)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    client = PveApiClient(PveConfig(f"https://localhost:{server.server_port}", "monitor@pve!readonly",
+                                    "secret-value", str(ca_cert), "lab", "node-a"))
+    client.context.verify_flags |= ssl.VERIFY_X509_STRICT
+    client.opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=client.context))
+    try:
+        assert client._get("nodes") == [{"node": "node-a"}]
+        assert client.context.verify_mode == ssl.CERT_REQUIRED
+        assert client.context.check_hostname is True
+        assert not (client.context.verify_flags & ssl.VERIFY_X509_STRICT)
+
+        wrong_host = PveApiClient(PveConfig(f"https://127.0.0.1:{server.server_port}", "monitor@pve!readonly",
+                                            "secret-value", str(ca_cert), "lab", "node-a"))
+        wrong_host.context.verify_flags |= ssl.VERIFY_X509_STRICT
+        wrong_host.opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=wrong_host.context))
+        with pytest.raises(PveError, match="connection_error"):
+            wrong_host._get("nodes")
+        assert wrong_host.context.check_hostname is True
+        assert not (wrong_host.context.verify_flags & ssl.VERIFY_X509_STRICT)
+
+        wrong_ca = PveApiClient(PveConfig(f"https://localhost:{server.server_port}", "monitor@pve!readonly",
+                                          "secret-value", "/etc/ssl/certs/ca-certificates.crt", "lab", "node-a"))
+        wrong_ca.context.verify_flags |= ssl.VERIFY_X509_STRICT
+        wrong_ca.opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=wrong_ca.context))
+        with pytest.raises(PveError, match="connection_error"):
+            wrong_ca._get("nodes")
+        assert wrong_ca.context.verify_flags & ssl.VERIFY_X509_STRICT
+    finally:
+        server.shutdown()
+        server.server_close()
