@@ -109,6 +109,7 @@ class PveApiClient:
                     or not isinstance(reason, ssl.SSLCertVerificationError)
                     or reason.verify_code != 92):
                 raise
+            # Older PVE CAs may omit keyUsage; chain and hostname checks still apply.
             self.context.verify_flags &= ~strict
             self.opener = urllib.request.build_opener(
                 urllib.request.HTTPSHandler(context=self.context), _NoRedirect())
