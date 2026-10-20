@@ -35,3 +35,9 @@
 - `ESP_HEARTBEAT_INTERVAL_SEC`: esp 模式心跳發送間隔（秒）
 - `ESP_CPU_DELTA`, `ESP_RAM_DELTA`, `ESP_TEMP_DELTA`: esp 模式變化閾值
 - `ESP_NET_DELTA_BYTES`, `ESP_DISK_DELTA_BYTES`, `ESP_GPU_DELTA`: esp 模式 I/O 與 GPU 閾值
+
+## Proxmox VE sender
+
+原生 PVE sender 使用獨立私有設定檔 `/etc/hwmonitor-mqtt/pve.env`，範例見 [pve.env.example](./pve.env.example)。設定需包含 HTTPS API URL、唯讀 token、可信 CA、穩定 cluster ID 與目標 node。API scope 檢查要求 token 對 `/vms` 有可傳遞的 `VM.Audit`，並以 `Sys.Audit` 讀取 ACL 清單以確認沒有 guest 範圍的 `NoAccess` 覆寫。無此完整只讀範圍時不發布 guest inventory；主機硬體仍持續發布。
+
+PVE systemd service 由 systemd 讀取既有 `.env` 的 MQTT 設定，不覆寫該檔；sender 程式及依賴安裝到 root-owned `/opt/hwmonitor-mqtt-pve`，服務以 transient unprivileged identity 執行。重裝會重新部署程式並重啟服務。服務固定使用 full payload。API 輪詢每 10 秒執行一次，使用者可用 `PVE_TIMEOUT_SEC` 調整每次請求 timeout（1–30 秒）。CA 檔需可供 systemd service identity 讀取。
