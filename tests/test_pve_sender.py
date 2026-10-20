@@ -9,6 +9,8 @@ import os
 import stat
 import shutil
 import sys
+import urllib.error
+import http.client
 
 import pytest
 
@@ -132,6 +134,35 @@ def test_verified_tls_api_fixture_flows_through_client_and_collector(tmp_path):
     assert auth == ["PVEAPIToken=monitor@pve!readonly=secret-value"] * 4
 
 
+def test_api_client_rejects_hostname_mismatch_even_with_the_issuing_ca(tmp_path):
+    cert, key = tmp_path / "cert.pem", tmp_path / "key.pem"
+    subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", str(key),
+                    "-out", str(cert), "-days", "1", "-subj", "/CN=localhost",
+                    "-addext", "subjectAltName=DNS:localhost"], check=True, capture_output=True)
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            body = b'{"data": []}'
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        def log_message(self, *args): pass
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(cert, key)
+    server.socket = context.wrap_socket(server.socket, server_side=True)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    client = PveApiClient(PveConfig(f"https://127.0.0.1:{server.server_port}", "monitor@pve!readonly",
+                                    "secret-value", str(cert), "lab", "node-a"))
+    try:
+        with pytest.raises(PveError, match="connection_error"):
+            client._get("nodes")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_api_client_uses_the_configured_finite_timeout():
     client = PveApiClient(PveConfig("https://pve.example:8006", "monitor@pve!readonly", "secret-value",
                                     "/etc/ssl/certs/ca-certificates.crt", "lab", "node-a", .25))
@@ -141,6 +172,17 @@ def test_api_client_uses_the_configured_finite_timeout():
             raise TimeoutError
     client.opener = Opener()
     with pytest.raises(PveError, match="connection_error"):
+        client.resources()
+
+
+@pytest.mark.parametrize(("status", "code"), [(401, "unauthorized"), (403, "forbidden")])
+def test_api_authentication_and_permission_errors_are_sanitized(status, code):
+    client = PveApiClient(config("https://pve.example:8006"))
+    class Opener:
+        def open(self, *args, **kwargs):
+            raise urllib.error.HTTPError("https://pve.example/secret", status, "denied", {}, None)
+    client.opener = Opener()
+    with pytest.raises(PveError, match=code):
         client.resources()
 
 
@@ -157,6 +199,27 @@ def test_deeply_nested_api_json_is_sanitized_as_invalid_response():
     client.opener = Opener()
     with pytest.raises(PveError, match="invalid_response"):
         client._get("nodes")
+
+
+def test_truncated_api_response_is_sanitized_and_client_recovers():
+    client = PveApiClient(PveConfig("https://pve.example:8006", "monitor@pve!readonly", "secret-value",
+                                    "/etc/ssl/certs/ca-certificates.crt", "lab", "node-a"))
+    class Response:
+        status = 200
+        def __init__(self, truncated): self.truncated = truncated
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def read(self, size):
+            if self.truncated: raise http.client.IncompleteRead(b"{")
+            return b'{"data": []}'
+    class Opener:
+        truncated = True
+        def open(self, *args, **kwargs): return Response(self.truncated)
+    client.opener = Opener()
+    with pytest.raises(PveError, match="connection_error"):
+        client._get("nodes")
+    client.opener.truncated = False
+    assert client._get("nodes") == []
 
 
 def test_failure_keeps_last_complete_snapshot_and_first_failure_has_no_guests():
@@ -178,6 +241,10 @@ def test_failure_keeps_last_complete_snapshot_and_first_failure_has_no_guests():
     assert failed["guests"] == first["guests"]
     cold = PveCollector(api).poll_once(now=200)
     assert cold["status"] == "error" and "guests" not in cold
+    api.fail = False
+    recovered = collector.poll_once(now=300)
+    assert recovered["status"] == "ok" and recovered["observed_at"] == 300
+    assert recovered["guests"] == first["guests"]
 
 
 def test_guest_missing_or_empty_name_and_status_get_safe_fallbacks():
@@ -450,3 +517,27 @@ def test_full_host_payload_keeps_base_metrics_when_guest_snapshot_exceeds_limit(
     assert payload["virtualization"]["error"] == "capacity_error"
     assert "guests" not in payload["virtualization"]
     assert len(json.dumps(payload, separators=(",", ":")).encode()) <= 262144
+
+
+def test_slow_api_poll_does_not_block_host_payload(monkeypatch):
+    from hwmonitor_mqtt.agents import agent_sender_async as sender
+    entered, release = threading.Event(), threading.Event()
+    class Api:
+        config = config("https://pve.example:8006")
+        def resources(self):
+            entered.set()
+            release.wait(2)
+            return []
+    collector = PveCollector(Api())
+    monkeypatch.setattr(sender, "pve_collector", collector)
+    sender.metrics.update(cpu={"percent_total": 12}, memory={"ram": {"used": 1, "total": 2}},
+                          system={"hostname": sender.HOSTNAME}, disk_io={}, temperatures={}, network_io={}, gpu=[])
+    collector.start()
+    assert entered.wait(1)
+    started = time.monotonic()
+    payload = sender.build_full_payload(now_ts=100)
+    elapsed = time.monotonic() - started
+    release.set()
+    collector.stop()
+    assert elapsed < .25
+    assert payload["cpu"]["percent_total"] == 12
