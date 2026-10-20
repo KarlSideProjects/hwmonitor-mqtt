@@ -12,7 +12,8 @@ BOOTSTRAP = REPO / "bootstrap.sh"
 
 
 def make_tools(tmp_path, *, fail_download=False, fail_install=False, docker_present=True, conflicting_packages=False,
-               base_installed=False, missing_base_packages=(), fail_base_install=False, fail_update=False):
+               base_installed=False, missing_base_packages=(), fail_base_install=False, fail_update=False,
+               existing_sender=False, docker_error=False, fail_pve_validation=False):
     bindir = tmp_path / "bin"
     bindir.mkdir(exist_ok=True)
     log = tmp_path / "calls.log"
@@ -31,14 +32,33 @@ def make_tools(tmp_path, *, fail_download=False, fail_install=False, docker_pres
             if missing_base_packages else "#!/bin/sh\nexit 1\n"
         ),
         "dpkg": "#!/bin/sh\necho amd64\n",
-        **({"docker": "#!/bin/sh\nexit 0\n"} if docker_present else {}),
+        **({"docker": "#!/bin/sh\nif [ \"$1\" = inspect ]; then\n" + ("exit 0\n" if existing_sender else "echo \"Cannot connect to Docker daemon\" >&2; exit 1\n" if docker_error else "echo \"Error: No such object: sys-agent\" >&2; exit 1\n") + "fi\nexit 0\n"} if docker_present else {}),
     }
+    # Use the real PVE preparation module; replace only its network client.
+    scripts["tar"] += (
+        f"mkdir -p \"$out/hwmonitor-mqtt-master/hwmonitor_mqtt/clients\"\n"
+        f"cp '{REPO}/hwmonitor_mqtt/platforms/pve_bootstrap.py' \"$out/hwmonitor-mqtt-master/hwmonitor_mqtt/platforms/\"\n"
+        f"cp '{REPO}/hwmonitor_mqtt/clients/pve.py' \"$out/hwmonitor-mqtt-master/hwmonitor_mqtt/clients/\"\n"
+        "printf 'PVE_URL=https://pve.example.invalid:8006\\nPVE_TOKEN_ID=monitor@pve!readonly\\nPVE_TOKEN_SECRET=replace-with-private-token-secret\\nPVE_CA_FILE=/etc/ssl/certs/ca-certificates.crt\\nPVE_CLUSTER_ID=lab\\nPVE_NODE=pve-node-a\\n' > \"$out/hwmonitor-mqtt-master/docs/configuration/pve.env.example\"\n"
+    )
+    validation = '(_ for _ in ()).throw(m.PveError("unauthorized"))' if fail_pve_validation else "True"
+    helper_driver = (
+        "import sys; from hwmonitor_mqtt.platforms import pve_bootstrap as m; "
+        "real=m.preflight; Fake=type(\"Fake\",(),{\"__init__\":lambda self,config:None,"
+        "\"validate_scope\":lambda self:" + validation + "}); "
+        "m.preflight=lambda config:real(config,client_factory=Fake); "
+        "sys.exit(m.main(sys.argv[3:]))"
+    )
+    scripts["python3"] = scripts["python3"].replace(
+        'if [ "$1" = -m ];',
+        f'if [ "$1" = -m ] && [ "$2" = hwmonitor_mqtt.platforms.pve_bootstrap ]; then echo preflight >> \"{log}\"; exec /usr/bin/python3 -c \'{helper_driver}\' "$@"; fi\nif [ "$1" = -m ];'
+    )
     for name, body in scripts.items():
         path = bindir / name
         path.write_text(body)
         path.chmod(0o755)
     if not docker_present:
-        for name in ("bash", "find", "install", "mkdir", "rm", "mv", "chmod", "dirname", "mktemp", "grep"):
+        for name in ("bash", "find", "install", "mkdir", "rm", "mv", "chmod", "dirname", "mktemp", "grep", "cp"):
             (bindir / name).symlink_to(Path("/usr/bin") / name)
     return bindir, log
 
@@ -50,7 +70,7 @@ def run_bootstrap(tmp_path, *, stdin="broker.example\n1883\nuser\nsecret\n", tar
     if target_system == "pve":
         config = tmp_path / "pve.env"
         if pve_config:
-            config.write_text("PVE_CA_FILE=/etc/ssl/certs/ca-certificates.crt\n")
+            config.write_text("PVE_URL=https://pve.example:8006\nPVE_TOKEN_ID=real@pve!token\nPVE_TOKEN_SECRET=private-real-value\nPVE_CA_FILE=/etc/ssl/certs/ca-certificates.crt\nPVE_CLUSTER_ID=production\nPVE_NODE=pve\n")
         extra_env["PVE_CONFIG_FILE"] = str(config)
     result = subprocess.run(
         ["bash", str(BOOTSTRAP)], cwd=tmp_path, input=stdin, text=True,
@@ -73,7 +93,7 @@ def test_downloads_prompts_once_and_installs_under_stable_root(tmp_path):
     repeated, _, repeated_log = run_bootstrap(tmp_path, stdin="")
     assert repeated.returncode == 0
     assert (root / ".env").read_bytes() == env_before
-    assert "\ncurl\n" not in repeated_log.read_text()
+    assert "curl" in repeated_log.read_text()
 
 
 @pytest.mark.parametrize("password", [
@@ -201,6 +221,55 @@ def test_pve_first_run_creates_private_template_and_stops(tmp_path):
     assert "PVE_TOKEN_SECRET" in config.read_text()
     assert config.stat().st_mode & 0o777 == 0o600
     assert "read-only API token" in result.stderr
+    assert "python:" not in log.read_text()
+    assert not (root / ".env").exists()
+
+
+def test_reinstall_refreshes_code_but_preserves_private_and_custom_files(tmp_path):
+    result, root, _ = run_bootstrap(tmp_path)
+    assert result.returncode == 0
+    private = root / ".env"
+    private_before = (private.read_bytes(), private.stat().st_ino, private.stat().st_mode)
+    override = root / "docker-compose.override.yml"
+    override.write_text("services: {}\n")
+    (root / "install.sh").write_text("#!/bin/sh\nexit 99\n")
+    repeated, _, _ = run_bootstrap(tmp_path, stdin="")
+    assert repeated.returncode == 0, repeated.stderr
+    assert (private.read_bytes(), private.stat().st_ino, private.stat().st_mode) == private_before
+    assert override.read_text() == "services: {}\n"
+
+
+def test_failed_refresh_keeps_existing_source_and_credentials(tmp_path):
+    first, root, _ = run_bootstrap(tmp_path)
+    assert first.returncode == 0
+    source_before = (root / "install.sh").read_bytes()
+    private_before = (root / ".env").read_bytes()
+    failed, _, _ = run_bootstrap(tmp_path, fail_download=True, stdin="")
+    assert failed.returncode != 0
+    assert (root / "install.sh").read_bytes() == source_before
+    assert (root / ".env").read_bytes() == private_before
+
+
+@pytest.mark.parametrize("options, message", [
+    ({"existing_sender": True}, "sys-agent container exists"),
+    ({"docker_error": True}, "could not verify"),
+])
+def test_pve_old_sender_check_stops_before_credentials_and_install(tmp_path, options, message):
+    result, root, log = run_bootstrap(tmp_path, target_system="pve", stdin="", **options)
+    assert result.returncode == 2
+    assert message in result.stderr
+    assert "MQTT broker" not in result.stdout
+    assert "preflight" not in log.read_text()
+    assert "python:" not in log.read_text()
+    assert not (root / ".env").exists()
+
+
+def test_pve_invalid_token_stops_before_mqtt_credentials_and_install(tmp_path):
+    result, root, log = run_bootstrap(tmp_path, target_system="pve", stdin="", fail_pve_validation=True)
+    assert result.returncode == 2
+    assert "unauthorized" in result.stderr
+    assert "private-real-value" not in result.stderr
+    assert "MQTT broker" not in result.stdout
     assert "python:" not in log.read_text()
     assert not (root / ".env").exists()
 

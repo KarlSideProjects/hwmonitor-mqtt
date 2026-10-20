@@ -39,46 +39,41 @@ if ! python3 -c 'import sys; raise SystemExit(sys.version_info < (3, 11))'; then
     exit 1
 fi
 
-if [[ -e "$root" ]]; then
-    : # Reuse bootstrap-owned files without replacing them.
-else
-    archive=${HWMONITOR_BOOTSTRAP_ARCHIVE_URL:-$repo}
-    curl --fail --location --silent --show-error "$archive" --output "$tmp/source.tar.gz"
-    mkdir "$tmp/unpacked"
-    tar -xzf "$tmp/source.tar.gz" -C "$tmp/unpacked"
-    source_dir=$(find "$tmp/unpacked" -mindepth 1 -maxdepth 1 -type d -print -quit)
-    [[ -n "$source_dir" && -f "$source_dir/install.sh" ]] || { echo "Downloaded archive did not contain the project." >&2; exit 1; }
-    install -d -m 0755 "$(dirname "$root")"
-    mv "$source_dir" "$root"
-    : > "$root/.hwmonitor-mqtt-bootstrap"
-fi
+archive=${HWMONITOR_BOOTSTRAP_ARCHIVE_URL:-$repo}
+curl --fail --location --silent --show-error "$archive" --output "$tmp/source.tar.gz"
+mkdir "$tmp/unpacked"
+tar -xzf "$tmp/source.tar.gz" -C "$tmp/unpacked"
+source_dir=$(find "$tmp/unpacked" -mindepth 1 -maxdepth 1 -type d -print -quit)
+[[ -n "$source_dir" && -f "$source_dir/install.sh" && -f "$source_dir/hwmonitor_mqtt/platforms/install.py" && -f "$source_dir/hwmonitor_mqtt/platforms/pve_bootstrap.py" ]] || { echo "Downloaded archive did not contain the project." >&2; exit 1; }
+# Download and validate before refreshing code; preserve host-specific configuration.
+python3 - "$source_dir" "$root" <<'PYCODE'
+from pathlib import Path
+import shutil
+import sys
+source, target = map(Path, sys.argv[1:])
+shutil.copytree(source, target, dirs_exist_ok=True,
+                ignore=shutil.ignore_patterns(".env", ".venv", ".git", "docker-compose.override.yml", "__pycache__"))
+(target / ".hwmonitor-mqtt-bootstrap").touch()
+PYCODE
 
 target_system=$(PYTHONPATH="$root" python3 -c 'from hwmonitor_mqtt.platforms.detect import detect_target; print(detect_target().system)')
 if [[ "$target_system" == pve ]]; then
-    pve_config=${PVE_CONFIG_FILE:-/etc/hwmonitor-mqtt/pve.env}
-    if [[ ! -e "$pve_config" ]]; then
-        install -d -m 0755 "$(dirname "$pve_config")"
-        install -m 0600 "$root/docs/configuration/pve.env.example" "$pve_config"
-        echo "PVE sender is not installed yet. Edit $pve_config with a read-only API token, install your trusted CA at its PVE_CA_FILE path, then rerun this bootstrap." >&2
-        echo "Setup guide: https://github.com/KarlSideProjects/hwmonitor-mqtt/blob/master/README.md#在-linux-或-pve-安裝-sender" >&2
-        exit 2
+    if command -v docker >/dev/null 2>&1; then
+        if docker inspect sys-agent >/dev/null 2>"$tmp/docker-inspect.err"; then
+            echo "PVE sender is not installed yet: sys-agent container exists; stop and remove or rename the old sender before retrying." >&2
+            exit 2
+        elif ! grep -q 'No such object' "$tmp/docker-inspect.err"; then
+            echo "PVE sender is not installed yet: could not verify the existing Docker sender; check Docker before retrying." >&2
+            exit 2
+        fi
     fi
-    pve_ca=$(python3 - "$pve_config" <<'PY'
-import sys
-from pathlib import Path
-for line in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
-    key, sep, value = line.partition("=")
-    if sep and key.strip() == "PVE_CA_FILE":
-        print(value.strip().strip("\"'"))
-        break
-PY
-)
-    if [[ -z "$pve_ca" || ! -f "$pve_ca" ]]; then
-        echo "PVE sender is not installed yet. Install a trusted CA file at the PVE_CA_FILE path in $pve_config, then rerun this bootstrap." >&2
-        echo "Setup guide: https://github.com/KarlSideProjects/hwmonitor-mqtt/blob/master/README.md#在-linux-或-pve-安裝-sender" >&2
+    pve_config=${PVE_CONFIG_FILE:-/etc/hwmonitor-mqtt/pve.env}
+    if ! PYTHONPATH="$root" python3 -m hwmonitor_mqtt.platforms.pve_bootstrap --config "$pve_config" --template "$root/docs/configuration/pve.env.example"; then
+        echo "Review $pve_config, then rerun this download installer." >&2
         exit 2
     fi
 fi
+
 if [[ ! -e "$root/.env" ]]; then
     read -r -p 'MQTT broker host: ' broker_host
     [[ "$broker_host" =~ ^[A-Za-z0-9.-]+$ ]] || { echo "Use a DNS name or IPv4 address for MQTT broker host." >&2; exit 1; }
