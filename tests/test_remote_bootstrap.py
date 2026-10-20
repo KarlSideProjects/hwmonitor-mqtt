@@ -11,7 +11,8 @@ REPO = Path(__file__).resolve().parents[1]
 BOOTSTRAP = REPO / "bootstrap.sh"
 
 
-def make_tools(tmp_path, *, fail_download=False, fail_install=False, docker_present=True, conflicting_packages=False):
+def make_tools(tmp_path, *, fail_download=False, fail_install=False, docker_present=True, conflicting_packages=False,
+               base_installed=False, missing_base_packages=(), fail_base_install=False, fail_update=False):
     bindir = tmp_path / "bin"
     bindir.mkdir(exist_ok=True)
     log = tmp_path / "calls.log"
@@ -21,9 +22,14 @@ def make_tools(tmp_path, *, fail_download=False, fail_install=False, docker_pres
         "curl": f"#!/bin/sh\necho curl >> '{log}'\n" + ("exit 17\n" if fail_download else "while [ $# -gt 0 ]; do if [ \"$1\" = -o ]; then shift; touch \"$1\"; fi; shift; done\n"),
         "tar": "#!/bin/sh\nwhile [ $# -gt 0 ]; do if [ \"$1\" = -C ]; then shift; out=$1; fi; shift; done\nmkdir -p \"$out/hwmonitor-mqtt-master/hwmonitor_mqtt/platforms\"\nprintf '#!/bin/sh\\npython3 -m hwmonitor_mqtt.platforms.install\\n' > \"$out/hwmonitor-mqtt-master/install.sh\"\nprintf '' > \"$out/hwmonitor-mqtt-master/hwmonitor_mqtt/platforms/install.py\"\nmkdir -p \"$out/hwmonitor-mqtt-master/docs/configuration\"\nprintf '# PVE config template\\nPVE_TOKEN_SECRET=replace-me\\n' > \"$out/hwmonitor-mqtt-master/docs/configuration/pve.env.example\"\nprintf 'import os\\ndef detect_target():\\n    class T: system = os.environ.get(\"BOOTSTRAP_TARGET\", \"linux\")\\n    return T()\\n' > \"$out/hwmonitor-mqtt-master/hwmonitor_mqtt/platforms/detect.py\"\n",
         "python3": f"#!/bin/sh\nif [ \"$1\" = -m ]; then echo python:$* >> '{log}'; exit {23 if fail_install else 0}; fi\nexec /usr/bin/python3 \"$@\"\n",
-        "apt-get": f"#!/bin/sh\necho apt-get:$* >> '{log}'\ncase \"$*\" in *docker.io*) printf '#!/bin/sh\\nexit 0\\n' > '{bindir}/docker'; chmod +x '{bindir}/docker' ;; esac\nexit 0\n",
+        "apt-get": f"#!/bin/sh\necho apt-get:$* >> '{log}'\ncase \"$1\" in update) exit {100 if fail_update else 0} ;; install) case \"$*\" in *ca-certificates*|*python3-venv*|*tar*) exit {100 if fail_base_install else 0} ;; esac ;; esac\ncase \"$*\" in *docker.io*) printf '#!/bin/sh\\nexit 0\\n' > '{bindir}/docker'; chmod +x '{bindir}/docker' ;; esac\nexit 0\n",
         "apt-cache": "#!/bin/sh\necho Package: $2\n",
-        "dpkg-query": "#!/bin/sh\nprintf 'installed\\n'\nexit 1\n" if conflicting_packages else "#!/bin/sh\nexit 1\n",
+        "dpkg-query": (
+            "#!/bin/sh\ncase \"$3\" in containerd.io) echo installed; exit 1 ;; esac\nexit 1\n" if conflicting_packages else
+            "#!/bin/sh\necho installed\nexit 0\n" if base_installed else
+            "#!/bin/sh\ncase \"$3\" in " + "|".join(missing_base_packages) + ") exit 1 ;; *) echo installed; exit 0 ;; esac\n"
+            if missing_base_packages else "#!/bin/sh\nexit 1\n"
+        ),
         "dpkg": "#!/bin/sh\necho amd64\n",
         **({"docker": "#!/bin/sh\nexit 0\n"} if docker_present else {}),
     }
@@ -96,6 +102,42 @@ def test_download_failure_stops_before_install(tmp_path):
     assert result.returncode != 0
     assert not root.exists()
     assert "python:" not in log.read_text()
+
+
+def test_unrelated_refresh_failure_warns_but_cached_prerequisites_continue(tmp_path):
+    result, _, log = run_bootstrap(tmp_path, fail_update=True)
+
+    assert result.returncode == 0
+    assert "apt-get:install -y ca-certificates curl python3 python3-venv tar" in log.read_text()
+    assert "apt-get:update" in log.read_text()
+    assert "warning" in result.stderr.lower()
+    assert "python:" in log.read_text()
+
+
+def test_prerequisite_install_failure_stops_before_download(tmp_path):
+    result, root, log = run_bootstrap(tmp_path, fail_update=True, fail_base_install=True)
+
+    assert result.returncode != 0
+    assert not root.exists()
+    assert "apt-get:install -y ca-certificates curl python3 python3-venv tar" in log.read_text()
+    assert "python:" not in log.read_text()
+    assert "curl\n" not in log.read_text()
+
+
+def test_installed_base_prerequisites_skip_apt_entirely(tmp_path):
+    result, _, log = run_bootstrap(tmp_path, base_installed=True)
+
+    assert result.returncode == 0
+    assert "apt-get:" not in log.read_text()
+
+
+def test_installs_only_missing_base_prerequisites(tmp_path):
+    result, _, log = run_bootstrap(tmp_path, missing_base_packages=("python3-venv",))
+
+    assert result.returncode == 0
+    calls = log.read_text()
+    assert "apt-get:install -y python3-venv" in calls
+    assert "apt-get:install -y ca-certificates curl python3 python3-venv tar" not in calls
 
 
 

@@ -22,8 +22,18 @@ if [[ -e "$root" && ( ! -f "$root/.hwmonitor-mqtt-bootstrap" || ! -f "$root/inst
     exit 1
 fi
 
-apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl python3 python3-venv tar
+base_packages=(ca-certificates curl python3 python3-venv tar)
+missing_base_packages=()
+for package in "${base_packages[@]}"; do
+    package_status=$(dpkg-query -W -f='${db:Status-Status}' "$package" 2>/dev/null || true)
+    [[ "$package_status" == installed ]] || missing_base_packages+=("$package")
+done
+if ((${#missing_base_packages[@]})); then
+    if ! apt-get update; then
+        echo "Warning: APT index refresh failed; attempting only the required missing packages with existing signed metadata and cache." >&2
+    fi
+    DEBIAN_FRONTEND=noninteractive apt-get install -y "${missing_base_packages[@]}"
+fi
 if ! python3 -c 'import sys; raise SystemExit(sys.version_info < (3, 11))'; then
     echo "Python 3.11 or newer is required; upgrade Python and rerun." >&2
     exit 1
