@@ -393,6 +393,40 @@ def test_scope_requires_propagated_vm_audit_and_allows_a_proven_empty_node(monke
         client.resources()
 
 
+@pytest.mark.parametrize("extra", [{"VM.PowerMgmt": True}, {"VM.Allocate": 0}])
+def test_scope_rejects_effective_non_audit_privileges(monkeypatch, extra):
+    client = PveApiClient(config("https://pve.example:8006"))
+    replies = {
+        "nodes": [{"node": "node-a"}],
+        "access/permissions": {"/": {"VM.Audit": True, "Sys.Audit": True, **extra}},
+        "access/acl": [],
+    }
+    monkeypatch.setattr(client, "_get", replies.__getitem__)
+    with pytest.raises(PveError, match="vm_read_only_scope_unsupported"):
+        client.validate_scope()
+
+
+def test_non_audit_scope_failure_keeps_last_good_inventory_and_recovers(monkeypatch):
+    client = PveApiClient(config("https://pve.example:8006"))
+    replies = {
+        "nodes": [{"node": "node-a"}],
+        "access/permissions": {"/": {"VM.Audit": True, "Sys.Audit": True}},
+        "access/acl": [],
+        "cluster/resources?type=vm": [{"type": "lxc", "vmid": 101, "node": "node-a", "name": "db", "status": "running"}],
+    }
+    monkeypatch.setattr(client, "_get", replies.__getitem__)
+    collector = PveCollector(client)
+    first = collector.poll_once(now=100)
+    replies["access/permissions"]["/"]["VM.PowerMgmt"] = 0
+    failed = collector.poll_once(now=200)
+    assert failed["status"] == "error" and failed["error"] == "vm_read_only_scope_unsupported"
+    assert failed["observed_at"] == first["observed_at"] == 100
+    assert failed["guests"] == first["guests"]
+    replies["access/permissions"]["/"].pop("VM.PowerMgmt")
+    recovered = collector.poll_once(now=300)
+    assert recovered["status"] == "ok" and recovered["observed_at"] == 300
+
+
 def test_ram_stats_keep_source_bytes_and_allow_over_100_percent():
     class Api:
         config = config("https://pve.example:8006")
