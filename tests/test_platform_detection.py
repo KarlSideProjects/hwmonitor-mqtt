@@ -147,17 +147,18 @@ def test_windows_dry_run_selects_windows_installer_and_collector(monkeypatch, ca
     assert result["command"][-1].endswith("install_windows_sender_task.ps1")
 
 
-def test_pve_dry_run_reports_pending_support_without_installing(monkeypatch, capsys):
+def test_pve_dry_run_reports_unconfigured_native_sender_without_installing(monkeypatch, capsys):
     target = Target("linux", "pve", "native", "fixture-pve", "debian", ("pve-manager installed", "pveversion succeeded"))
     monkeypatch.setattr(install, "detect_target", lambda: target)
-    monkeypatch.setattr(install.subprocess, "run", lambda *args, **kwargs: pytest.fail("PVE installer is pending"))
+    monkeypatch.setattr(install.subprocess, "run", lambda *args, **kwargs: pytest.fail("dry run installed PVE sender"))
 
-    assert install.main(["--dry-run"]) == 2
+    assert install.main(["--dry-run", "--pve-config", "/missing/pve.env"]) == 0
     result = json.loads(capsys.readouterr().out)
     assert result["target"]["system"] == "pve"
     assert result["collector"] == "hwmonitor_mqtt.agents.agent_sender_async"
-    assert result["status"] == "PVE detected; PVE installation support is pending"
-    assert "command" not in result
+    assert result["status"] == "PVE configuration is unconfigured"
+    assert result["requirements"] == ["native systemd service"]
+    assert result["command"][-1] == "/missing/pve.env"
 
 
 def test_unsupported_linux_distribution_dry_run_stops_before_writes(monkeypatch, capsys):

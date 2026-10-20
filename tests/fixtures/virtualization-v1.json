@@ -1,0 +1,103 @@
+{
+  "ts": 1792483000,
+  "host": "pve-node-a",
+  "cpu": {
+    "percent_total": 15,
+    "percent_per_core": [
+      15,
+      15
+    ]
+  },
+  "memory": {
+    "ram": {
+      "used": 4294967296,
+      "total": 17179869184,
+      "percent": 25
+    }
+  },
+  "gpus": [],
+  "virtualization": {
+    "version": 1,
+    "provider": "pve",
+    "cluster_id": "lab",
+    "node": "pve-node-a",
+    "observed_at": 1792483000,
+    "status": "ok",
+    "guests": [
+      {
+        "id": "lab:qemu:100",
+        "vmid": 100,
+        "type": "qemu",
+        "node": "pve-node-a",
+        "name": "web-vm",
+        "status": "running",
+        "uptime": 120,
+        "vcpus": 2,
+        "memory_basis": "pve",
+        "cpu": {
+          "percent_total": 25
+        },
+        "memory": {
+          "ram": {
+            "used": 536870912,
+            "total": 2147483648,
+            "percent": 25
+          }
+        },
+        "network_io": {
+          "total": {
+            "rate": {
+              "rx_bytes_per_s": null,
+              "tx_bytes_per_s": null
+            }
+          }
+        },
+        "disk_io": {
+          "total": {
+            "rate": {
+              "read_bytes_per_s": null,
+              "write_bytes_per_s": null
+            }
+          }
+        }
+      },
+      {
+        "id": "lab:lxc:101",
+        "vmid": 101,
+        "type": "lxc",
+        "node": "pve-node-a",
+        "name": "db-ct",
+        "status": "stopped",
+        "uptime": 0,
+        "vcpus": 1,
+        "memory_basis": "pve",
+        "cpu": {
+          "percent_total": null
+        },
+        "memory": {
+          "ram": {
+            "used": null,
+            "total": 1073741824,
+            "percent": null
+          }
+        },
+        "network_io": {
+          "total": {
+            "rate": {
+              "rx_bytes_per_s": null,
+              "tx_bytes_per_s": null
+            }
+          }
+        },
+        "disk_io": {
+          "total": {
+            "rate": {
+              "read_bytes_per_s": null,
+              "write_bytes_per_s": null
+            }
+          }
+        }
+      }
+    ]
+  }
+}

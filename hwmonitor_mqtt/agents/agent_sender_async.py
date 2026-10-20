@@ -13,13 +13,15 @@ import re
 import socket
 import time
 import glob
+import json
 from typing import Any, Dict, Optional
 
 import psutil
 from dotenv import load_dotenv
 from hwmonitor_mqtt.transport.mqtt import configuration, create_client, publish
 
-load_dotenv()
+if os.getenv("PVE_ENV_PRELOADED") != "1":
+    load_dotenv()
 
 def _env_float(name: str, default: float) -> float:
     raw = os.getenv(name)
@@ -74,6 +76,25 @@ metrics: Dict[str, Any] = {
 }
 _last_esp_signature: Optional[Dict[str, float]] = None
 _last_esp_publish_monotonic = 0.0
+pve_collector = None
+
+
+def initialize_pve_collector():
+    """Start the independent PVE poller only for the native PVE service."""
+    global pve_collector
+    if os.getenv("PVE_ENABLED") != "1":
+        return None
+    from hwmonitor_mqtt.clients.pve import PveApiClient, PveConfig, PveError
+    from hwmonitor_mqtt.collectors.pve import PveCollector
+    try:
+        config = PveConfig.from_environment(env_file=os.getenv("PVE_CONFIG_FILE", "/etc/hwmonitor-mqtt/pve.env"))
+        pve_collector = PveCollector(PveApiClient(config)) if config else PveCollector(None)
+    except PveError as error:
+        pve_collector = PveCollector(None)
+        pve_collector.mark_error(error)
+    if pve_collector.client:
+        pve_collector.start()
+    return pve_collector
 
 # ===== Helpers =====
 def normalize_device_name(name: str) -> str:
@@ -715,7 +736,7 @@ def _normalize_gpu_payload(gpu_obj: Any) -> Optional[Dict[str, Any]]:
 
 
 def build_full_payload(now_ts: Optional[int] = None) -> Dict[str, Any]:
-    return {
+    payload = {
         "ts": int(time.time()) if now_ts is None else int(now_ts),
         "host": HOSTNAME,
         "system": metrics["system"],
@@ -735,6 +756,11 @@ def build_full_payload(now_ts: Optional[int] = None) -> Dict[str, Any]:
             "last_error": mqtt_stats["last_error"],
         },
     }
+    if pve_collector is not None:
+        payload["virtualization"] = pve_collector.snapshot()
+        if len(json.dumps(payload, separators=(",", ":")).encode()) > 262144:
+            payload["virtualization"] = pve_collector.capacity_error()
+    return payload
 
 
 def build_esp_payload(now_ts: Optional[int] = None) -> Dict[str, Any]:
@@ -944,6 +970,7 @@ async def mqtt_reconnector():
 async def main():
     print(f"🚀 Async Agent started on {HOSTNAME}")
     print(f"📡 Sender profile: {SENDER_PROFILE}")
+    initialize_pve_collector()
     if SENDER_PROFILE == "esp":
         reset_esp_publish_state()
     
