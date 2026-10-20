@@ -5,40 +5,60 @@
 [![MQTT](https://img.shields.io/badge/MQTT-Realtime-FF6F00)](https://mqtt.org/)
 [![License](https://img.shields.io/badge/License-GPLv3-2ea44f)](./LICENSE)
 
-把硬體監控變成「即時可視化資料流」：
-- Agent 低負擔採集 CPU/RAM/Disk/Network/GPU/Temperature。
-- MQTT 做資料總線，支援多主機擴充。
-- Web 與本機 Viewer 即時呈現，不必重後端。
+收集 Windows／Linux 電腦的 CPU、GPU、記憶體、磁碟、網路與溫度資料，透過 MQTT 發送，供網頁、終端介面、小螢幕或自訂程式即時顯示。可用資料取決於主機硬體、驅動與感測器權限。
 
-## 為什麼值得用
+Collect Windows/Linux hardware metrics, publish them over MQTT, and display them in web dashboards, terminal viewers or custom MQTT clients.
 
-- 低門檻：`docker compose` 一鍵起服務。
-- 低耦合：採集、訊息、顯示分離。
-- 可擴展：同時支援 Linux / Windows Agent 與 ESP 輕量 payload。
-- 可維護：文件與 Python 檔案已分層，路徑更清楚。
+## 一張圖看懂用途
 
-## 架構圖（含圖例）
+![電腦採集硬體狀態，透過 MQTT 同時傳給網頁與掌機顯示端](docs/assets/monitoring-overview.png)
 
-```mermaid
-flowchart LR
-    A[Agent Sender\nLinux/Windows] -->|MQTT publish| B[(MQTT Broker)]
-    B -->|WebSocket subscribe| C[Web Monitor]
-    B -->|MQTT subscribe| D[TUI / Pygame Viewer]
+## 複製給 AI，協助你安裝
 
-    classDef agent fill:#e3f2fd,stroke:#1e88e5,color:#0d47a1
-    classDef broker fill:#fff8e1,stroke:#f9a825,color:#e65100
-    classDef view fill:#e8f5e9,stroke:#43a047,color:#1b5e20
-    class A agent
-    class B broker
-    class C,D view
+把下面整段貼給**能讀取 GitHub 並執行本機終端指令的 AI 助理**，就能請它依環境協助安裝。你只需提供要監控的電腦與 MQTT 連線資訊；需要管理員權限或輸入帳密時，由你在本機完成。
+
+```text
+請幫我安裝 https://github.com/KarlSideProjects/hwmonitor-mqtt。
+目標是收集這台電腦的硬體資料，透過 MQTT 顯示在網頁或其他接收端。
+先讀 README、docs/getting-started/quickstart.md、docs/configuration/env-vars.md
+與適用的部署文件，確認作業系統、現有安裝、可用感測器及 MQTT broker。
+Windows 依 Windows sender 與排程安裝說明；Linux 先檢查 Docker profile
+的硬體掛載及驅動需求，再選擇適用的部署方式，不要直接假設路徑存在。
+保留既有設定；缺少主機或 broker 資訊時詢問我。帳密透過本機私有設定，
+不要寫進 Git 或公開輸出。使用既有 broker；若我沒有 broker，先說明需要的
+設定再協助建立。安裝依賴、啟動採集端，確認 MQTT 收到持續更新的資料，
+再確認選定的顯示端看得到。最後告訴我如何開啟、停止與檢查服務，
+並列出已通過的驗證和需要我實際確認的項目。
+若我要使用 Linux 掌機面板，再讀同組織 mqtt-handheld-hardware-monitor
+的 README 與設備清單，依機型選擇安裝方式。
 ```
 
-### 圖例說明
+## 專案分工與適用設備
 
-- 藍色節點：資料生產者（Agent）
-- 黃色節點：訊息中樞（Broker）
-- 綠色節點：資料消費者（Web/TUI/Pygame）
-- 箭頭標籤：通訊方式（`MQTT publish` / `subscribe` / `WebSocket`）
+本專案是通用的硬體監控資料採集與顯示工具，不限於特定掌機或顯示器。採集端、MQTT broker（訊息中繼服務）與顯示端可以部署在不同設備。
+
+| 元件 | 用途與入口 |
+|---|---|
+| Linux 採集端 | 收集被監控主機的資料，見下方[快速開始](#快速開始) |
+| Windows 採集端 | 在被監控電腦安裝 sender，見 [Windows 安裝](#windows-sender-安裝與注意事項) |
+| MQTT broker | 轉送監控訊息，可使用既有 broker 或本專案的 Mosquitto 服務 |
+| Web、TUI、Pygame 顯示端 | 本專案提供的網頁、終端與圖形介面 |
+| 其他 MQTT 接收端 | 依本專案訊息格式整合自己的顯示器、設備或應用程式 |
+
+### 同一組織下的相關專案
+
+兩個專案都由 [KarlSideProjects](https://github.com/KarlSideProjects) 管理：
+
+- **[hwmonitor-mqtt](https://github.com/KarlSideProjects/hwmonitor-mqtt)**：提供電腦資料採集、MQTT 傳送與通用 Viewer。
+- **[mqtt-handheld-hardware-monitor](https://github.com/KarlSideProjects/mqtt-handheld-hardware-monitor)**：把 Linux 掌機作為 MQTT 顯示面板，提供設備安裝腳本、實體按鍵操作與關閉／喚醒螢幕功能。目前已有 R36 MAX 2 與 TrimUI Smart Pro S 的安裝與驗證紀錄，見[硬體清單](https://github.com/KarlSideProjects/mqtt-handheld-hardware-monitor#目前支援的硬體)及[實機操作圖解](https://github.com/KarlSideProjects/mqtt-handheld-hardware-monitor/blob/main/docs/device-controls.md)。
+
+這兩台掌機是顯示端的整合範例。其他設備需具備可用的 MQTT 接收程式，並依各自的作業系統、顯示方式及資料格式完成整合。
+
+## 可以幫你做什麼
+
+- **集中查看多台電腦：** 將各主機的負載與感測器資料送到同一個 MQTT broker，讓顯示端接收。
+- **選擇適合自己的畫面：** 在網頁、終端或 Pygame 圖形介面查看資料，也能接上掌機面板。
+- **沿用既有設備：** 已有 MQTT broker 或自訂顯示程式，可以依資料格式整合，採集端與顯示端分開部署。
 
 ## Viewer 預覽
 
@@ -50,32 +70,9 @@ flowchart LR
 
 ![TUI Viewer Preview](./docs/assets/previews/tui-viewer-preview.svg)
 
-## 專案結構
-
-```text
-.
-├─ hwmonitor_mqtt/
-│  ├─ agents/
-│  │  ├─ agent_sender_async.py
-│  │  └─ agent_sender_windows.py
-│  └─ viewers/
-│     ├─ pygame_viewer.py
-│     └─ tui_viewer.py
-├─ wifi_portal/
-├─ docs/
-│  ├─ getting-started/
-│  ├─ architecture/
-│  ├─ deployment/
-│  ├─ configuration/
-│  ├─ hardware/
-│  └─ troubleshooting/
-├─ tests/
-└─ docker-compose.yml
-```
-
-> 主要執行入口已統一到 `hwmonitor_mqtt/` 套件路徑。
-
 ## 快速開始
+
+若要監控 Windows，請依下方 [Windows Sender 安裝](#windows-sender-安裝與注意事項)操作。以下為 Docker 部署方式；掌機只作為顯示端時，請使用相關掌機專案的[安裝說明](https://github.com/KarlSideProjects/mqtt-handheld-hardware-monitor/blob/main/docs/installation.md)。
 
 ### 1. 設定環境
 
@@ -99,7 +96,7 @@ docker compose --profile agent up -d
 docker compose --profile full up -d
 ```
 
-ESP 輕量模式：
+供 ESP 等資源有限接收端使用的精簡資料模式（sender 仍在被監控主機執行）：
 
 ```bash
 docker compose --profile esp-agent up -d

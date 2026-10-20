@@ -1,5 +1,13 @@
 # 快速開始
 
+先選擇要安裝的元件：
+
+- 監控 Linux 主機：依以下 Docker 步驟啟動採集端。
+- 監控 Windows 主機：使用下方的 Windows sender 安裝方式。
+- 只想顯示資料：使用本專案的 Web／TUI／Pygame Viewer；Linux 掌機可參考同組織的 [mqtt-handheld-hardware-monitor 安裝說明](https://github.com/KarlSideProjects/mqtt-handheld-hardware-monitor/blob/main/docs/installation.md)。
+
+採集端、broker 與顯示端可分別部署。R36 MAX 2 與 TrimUI Smart Pro S 是顯示端範例，本專案也可供其他符合資料格式的 MQTT 接收端使用。
+
 ## 1. 準備環境
 
 - Docker

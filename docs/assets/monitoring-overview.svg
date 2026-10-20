@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="440" viewBox="0 0 1000 440" role="img" aria-labelledby="title desc">
+<title id="title">把電腦狀態送到你想看的螢幕</title>
+<desc id="desc">Windows 或 Linux 電腦採集硬體資料，經由 MQTT broker 傳給網頁、終端、自訂接收端或支援的 Linux 掌機。R36 MAX 2 和 TrimUI Smart Pro S 是目前的掌機整合範例。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 8 4 0 8Z" fill="#4f8b9a"/></marker></defs>
+<rect width="1000" height="440" rx="24" fill="#101c2e"/>
+<g font-family="sans-serif" fill="#f1f5f9">
+<text x="36" y="46" font-size="27" font-weight="700">把電腦狀態，放在你想看的螢幕上</text>
+<text x="36" y="77" font-size="16" fill="#b5c9dc">電腦負責採集 · MQTT 傳送資料 · 選擇網頁或掌機來看</text>
+<rect x="30" y="115" width="270" height="260" rx="18" fill="#1c304b"/>
+<text x="50" y="148" font-size="20" font-weight="700">① 被監控的電腦</text>
+<rect x="70" y="173" width="185" height="100" rx="8" fill="#0a1424" stroke="#6ca5ef" stroke-width="3"/>
+<path d="M162 274v15m-40 0h80" stroke="#6ca5ef" stroke-width="5"/>
+<text x="86" y="204" font-size="18" fill="#8fdcc3">CPU  GPU  RAM</text>
+<path d="m88 243 21-16 22 7 22-20 24 19 24-11 34 18" fill="none" stroke="#67d9b4" stroke-width="3"/>
+<text x="50" y="325" font-size="18">Windows / Linux</text>
+<text x="50" y="353" font-size="15" fill="#b5c9dc">負載、溫度、網路、磁碟</text>
+<path d="M305 244h48" stroke="#4f8b9a" stroke-width="4" marker-end="url(#arrow)"/>
+<rect x="365" y="167" width="200" height="158" rx="20" fill="#253e43" stroke="#67d9b4" stroke-width="2"/>
+<text x="465" y="204" text-anchor="middle" font-size="19" font-weight="700">② MQTT broker</text>
+<circle cx="420" cy="238" r="7" fill="#67d9b4"/><circle cx="465" cy="238" r="7" fill="#67d9b4"/><circle cx="510" cy="238" r="7" fill="#67d9b4"/>
+<text x="465" y="277" text-anchor="middle" font-size="17">轉送多台主機資料</text>
+<text x="465" y="301" text-anchor="middle" font-size="14" fill="#b5c9dc">可沿用既有服務</text>
+<path d="M570 244h25v-70h35" fill="none" stroke="#4f8b9a" stroke-width="4" marker-end="url(#arrow)"/>
+<path d="M595 244v70h35" fill="none" stroke="#4f8b9a" stroke-width="4" marker-end="url(#arrow)"/>
+<rect x="644" y="115" width="326" height="116" rx="16" fill="#1c304b"/>
+<rect x="665" y="140" width="86" height="62" rx="5" fill="#0a1424" stroke="#6ca5ef" stroke-width="2"/>
+<path d="M665 153h86" stroke="#6ca5ef"/><path d="M679 188v-16m18 16v-24m18 24v-12m18 12v-30" stroke="#67d9b4" stroke-width="7"/>
+<text x="772" y="151" font-size="20" font-weight="700">③ 在網頁上看</text>
+<text x="772" y="178" font-size="15" fill="#b5c9dc">也提供 TUI / Pygame</text>
+<text x="772" y="202" font-size="15" fill="#b5c9dc">可整合自訂 MQTT 接收端</text>
+<rect x="644" y="249" width="326" height="126" rx="16" fill="#1c304b"/>
+<rect x="660" y="275" width="122" height="66" rx="23" fill="#c9d5e0"/>
+<rect x="690" y="284" width="63" height="46" rx="3" fill="#102b38"/>
+<path d="M676 297v19m-9-10h18" stroke="#243345" stroke-width="4"/>
+<circle cx="766" cy="300" r="4" fill="#243345"/><circle cx="772" cy="309" r="4" fill="#243345"/>
+<path d="M699 319v-16m13 16v-25m13 25v-12m13 12v-20" stroke="#67d9b4" stroke-width="5"/>
+<text x="799" y="282" font-size="20" font-weight="700">③ 把掌機當面板</text>
+<text x="799" y="309" font-size="15" fill="#b5c9dc">實體按鍵切換與查看</text>
+<text x="799" y="333" font-size="15" fill="#b5c9dc">單鍵關屏，再按喚醒</text>
+<text x="663" y="361" font-size="14" fill="#b5c9dc">整合範例：R36 MAX 2 / TrimUI Smart Pro S</text>
+<text x="36" y="411" font-size="16" fill="#b5c9dc">一份監控資料，多種查看方式。兩台掌機是整合範例，其他設備依資料格式適配。</text>
+</g></svg>
