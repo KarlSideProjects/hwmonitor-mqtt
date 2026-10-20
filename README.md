@@ -143,31 +143,43 @@ u=https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/refs/heads/m
 
 若 PVE 套件來源回報 Enterprise repository 的 401，且目前沒有有效訂閱，bootstrap 會警告後嘗試以現有套件索引安裝必要套件；這不代表 Debian 官方套件來源無法使用。它不會修改或停用任何 PVE/Ceph 套件來源，也不會關閉簽章或來源驗證。
 
-若 PVE 尚未設定 API，第一次執行 bootstrap 會建立私有範本並停止。看到 `PVE sender is not installed yet` 代表採集服務尚未安裝完成，R36 此時不會收到 CT／VM 清單。請完成下方 API 與 CA 步驟，再重新執行；bootstrap 不會建立 API token，也不會替你信任未知 CA。一般 Linux 不需要 PVE 設定。
+PVE 安裝入口會先檢查舊的 `sys-agent` Docker 容器。容器存在時會停止，請先完成下方遷移，再執行安裝。它會更新下載目錄中的程式，保留既有 `.env` 與私有 PVE 設定。
 
-PVE 需要 HTTPS API 唯讀 token、可信 CA，以及穩定的 cluster ID 和 node 名稱。token 需透過 ACL 繼承取得 `/vms` 的 `VM.Audit`，並以 `Sys.Audit` 讀取 `/access` ACL；每個明列的 `/vms` ACL 範圍也需有 `VM.Audit`。目前所有有效權限都必須以 `.Audit` 結尾，且可見的叢集 ACL 不可包含 `/pool/...` 項目。完整權限與 scope 限制見 [PVE sender 設定說明](docs/configuration/env-vars.md#proxmox-ve-sender)。bootstrap 第一次執行會從已下載的 `/opt/hwmonitor-mqtt/docs/configuration/pve.env.example` 建立私有範本；既有設定檔會保留。
+PVE 本機的節點名稱與 CA 由 PVE 安裝模組準備。模組將本機 `/etc/pve/pve-root-ca.pem` 複製到服務可讀的 `/etc/hwmonitor-mqtt/pve-root-ca.pem`，預設 API URL 使用本機完整主機名稱；HTTPS 憑證仍需符合 URL。cluster ID 用於監控資料識別，並非 API 登入參數。各欄位來源與用途見 [PVE 設定參考](docs/configuration/env-vars.md#proxmox-ve-sender)。既有實際設定保留，範本中的已知範例值會依本機資料補正。
 
-請先取得 root shell，以下命令不需 sudo。若要手動建立，範本使用已下載到固定安裝位置的檔案：
-
-```bash
-install -d -m 0755 /etc/hwmonitor-mqtt
-if ! test -e /etc/hwmonitor-mqtt/pve.env; then
-  install -m 0600 /opt/hwmonitor-mqtt/docs/configuration/pve.env.example /etc/hwmonitor-mqtt/pve.env
-fi
-${EDITOR:-vi} /etc/hwmonitor-mqtt/pve.env
-```
-
-將範例中的 URL、token、cluster ID、node 和 CA 路徑改成實際值。不要把 token 貼進 Git 或公開輸出。範例 CA 路徑是 `/etc/hwmonitor-mqtt/pve-root-ca.pem`；將 `/path/to/trusted-pve-root-ca.pem` 換成 CA 檔的實際來源路徑：
+API token 需要自行建立。安裝入口不會建立帳號、修改 PVE 權限或關閉 TLS 驗證。缺少 token 時會建立私有設定檔並停止，請在 PVE 的 root Shell 編輯：
 
 ```bash
-CA_SOURCE='/path/to/trusted-pve-root-ca.pem'
-test -f "$CA_SOURCE"
-if ! test -e /etc/hwmonitor-mqtt/pve-root-ca.pem; then
-  install -m 0644 "$CA_SOURCE" /etc/hwmonitor-mqtt/pve-root-ca.pem
-fi
+nano /etc/hwmonitor-mqtt/pve.env
 ```
 
-`/etc/hwmonitor-mqtt` 目錄使用 `0755`，CA 檔使用 `0644`，讓服務身分可讀取 CA。確認 token、設定及 CA 已準備好後，在 PVE 宿主重新執行上方 bootstrap 命令。
+填入實際的 `PVE_TOKEN_ID` 與 `PVE_TOKEN_SECRET`；URL、CA、節點或 cluster ID 有自訂需求時再調整。不要把 token 貼進 Git、聊天或公開截圖。token 需透過 ACL 繼承取得 `/vms` 的 `VM.Audit`，並以 `Sys.Audit` 讀取 `/access` ACL；每個明列的 `/vms` ACL 範圍也需有 `VM.Audit`。目前所有有效權限都必須以 `.Audit` 結尾，且可見的叢集 ACL 不可包含 `/pool/...` 項目。完整限制見 [PVE 設定參考](docs/configuration/env-vars.md#proxmox-ve-sender)。
+
+儲存後重跑上方下載安裝命令。入口會先驗證 CA、HTTPS API 與 token scope，再詢問缺少的 MQTT 設定與安裝服務。看到 `PVE sender is not installed yet` 代表本次尚未安裝完成，R36 此時不會收到這套服務的 CT／VM 清單。一般 Linux 不需要 PVE 設定。
+
+### 從舊 Docker sender 遷移到 PVE 原生服務
+
+以下遷移步驟尚待 PVE 實機重裝驗證。先退出監控安裝程序，再以 root 執行。此步驟會暫停舊監控；保留舊容器作為回復備份，不影響 CT／VM：
+
+```bash
+docker stop sys-agent && docker rename sys-agent sys-agent-before-native
+```
+
+重新執行上方下載安裝命令。停止但仍名為 `sys-agent` 的容器也會阻擋安裝；不要執行會停止其他服務的 `docker compose down`。若備份名稱已存在，先檢查既有備份，不要覆寫。
+
+安裝後檢查服務與日誌，並在 R36 開啟 PVE 主機確認 CT／VM 清單：
+
+```bash
+systemctl status hwmonitor-mqtt-pve --no-pager
+journalctl -u hwmonitor-mqtt-pve -n 30 --no-pager
+```
+
+若需回復保留的舊容器，先停用新版，再恢復舊容器名稱與啟動。若新服務尚未建立，略過第一個指令：
+
+```bash
+systemctl disable --now hwmonitor-mqtt-pve
+docker rename sys-agent-before-native sys-agent && docker start sys-agent
+```
 
 安裝器支援 Debian、Ubuntu 與 Raspberry Pi OS；其他 Linux 發行版會停止並回報不支援。PVE 原生安裝與 Windows 排程安裝尚未在實體目標主機驗證。Windows 請使用 [Windows sender 安裝方式](#windows-sender-安裝與注意事項)。
 
