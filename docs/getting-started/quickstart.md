@@ -32,6 +32,14 @@ docker compose --profile agent up -d
 docker compose --profile full up -d
 ```
 
+## 安裝目標預覽
+
+在實際要安裝的主機執行以下命令，可預覽偵測到的 OS、系統類型、執行環境與安裝命令；`--dry-run` 不會安裝或啟動服務。PVE 目前只會顯示已辨識及待支援狀態。
+
+```bash
+uv run --no-sync python -m hwmonitor_mqtt.platforms.install --dry-run
+```
+
 ## 4. 觀察資料
 
 - Web UI：`http://localhost:8088`

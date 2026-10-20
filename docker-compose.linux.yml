@@ -1,0 +1,15 @@
+services:
+  sys_agent:
+    build: .
+    container_name: sys-agent
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    volumes:
+      - /sys:/sys:ro
+    environment:
+      BROKER_HOST: ${BROKER_HOST}
+      BROKER_PORT: ${BROKER_PORT:-1883}
+      MQTT_USER: ${MQTT_USER:-}
+      MQTT_PASS: ${MQTT_PASS:-}
+    profiles: ["agent"]
