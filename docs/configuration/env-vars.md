@@ -38,6 +38,8 @@
 
 ## Proxmox VE sender
 
-原生 PVE sender 使用獨立私有設定檔 `/etc/hwmonitor-mqtt/pve.env`，範例見 [pve.env.example](./pve.env.example)。設定需包含 HTTPS API URL、唯讀 token、可信 CA、穩定 cluster ID 與目標 node。API scope 檢查要求 token 對 `/vms` 有可傳遞的 `VM.Audit`，並以 `Sys.Audit` 讀取 ACL 清單以確認沒有 guest 範圍的 `NoAccess` 覆寫。無此完整只讀範圍時不發布 guest inventory；主機硬體仍持續發布。
+原生 PVE sender 使用獨立私有設定檔 `/etc/hwmonitor-mqtt/pve.env`，範例見 [pve.env.example](./pve.env.example)。設定需包含 HTTPS API URL、唯讀 token、可信 CA、穩定 cluster ID 與目標 node。scope 檢查要求有效的 `VM.Audit` 能涵蓋 `/vms`、`Sys.Audit` 能讀取 `/access` ACL，並確認每個明確列出的 `/vms` ACL 範圍也有有效 `VM.Audit`。第一版保守拒絕含 `/pool/...` ACL 的 token (`pool_scope_unsupported`)；pool 指派、缺少傳遞權限或 ACL 不完整時不發布 guest inventory，主機硬體仍持續發布。
 
 PVE systemd service 由 systemd 讀取既有 `.env` 的 MQTT 設定，不覆寫該檔；sender 程式及依賴安裝到 root-owned `/opt/hwmonitor-mqtt-pve`，服務以 transient unprivileged identity 執行。重裝會重新部署程式並重啟服務。服務固定使用 full payload。API 輪詢每 10 秒執行一次，使用者可用 `PVE_TIMEOUT_SEC` 調整每次請求 timeout（1–30 秒）。CA 檔需可供 systemd service identity 讀取。
+
+Docker PVE 部署使用相同私有設定與設定內的 CA 路徑，唯讀掛載到 sender 容器；不把 token 或 CA 寫入 image。從已辨識的 PVE 宿主選用 `--deployment docker`，安裝器會先驗證 API scope，再使用 PVE Compose profile。由容器內執行時，宿主類型不會從容器 OS 推斷，需明確指定 `--target-system pve`；若無法從宿主檢查另一個 sender 的狀態，安裝器會要求改在宿主執行。

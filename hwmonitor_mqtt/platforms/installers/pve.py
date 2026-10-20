@@ -65,6 +65,13 @@ def install(project_root, config_file=DEFAULT_CONFIG, run=subprocess.run, which=
     validation = readiness(config_file)
     if validation and validation != "PVE configuration is unconfigured":
         raise RuntimeError(validation)
+    docker = which("docker")
+    if docker:
+        existing = run([docker, "inspect", "sys-agent"], check=False, capture_output=True, text=True)
+        if existing.returncode == 0:
+            raise RuntimeError("sys-agent container exists; stop/remove it before installing the native PVE sender")
+        if "No such object" not in (getattr(existing, "stderr", "") or ""):
+            raise RuntimeError("could not verify that no sys-agent container is running")
     source = Path(project_root).resolve() / "hwmonitor_mqtt"
     app = Path(APP_ROOT)
     app.parent.mkdir(parents=True, exist_ok=True)

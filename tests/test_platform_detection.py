@@ -75,6 +75,145 @@ def test_docker_dry_run_uses_container_target_and_does_not_claim_host(tmp_path):
     assert target.runtime == "docker"
 
 
+def test_docker_target_system_is_explicit_and_selects_pve_compose(monkeypatch, capsys):
+    target = Target("linux", "unknown", "docker", "fixture-container", "debian", ("container runtime marker=docker",))
+    monkeypatch.setattr(install, "detect_target", lambda: target)
+    monkeypatch.setattr(install.subprocess, "run", lambda *args, **kwargs: pytest.fail("dry-run executed installer"))
+    monkeypatch.setattr("hwmonitor_mqtt.platforms.installers.pve.readiness", lambda config: None)
+    monkeypatch.setattr(linux, "preflight", lambda: None)
+
+    assert install.main(["--dry-run", "--target-system", "pve", "--pve-config", "/etc/hwmonitor-mqtt/pve.env"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["target"]["system"] == "pve"
+    assert result["target"]["runtime"] == "docker"
+    assert result["deployment"] == "docker"
+    assert result["ready"] is True
+    assert result["command"] == ["docker", "compose", "-f", str(Path(__file__).resolve().parents[1] / "docker-compose.pve.yml"), "--profile", "pve", "up", "--build", "-d"]
+
+
+def test_docker_pve_target_requires_valid_api_configuration(monkeypatch, capsys):
+    target = Target("linux", "unknown", "docker", "fixture-container", "debian", ())
+    monkeypatch.setattr(install, "detect_target", lambda: target)
+    monkeypatch.setattr("hwmonitor_mqtt.platforms.installers.pve.readiness", lambda config: "PVE validation failed: invalid_config")
+    monkeypatch.setattr(linux, "preflight", lambda: None)
+
+    assert install.main(["--dry-run", "--target-system", "pve", "--pve-config", "/etc/hwmonitor-mqtt/pve.env"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["ready"] is False
+    assert result["status"] == "PVE validation failed: invalid_config"
+
+
+def test_native_pve_target_cannot_be_overridden_by_container_setting(monkeypatch, capsys):
+    target = Target("linux", "pve", "native", "fixture-pve", "debian", ())
+    monkeypatch.setattr(install, "detect_target", lambda: target)
+
+    assert install.main(["--dry-run", "--target-system", "linux"]) == 2
+    assert "contradicts detected host" in capsys.readouterr().out
+
+
+def test_detected_pve_host_can_select_docker_deployment(monkeypatch, capsys):
+    target = Target("linux", "pve", "native", "fixture-pve-host", "debian", ("pve-manager installed", "pveversion succeeded"))
+    monkeypatch.setattr(install, "detect_target", lambda: target)
+    monkeypatch.setattr("hwmonitor_mqtt.platforms.installers.pve.readiness", lambda config: None)
+    monkeypatch.setattr(linux, "preflight", lambda: None)
+
+    assert install.main(["--dry-run", "--deployment", "docker", "--pve-config", "/etc/hwmonitor-mqtt/pve.env"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["target"]["system"] == "pve"
+    assert result["target"]["runtime"] == "native"
+    assert result["deployment"] == "docker"
+    assert result["command"][-7:] == ["-f", str(Path(__file__).resolve().parents[1] / "docker-compose.pve.yml"), "--profile", "pve", "up", "--build", "-d"]
+
+
+def test_docker_compose_profiles_keep_stable_host_identity_and_private_mounts():
+    base = Path(__file__).resolve().parents[1]
+    linux = (base / "docker-compose.linux.yml").read_text()
+    pve = (base / "docker-compose.pve.yml").read_text()
+    assert "hostname: ${SENDER_HOSTNAME:?" in linux and "hostname: ${SENDER_HOSTNAME:?" in pve
+    assert "source: ${PVE_CONFIG_HOST:?set by host-aware installer}" in pve
+    assert "source: ${PVE_CA_HOST:?set by host-aware installer}" in pve
+    assert "target: ${PVE_CA_TARGET:?set by host-aware installer}" in pve
+    assert "PVE_ENABLED: \"1\"" in pve and "PVE_CONFIG_FILE: /run/secrets/pve.env" in pve
+    assert "privileged" not in pve and "MQTT_PASS" in pve
+
+
+def test_live_pve_docker_install_passes_private_paths_without_printing_them(monkeypatch, capsys, tmp_path):
+    target = Target("linux", "pve", "native", "fixture-pve-host", "debian", ())
+    monkeypatch.setattr(install, "detect_target", lambda: target)
+    monkeypatch.setattr("hwmonitor_mqtt.platforms.installers.pve.readiness", lambda config: None)
+    monkeypatch.setattr(linux, "preflight", lambda: None)
+    monkeypatch.setattr("hwmonitor_mqtt.clients.pve.PveConfig.from_environment", lambda **kwargs: type("Config", (), {"ca_file": "/private/ca.pem"})())
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(command, 0, "UnitFileState=\nActiveState=inactive\nLoadState=not-found\n" if command[0].endswith("systemctl") else "", "")
+
+    monkeypatch.setattr(install.subprocess, "run", run)
+    config = tmp_path / "pve.env"
+    config.write_text("private placeholder\n")
+    assert install.main(["--deployment", "docker", "--pve-config", str(config)]) == 0
+    output = capsys.readouterr().out
+    assert "private placeholder" not in output
+    compose_call, compose_kwargs = calls[-1]
+    assert compose_call[-7:] == ["-f", str(Path(__file__).resolve().parents[1] / "docker-compose.pve.yml"), "--profile", "pve", "up", "--build", "-d"]
+    assert compose_kwargs["env"]["SENDER_HOSTNAME"] == "fixture-pve-host"
+    assert compose_kwargs["env"]["PVE_CONFIG_HOST"] == str(config.resolve())
+    assert compose_kwargs["env"]["PVE_CA_HOST"] == "/private/ca.pem"
+    assert compose_kwargs["env"]["PVE_CA_TARGET"] == "/private/ca.pem"
+
+
+def test_ordinary_linux_compose_install_receives_host_identity(monkeypatch):
+    target = Target("linux", "linux", "native", "fixture-linux-host", "debian", ())
+    monkeypatch.setattr(install, "detect_target", lambda: target)
+    monkeypatch.setattr(linux, "preflight", lambda: None)
+    calls = []
+    monkeypatch.setattr(install.subprocess, "run", lambda command, **kwargs: calls.append((command, kwargs)) or subprocess.CompletedProcess(command, 0))
+
+    assert install.main(["--project-root", "/project"]) == 0
+    assert calls[0][1]["env"]["SENDER_HOSTNAME"] == "fixture-linux-host"
+
+
+def test_pve_docker_install_refuses_an_active_native_sender(monkeypatch, capsys, tmp_path):
+    target = Target("linux", "pve", "native", "fixture-pve-host", "debian", ())
+    monkeypatch.setattr(install, "detect_target", lambda: target)
+    monkeypatch.setattr("hwmonitor_mqtt.platforms.installers.pve.readiness", lambda config: None)
+    monkeypatch.setattr(linux, "preflight", lambda: None)
+    monkeypatch.setattr("hwmonitor_mqtt.clients.pve.PveConfig.from_environment", lambda **kwargs: type("Config", (), {"ca_file": "/private/ca.pem"})())
+    config = tmp_path / "pve.env"
+    config.write_text("fixture\n")
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0, "UnitFileState=enabled\nActiveState=active\nLoadState=loaded\n" if command[0].endswith("systemctl") else "", "")
+
+    monkeypatch.setattr(install.subprocess, "run", run)
+    assert install.main(["--pve-config", str(config), "--deployment", "docker"]) == 2
+    assert "disable it before selecting Docker" in capsys.readouterr().out
+    assert not any(command[0] == "docker" for command in calls)
+
+
+def test_pve_docker_install_fails_closed_when_systemd_state_cannot_be_inspected(monkeypatch, capsys, tmp_path):
+    target = Target("linux", "pve", "native", "fixture-pve-host", "debian", ())
+    monkeypatch.setattr(install, "detect_target", lambda: target)
+    monkeypatch.setattr("hwmonitor_mqtt.platforms.installers.pve.readiness", lambda config: None)
+    monkeypatch.setattr(linux, "preflight", lambda: None)
+    monkeypatch.setattr("hwmonitor_mqtt.clients.pve.PveConfig.from_environment", lambda **kwargs: type("Config", (), {"ca_file": "/private/ca.pem"})())
+    config = tmp_path / "pve.env"
+    config.write_text("fixture\n")
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 1, "", "Failed to connect to bus")
+
+    monkeypatch.setattr(install.subprocess, "run", run)
+    assert install.main(["--pve-config", str(config), "--deployment", "docker"]) == 2
+    assert "Could not inspect native PVE sender state" in capsys.readouterr().out
+    assert len(calls) == 1 and calls[0][0].endswith("systemctl")
+
+
 def test_containerd_marker_does_not_probe_host_pve_packages(tmp_path):
     release = tmp_path / "os-release"
     release.write_text("ID=debian\n")
@@ -89,6 +228,18 @@ def test_containerd_marker_does_not_probe_host_pve_packages(tmp_path):
     assert target.system == "unknown"
     assert target.runtime == "containerd"
     assert commands == []
+
+
+def test_pve_docker_accepts_named_systemd_properties_in_any_order(tmp_path, monkeypatch):
+    from hwmonitor_mqtt.platforms.installers.pve_docker import deployment_environment
+
+    monkeypatch.setattr("hwmonitor_mqtt.clients.pve.PveConfig.from_environment", lambda **kwargs: type("Config", (), {"ca_file": "/private/ca.pem"})())
+    result = deployment_environment(
+        tmp_path / "pve.env", "fixture-host", "native", {},
+        run=lambda command, **kwargs: subprocess.CompletedProcess(command, 0, "UnitFileState=disabled\nLoadState=loaded\nActiveState=inactive\n", ""),
+        which=lambda name: "/usr/bin/systemctl",
+    )
+    assert result["SENDER_HOSTNAME"] == "fixture-host"
 
 
 def test_arbitrary_pveversion_output_is_not_pve_evidence(tmp_path):
@@ -112,7 +263,7 @@ def test_linux_and_windows_select_existing_installers():
     windows = Target("windows", "windows", "native", "host", None, ())
 
     assert install_command(linux, "/project") == [
-        "docker", "compose", "-f", "/project/docker-compose.linux.yml", "--profile", "agent", "up", "-d",
+        "docker", "compose", "-f", "/project/docker-compose.linux.yml", "--profile", "agent", "up", "--build", "-d",
     ]
     assert Path(install_command(windows, "/project")[-1]) == Path("/project/scripts/windows/install_windows_sender_task.ps1")
 
