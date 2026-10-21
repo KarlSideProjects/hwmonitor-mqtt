@@ -375,3 +375,23 @@ def test_refuses_unknown_install_directory_without_modifying_it(tmp_path):
     assert result.returncode != 0
     assert sentinel.read_text() == "user data"
     assert "apt-get:" not in (tmp_path / "calls.log").read_text()
+
+
+@pytest.mark.parametrize(("content", "expected"), [("", "unknown"), ("abc123\n", "abc123")])
+def test_powershell_kept_install_marker_reads_empty_and_commit(tmp_path, content, expected):
+    source = (REPO / "bootstrap.ps1").read_text()
+    match = re.search(r"^\s*(\$installed = .*\n\s*if \(-not \$installed\).*)$", source, re.M)
+    assert match
+    pwsh = shutil.which("pwsh")
+    if not pwsh:
+        pytest.skip("PowerShell runtime is unavailable")
+    marker = tmp_path / ".hwmonitor-mqtt-bootstrap"
+    marker.write_text(content)
+    snippet = match.group(1).replace("(Join-Path $root '.hwmonitor-mqtt-bootstrap')", "$env:MARKER_PATH")
+    result = subprocess.run(
+        # Same ErrorActionPreference as bootstrap.ps1, so a null method call fails instead of being masked.
+        [pwsh, "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop'; " + snippet + "; Write-Output $installed"],
+        env={**os.environ, "MARKER_PATH": str(marker)}, capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == expected

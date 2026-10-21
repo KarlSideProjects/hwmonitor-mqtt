@@ -1136,7 +1136,7 @@ async def main():
 
     print(f"Async Agent for Windows started on {HOSTNAME}")
     marker = Path(__file__).resolve().parents[2] / ".hwmonitor-mqtt-bootstrap"
-    print(f"Installed commit: {marker.read_text().strip() if marker.exists() else 'unknown (not installed by bootstrap.ps1)'}")
+    print(f"Installed commit: {(marker.read_text().strip() or 'unknown') if marker.exists() else 'unknown (not installed by bootstrap.ps1)'}")
     print(f"Sender profile: {SENDER_PROFILE}")
 
     pawnio = pawnio_version()

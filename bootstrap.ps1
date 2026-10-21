@@ -15,7 +15,9 @@ try {
         if (-not (Test-Path (Join-Path $root '.hwmonitor-mqtt-bootstrap')) -or -not (Test-Path (Join-Path $root 'install.sh')) -or -not (Test-Path (Join-Path $root 'scripts/windows/install_windows_sender_task.ps1'))) {
             throw "Refusing to use existing unrecognized directory: $root"
         }
-        $installed = (Get-Content -Raw (Join-Path $root '.hwmonitor-mqtt-bootstrap')).Trim()
+        # Get-Content emits nothing for an empty file (older installs); interpolation keeps it a string.
+        $installed = "$(Get-Content -Raw (Join-Path $root '.hwmonitor-mqtt-bootstrap'))".Trim()
+        if (-not $installed) { $installed = 'unknown' }
         Write-Output "Keeping existing code in $root (commit: $installed); HWMONITOR_REF is ignored. Remove the directory to reinstall."
     }
     else {
