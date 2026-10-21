@@ -68,3 +68,33 @@ jobs:
           '
       - name: Install and observe isolated native sender
         run: sudo env PATH="$PATH" UV_PYTHON="$(command -v python3)" "$(command -v uv)" run --locked python scripts/native_install_smoke.py --run
+
+  windows-sender:
+    name: Windows sender (PowerShell 5.1 and 7, LHM load)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@22695119d769bdb6f7032ad67b9bca0ef8c4a174 # v5.4.0
+      - name: Install locked dependencies
+        run: uv sync --locked
+      - name: PowerShell tests under Windows PowerShell 5.1
+        env:
+          PWSH_EXE: powershell.exe
+        run: uv run --locked pytest -q tests/test_powershell_syntax.py tests/test_remote_bootstrap.py -k powershell
+      - name: PowerShell tests under PowerShell 7
+        env:
+          PWSH_EXE: pwsh
+        run: uv run --locked pytest -q tests/test_powershell_syntax.py tests/test_remote_bootstrap.py -k powershell
+      - name: Windows sender unit tests
+        run: uv run --locked pytest -q tests/test_windows_sender_profile.py
+      # The real installer path: pinned LHM hash, PawnIO silent install, SYSTEM task registration.
+      - name: Run the Windows installer
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install_windows_sender_task.ps1 -ProjectRoot "$PWD" -AtStartup
+      - name: Load LibreHardwareMonitorLib through pythonnet
+        shell: powershell
+        run: |
+          .\.venv\Scripts\python.exe -c "import json, subprocess, sys; r = subprocess.run([sys.executable, '-m', 'hwmonitor_mqtt.agents.agent_sender_windows', '--dump-sensors'], capture_output=True, text=True); print(r.stderr); assert r.returncode == 0 and 'available: True' in r.stderr, r.stderr; n = len(json.loads(r.stdout)['sensors']); print(n, 'sensors'); assert n > 0"

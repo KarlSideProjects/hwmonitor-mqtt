@@ -6,6 +6,8 @@ import subprocess
 
 import pytest
 
+from _pwsh import run_pwsh
+
 
 REPO = Path(__file__).resolve().parents[1]
 BOOTSTRAP = REPO / "bootstrap.sh"
@@ -327,12 +329,8 @@ def test_powershell_dotenv_guard_catches_empty_interpolation(tmp_path):
     source = (REPO / "bootstrap.ps1").read_text()
     match = re.search(r"\$user -match '([^']+)'", source)
     assert match and match.group(1) == r"\$\{[^}]*\}"
-    pwsh = shutil.which("pwsh")
-    if not pwsh:
-        pytest.skip("PowerShell runtime is unavailable")
-    script = f"$value='abc${{}}def'; if ($value -match '{match.group(1)}') {{ exit 0 }} else {{ exit 1 }}"
-    result = subprocess.run([pwsh, "-NoProfile", "-Command", script], capture_output=True, check=False)
-    assert result.returncode == 0
+    result = run_pwsh(f"$value='abc${{}}def'; if ($value -match '{match.group(1)}') {{ exit 0 }} else {{ exit 1 }}")
+    assert result.returncode == 0, result.stderr
 
 
 def test_existing_installer_failure_is_forwarded(tmp_path):
@@ -382,16 +380,9 @@ def test_powershell_kept_install_marker_reads_empty_and_commit(tmp_path, content
     source = (REPO / "bootstrap.ps1").read_text()
     match = re.search(r"^\s*(\$installed = .*\n\s*if \(-not \$installed\).*)$", source, re.M)
     assert match
-    pwsh = shutil.which("pwsh")
-    if not pwsh:
-        pytest.skip("PowerShell runtime is unavailable")
     marker = tmp_path / ".hwmonitor-mqtt-bootstrap"
     marker.write_text(content)
     snippet = match.group(1).replace("(Join-Path $root '.hwmonitor-mqtt-bootstrap')", "$env:MARKER_PATH")
-    result = subprocess.run(
-        # Same ErrorActionPreference as bootstrap.ps1, so a null method call fails instead of being masked.
-        [pwsh, "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop'; " + snippet + "; Write-Output $installed"],
-        env={**os.environ, "MARKER_PATH": str(marker)}, capture_output=True, text=True, check=False,
-    )
+    result = run_pwsh(snippet + "; Write-Output $installed", env={"MARKER_PATH": str(marker)})
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == expected
