@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $root = Join-Path $env:ProgramData 'hwmonitor-mqtt'
-$repo = 'https://github.com/KarlSideProjects/hwmonitor-mqtt/archive/refs/heads/master.zip'
+$ref = if ($env:HWMONITOR_REF) { $env:HWMONITOR_REF } else { 'master' }
+if ($ref -notmatch '^[A-Za-z0-9._/-]+$') { throw 'HWMONITOR_REF must be a branch, tag or commit name.' }
 $temp = Join-Path $env:TEMP ('hwmonitor-mqtt-' + [guid]::NewGuid().ToString('N'))
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -14,15 +15,27 @@ try {
         if (-not (Test-Path (Join-Path $root '.hwmonitor-mqtt-bootstrap')) -or -not (Test-Path (Join-Path $root 'install.sh')) -or -not (Test-Path (Join-Path $root 'scripts/windows/install_windows_sender_task.ps1'))) {
             throw "Refusing to use existing unrecognized directory: $root"
         }
+        $installed = (Get-Content -Raw (Join-Path $root '.hwmonitor-mqtt-bootstrap')).Trim()
+        Write-Output "Keeping existing code in $root (commit: $installed); HWMONITOR_REF is ignored. Remove the directory to reinstall."
     }
     else {
+        # Resolve the ref once so the marker names exactly the commit that was installed.
+        try {
+            $commit = (Invoke-RestMethod -Uri "https://api.github.com/repos/KarlSideProjects/hwmonitor-mqtt/commits/$ref" -Headers @{ 'User-Agent' = 'hwmonitor-mqtt-bootstrap' }).sha
+        }
+        catch {
+            $commit = $null
+        }
+        $archiveRef = if ($commit) { $commit } else { "refs/heads/$ref" }
         $zip = Join-Path $temp 'source.zip'
-        Invoke-WebRequest -UseBasicParsing -Uri $repo -OutFile $zip
+        Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/KarlSideProjects/hwmonitor-mqtt/archive/$archiveRef.zip" -OutFile $zip
         Expand-Archive -Path $zip -DestinationPath $temp
         $source = Get-ChildItem -Path $temp -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'scripts/windows/install_windows_sender_task.ps1') } | Select-Object -First 1
         if (-not $source) { throw 'Downloaded archive did not contain the project.' }
         Move-Item -Path $source.FullName -Destination $root
-        New-Item -ItemType File -Path (Join-Path $root '.hwmonitor-mqtt-bootstrap') | Out-Null
+        $marker = if ($commit) { $commit } else { "$ref (commit unknown)" }
+        [IO.File]::WriteAllText((Join-Path $root '.hwmonitor-mqtt-bootstrap'), $marker + "`n", [Text.UTF8Encoding]::new($false))
+        Write-Output "Installed $ref at commit $marker"
     }
 
     $envFile = Join-Path $root '.env'

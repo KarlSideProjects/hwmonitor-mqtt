@@ -142,25 +142,9 @@ function Resolve-LhmExePath {
     return $null
 }
 
-function Get-LhmDownloadUrl {
-    param([string]$RequestedUrl)
-
-    if (-not [string]::IsNullOrWhiteSpace($RequestedUrl)) {
-        return $RequestedUrl
-    }
-
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest" -Headers @{ "User-Agent" = "hwmonitor-mqtt-agent" }
-    $assets = @($release.assets)
-    $preferred = $assets | Where-Object { $_.name -eq "LibreHardwareMonitor.zip" } | Select-Object -First 1
-    if (-not $preferred) {
-        $preferred = $assets | Where-Object { $_.name -like "*.zip" } | Select-Object -First 1
-    }
-    if (-not $preferred) {
-        throw "Cannot find zip asset in latest LibreHardwareMonitor release."
-    }
-
-    return $preferred.browser_download_url
-}
+# Pinned: LHM 0.9.5 silently removed its WMI provider; upgrades must be a reviewed change.
+$LhmDefaultUrl = "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v0.9.6/LibreHardwareMonitor.zip"
+$LhmDefaultSha256 = "086D9F1B5A99E643EDC2CFAAAC16051685B551E4C5AC0B32A57C58C0E529C001"
 
 function Ensure-LhmExecutable {
     param(
@@ -188,9 +172,18 @@ function Ensure-LhmExecutable {
     $extractDir = Join-Path $tmpRoot "extract"
 
     try {
-        $url = Get-LhmDownloadUrl -RequestedUrl $DownloadUrl
+        $url = if ([string]::IsNullOrWhiteSpace($DownloadUrl)) { $LhmDefaultUrl } else { $DownloadUrl }
         Write-Output "Downloading LibreHardwareMonitor from: $url"
-        Invoke-WebRequest -Uri $url -OutFile $zipPath
+        Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zipPath
+        if ($url -eq $LhmDefaultUrl) {
+            $hash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash
+            if ($hash -ne $LhmDefaultSha256) {
+                throw "LibreHardwareMonitor archive SHA-256 mismatch: $hash"
+            }
+        }
+        else {
+            Write-Output "Custom LhmDownloadUrl: SHA-256 not verified."
+        }
 
         Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
 

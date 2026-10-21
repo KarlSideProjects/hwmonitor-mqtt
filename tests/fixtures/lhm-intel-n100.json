@@ -1,0 +1,227 @@
+{
+ "source": "Intel N100 (iGPU DEV_46D4), LibreHardwareMonitorLib 0.9.6, PawnIO 2.2.0; temperature and GPU sensors only",
+ "sensors": [
+  {
+   "Parent": "/lpc/it8613e/0",
+   "SensorType": "Temperature",
+   "Name": "Temperature #1",
+   "Value": 61.0
+  },
+  {
+   "Parent": "/lpc/it8613e/0",
+   "SensorType": "Temperature",
+   "Name": "Temperature #2",
+   "Value": 57.0
+  },
+  {
+   "Parent": "/intelcpu/0",
+   "SensorType": "Temperature",
+   "Name": "Core Max",
+   "Value": 68.0
+  },
+  {
+   "Parent": "/intelcpu/0",
+   "SensorType": "Temperature",
+   "Name": "Core Average",
+   "Value": 68.0
+  },
+  {
+   "Parent": "/intelcpu/0",
+   "SensorType": "Temperature",
+   "Name": "E-Core #1",
+   "Value": 68.0
+  },
+  {
+   "Parent": "/intelcpu/0",
+   "SensorType": "Temperature",
+   "Name": "E-Core #2",
+   "Value": 68.0
+  },
+  {
+   "Parent": "/intelcpu/0",
+   "SensorType": "Temperature",
+   "Name": "E-Core #3",
+   "Value": 68.0
+  },
+  {
+   "Parent": "/intelcpu/0",
+   "SensorType": "Temperature",
+   "Name": "E-Core #4",
+   "Value": 68.0
+  },
+  {
+   "Parent": "/intelcpu/0",
+   "SensorType": "Temperature",
+   "Name": "CPU Package",
+   "Value": 68.0
+  },
+  {
+   "Parent": "/intelcpu/0",
+   "SensorType": "Temperature",
+   "Name": "E-Core #1 Distance to TjMax",
+   "Value": 37.0
+  },
+  {
+   "Parent": "/intelcpu/0",
+   "SensorType": "Temperature",
+   "Name": "E-Core #2 Distance to TjMax",
+   "Value": 37.0
+  },
+  {
+   "Parent": "/intelcpu/0",
+   "SensorType": "Temperature",
+   "Name": "E-Core #3 Distance to TjMax",
+   "Value": 37.0
+  },
+  {
+   "Parent": "/intelcpu/0",
+   "SensorType": "Temperature",
+   "Name": "E-Core #4 Distance to TjMax",
+   "Value": 37.0
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "Clock",
+   "Name": "GPU Core",
+   "Value": 750.0
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "Voltage",
+   "Name": "GPU Core",
+   "Value": 0.3319999873638153
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "Power",
+   "Name": "GPU Power",
+   "Value": 0.23781438171863556
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "SmallData",
+   "Name": "D3D Shared Memory Total",
+   "Value": 8063.0546875
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "SmallData",
+   "Name": "D3D Shared Memory Free",
+   "Value": null
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "SmallData",
+   "Name": "D3D Shared Memory Used",
+   "Value": 675.83203125
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "Load",
+   "Name": "D3D 3D",
+   "Value": 11.700034141540527
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "Load",
+   "Name": "D3D Video Decode",
+   "Value": 0.5628471374511719
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "Load",
+   "Name": "D3D Copy",
+   "Value": 0.0
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "Load",
+   "Name": "D3D Video Processing",
+   "Value": 0.30256232619285583
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "Load",
+   "Name": "D3D ",
+   "Value": 0.0
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "Load",
+   "Name": "D3D ",
+   "Value": 0.0
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "Load",
+   "Name": "D3D ",
+   "Value": 0.0
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "Load",
+   "Name": "D3D ",
+   "Value": 0.0
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "Load",
+   "Name": "D3D ",
+   "Value": 0.0
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "Load",
+   "Name": "D3D ",
+   "Value": 0.0
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "Load",
+   "Name": "D3D Overlay",
+   "Value": 0.0
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "Load",
+   "Name": "D3D ",
+   "Value": 0.0
+  },
+  {
+   "Parent": "/gpu-intel-integrated/%5C%5C%3F%5CPCI%23VEN_8086%26DEV_46D4%26SUBSYS_02F30301%26REV_00%233%2611583659%260%2610%23%7B1ca05180-a699-450a-9a0c-de4fbe3ddd89%7D",
+   "SensorType": "Load",
+   "Name": "D3D ",
+   "Value": 0.0
+  },
+  {
+   "Parent": "/nvme/1",
+   "SensorType": "Temperature",
+   "Name": "Composite Temperature",
+   "Value": 49.0
+  },
+  {
+   "Parent": "/nvme/1",
+   "SensorType": "Temperature",
+   "Name": "Warning Temperature",
+   "Value": 69.0
+  },
+  {
+   "Parent": "/nvme/1",
+   "SensorType": "Temperature",
+   "Name": "Critical Temperature",
+   "Value": 74.0
+  },
+  {
+   "Parent": "/ssd/2",
+   "SensorType": "Temperature",
+   "Name": "Temperature",
+   "Value": 40.0
+  },
+  {
+   "Parent": "/ssd/0",
+   "SensorType": "Temperature",
+   "Name": "Temperature",
+   "Value": 63.0
+  }
+ ]
+}

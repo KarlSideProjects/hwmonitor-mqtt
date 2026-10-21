@@ -1135,6 +1135,8 @@ async def main():
         return
 
     print(f"Async Agent for Windows started on {HOSTNAME}")
+    marker = Path(__file__).resolve().parents[2] / ".hwmonitor-mqtt-bootstrap"
+    print(f"Installed commit: {marker.read_text().strip() if marker.exists() else 'unknown (not installed by bootstrap.ps1)'}")
     print(f"Sender profile: {SENDER_PROFILE}")
 
     pawnio = pawnio_version()
@@ -1178,7 +1180,20 @@ async def main():
         _lhm_manager.stop()
 
 
+def dump_sensors() -> None:
+    """Print raw LHM sensors in the tests/fixtures/lhm-*.json format."""
+    import json
+
+    print(f"PawnIO: {pawnio_version()}", file=sys.stderr)
+    print(f"LibreHardwareMonitorLib available: {_lhm_lib_collector.available} {_lhm_lib_collector._error or ''}", file=sys.stderr)
+    sensors = [dataclasses.asdict(s) for s in _lhm_lib_collector.get_sensors()]
+    print(json.dumps({"source": f"{platform.node()} {platform.platform()}", "sensors": sensors}, indent=1))
+
+
 if __name__ == "__main__":
+    if "--dump-sensors" in sys.argv:
+        dump_sensors()
+        raise SystemExit(0)
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
