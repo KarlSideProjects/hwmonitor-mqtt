@@ -94,6 +94,13 @@ jobs:
       - name: Run the Windows installer
         shell: powershell
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install_windows_sender_task.ps1 -ProjectRoot "$PWD" -AtStartup
+      - name: Scheduled task points at the installed LHM executable
+        shell: powershell
+        run: |
+          $expected = '-LhmPath "' + (Join-Path $PWD 'third_party\librehardwaremonitor\LibreHardwareMonitor.exe') + '"'
+          $actual = (Get-ScheduledTask HWMonitorMQTTSender).Actions.Arguments
+          Write-Output $actual
+          if (-not $actual.EndsWith($expected)) { throw "Task arguments do not end with $expected" }
       - name: Load LibreHardwareMonitorLib through pythonnet
         shell: powershell
         run: |

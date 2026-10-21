@@ -64,6 +64,8 @@ function Resolve-UvExePath {
     return $null
 }
 
+# Functions whose result is assigned must keep progress off the pipeline (Write-Host / Out-Host),
+# otherwise the messages become part of the returned path.
 function Install-UvIfNeeded {
     $resolved = Resolve-UvExePath -Candidate $UvExe
     if ($resolved) {
@@ -75,16 +77,16 @@ function Install-UvIfNeeded {
 
     $winget = Get-Command winget -ErrorAction SilentlyContinue
     if ($winget) {
-        Write-Output "Installing uv via winget..."
-        & winget install --id astral-sh.uv -e --accept-source-agreements --accept-package-agreements --silent
+        Write-Host "Installing uv via winget..."
+        & winget install --id astral-sh.uv -e --accept-source-agreements --accept-package-agreements --silent | Out-Host
         $resolved = Resolve-UvExePath -Candidate $UvExe
         if ($resolved) {
             return $resolved
         }
     }
 
-    Write-Output "Installing uv via official install script..."
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"
+    Write-Host "Installing uv via official install script..."
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex" | Out-Host
     $resolved = Resolve-UvExePath -Candidate $UvExe
     if ($resolved) {
         return $resolved
@@ -173,7 +175,7 @@ function Ensure-LhmExecutable {
 
     try {
         $url = if ([string]::IsNullOrWhiteSpace($DownloadUrl)) { $LhmDefaultUrl } else { $DownloadUrl }
-        Write-Output "Downloading LibreHardwareMonitor from: $url"
+        Write-Host "Downloading LibreHardwareMonitor from: $url"
         Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zipPath
         if ($url -eq $LhmDefaultUrl) {
             $hash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash
@@ -182,7 +184,7 @@ function Ensure-LhmExecutable {
             }
         }
         else {
-            Write-Output "Custom LhmDownloadUrl: SHA-256 not verified."
+            Write-Host "Custom LhmDownloadUrl: SHA-256 not verified."
         }
 
         Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
