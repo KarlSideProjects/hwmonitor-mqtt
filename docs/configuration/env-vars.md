@@ -50,7 +50,7 @@
 | `PVE_NODE` | 篩選該節點的 CT／VM | 由本機節點名稱填入，可自訂 |
 | `PVE_TIMEOUT_SEC` | 每次 API 請求逾時秒數 | 可省略，預設 3，須大於 0 且不超過 30 |
 
-token 建立、權限變更、私有檔案與失敗重跑流程見 [安裝檔會做什麼](../../README.md#安裝檔會做什麼)。此自動準備流程只在 PVE 宿主的 Shell 安裝入口執行；手動 Docker 部署仍需先提供有效設定。
+token 建立、權限變更、私有檔案與失敗重跑流程見 [安裝檔會做什麼](../deployment/installation.md#安裝檔會做什麼)。此自動準備流程只在 PVE 宿主的 Shell 安裝入口執行；手動 Docker 部署仍需先提供有效設定。
 
 PVE systemd service 由 systemd 讀取既有 `.env` 的 MQTT 設定，不覆寫該檔；sender 程式及依賴安裝到 root-owned `/opt/hwmonitor-mqtt-pve`，服務以 transient unprivileged identity 執行。重裝會重新部署程式並重啟服務。服務固定使用 full payload。API 輪詢每 10 秒執行一次，使用者可用 `PVE_TIMEOUT_SEC` 調整每次請求 timeout；值必須大於 0 且不超過 30 秒。CA 檔需可供 systemd service identity 讀取。
 

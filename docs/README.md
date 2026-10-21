@@ -4,6 +4,9 @@
 
 ## 文件導覽
 
+- [電腦採集端安裝與維護](./deployment/installation.md)
+- [掌機顯示端與安裝](https://github.com/KarlSideProjects/mqtt-handheld-hardware-monitor#安裝入口)
+- [Python 開發與驗證](./getting-started/development.md)
 - [快速開始](./getting-started/quickstart.md)
 - [系統架構](./architecture/system-overview.md)
 - [部署指南](./deployment/docker-profiles.md)

@@ -177,9 +177,9 @@ def test_installs_only_missing_base_prerequisites(tmp_path):
     (True, True, 0),
     (False, False, 37),
 ])
-def test_readme_bootstrap_uses_downloader_fallback_safely(tmp_path, wget_fails, curl_fails, installer_exit):
-    readme = (REPO / "README.md").read_text()
-    section = readme.split("## 在 Linux 或 PVE 安裝 Sender", 1)[1]
+def test_installation_docs_bootstrap_uses_downloader_fallback_safely(tmp_path, wget_fails, curl_fails, installer_exit):
+    installation = (REPO / "docs/deployment/installation.md").read_text()
+    section = installation.split("## 在 Linux 或 PVE 安裝 Sender", 1)[1]
     command = re.search(r"```bash\n(.*?)\n```", section, re.DOTALL).group(1)
     assert command == 'u=https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/refs/heads/master/bootstrap.sh; f=$(mktemp) && (wget -qO "$f" "$u" || curl -fsSL "$u" -o "$f") && bash "$f"'
     bindir = tmp_path / "bin"
@@ -215,9 +215,9 @@ def test_readme_bootstrap_uses_downloader_fallback_safely(tmp_path, wget_fails, 
         assert log.read_text().splitlines() == (["wget", "curl"] if wget_fails else ["wget"])
 
 
-def test_readme_windows_command_is_the_short_admin_installer():
-    readme = (REPO / "README.md").read_text()
-    section = readme.split("## Windows Sender 安裝與注意事項", 1)[1]
+def test_installation_docs_windows_command_is_the_short_admin_installer():
+    installation = (REPO / "docs/deployment/installation.md").read_text()
+    section = installation.split("## Windows Sender 安裝與注意事項", 1)[1]
     command = re.search(r"```powershell\n(.*?)\n```", section, re.DOTALL).group(1)
     assert "系統管理員" in section
     assert command == "irm https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/refs/heads/master/bootstrap.ps1 -ErrorAction Stop | iex"
