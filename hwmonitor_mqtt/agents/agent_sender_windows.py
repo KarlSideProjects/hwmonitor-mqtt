@@ -656,7 +656,12 @@ def process_lhm_sensors(sensors: List[Any], cpu_seed: Optional[Dict[str, Any]] =
             continue
 
         # Storage temperature sensors
-        if ("/hdd/" in parent_lower or "/nvme/" in parent_lower or "/ssd/" in parent_lower) and sensor_type == "Temperature":
+        # NVMe "Warning/Critical Temperature" are fixed thresholds, not readings.
+        if (
+            ("/hdd/" in parent_lower or "/nvme/" in parent_lower or "/ssd/" in parent_lower)
+            and sensor_type == "Temperature"
+            and lname not in {"warning temperature", "critical temperature"}
+        ):
             key = _storage_key_from_parent(parent_lower)
             storage_temps.setdefault(key, []).append(
                 {"label": name if name != "Temperature" else f"{key} Temperature", "current": _safe_float(value)}

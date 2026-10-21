@@ -267,6 +267,9 @@ def test_process_lhm_sensors_skips_tjmax_distance_and_prefers_gpu_core():
         Sensor("Temperature", "GPU Hot Spot", 80.0, "/gpu-nvidia/0"),
         Sensor("Temperature", "GPU Core", 66.0, "/gpu-nvidia/0"),
         Sensor("Temperature", "GPU Memory Junction", 84.0, "/gpu-nvidia/0"),
+        Sensor("Temperature", "Composite Temperature", 49.0, "/nvme/1"),
+        Sensor("Temperature", "Warning Temperature", 69.0, "/nvme/1"),
+        Sensor("Temperature", "Critical Temperature", 74.0, "/nvme/1"),
     ]
 
     out = module.process_lhm_sensors(sensors, module.get_cpu_base_block())
@@ -274,6 +277,7 @@ def test_process_lhm_sensors_skips_tjmax_distance_and_prefers_gpu_core():
     assert out["gpus"][0]["temperature_celsius"] == 66.0
     assert out["gpus"][0]["temperature_label"] == "GPU Core"
     assert len(out["gpus"][0]["temperatures"]) == 3
+    assert [t["label"] for t in out["temperatures"]["storage"]["nvme1"]] == ["Composite Temperature"]
 
 
 def test_windows_gpu_nvidia_fallback_parses_csv():
