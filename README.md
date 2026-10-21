@@ -222,7 +222,7 @@ docker rename sys-agent-before-native sys-agent && docker start sys-agent
 
 ## Windows Sender 安裝與注意事項
 
-在「系統管理員」PowerShell 執行以下命令。首次執行會隱藏 MQTT 密碼輸入，並建立僅 Administrators 與 SYSTEM 可讀的 `.env`；既有設定會保留。安裝器會準備 Python/uv 與 LibreHardwareMonitor，註冊開機排程並立即啟動 sender。
+在「系統管理員」PowerShell 執行以下命令。首次執行會隱藏 MQTT 密碼輸入，並建立僅 Administrators 與 SYSTEM 可讀的 `.env`；既有設定會保留。安裝器會準備 Python/uv、LibreHardwareMonitor 與 PawnIO 驅動，註冊開機排程並立即啟動 sender。
 
 ```powershell
 irm https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/refs/heads/master/bootstrap.ps1 -ErrorAction Stop | iex
@@ -239,8 +239,9 @@ Get-ScheduledTaskInfo -TaskName HWMonitorMQTTSender
 - 不要同時啟動多個 sender 實例，否則 viewer 可能出現 CPU/GPU 資料跳動或 `NA` 閃爍。
 - 若看到 `Access is denied (0x80070005)`，請改用系統管理員 PowerShell。
 - 若看到 `WinError 740`，代表目前權限不足以啟動 LibreHardwareMonitor。
-- Windows sender 會先嘗試 WMI；若 WMI 回傳空資料，會改用 `LibreHardwareMonitorLib.dll`（`pythonnet`）讀取感測器，並保留 `nvidia-smi` fallback。
-- 安裝後通常不需要重開機。
+- Windows sender 以 `LibreHardwareMonitorLib.dll`（`pythonnet`）在程序內讀取 CPU/GPU 溫度。LibreHardwareMonitor 0.9.5 起移除 WMI provider，並改用 [PawnIO](https://pawnio.eu/) 驅動取代 WinRing0；未安裝 PawnIO 時 GPU 溫度仍可讀取，CPU 溫度會缺少。安裝器會靜默安裝固定版本與 SHA-256 的 PawnIO 2.2.0。
+- 舊版 LibreHardwareMonitor 的 WMI namespace（`root/LibreHardwareMonitor`）與 `nvidia-smi` 仍作為 fallback。
+- 安裝後通常不需要重開機；若安裝器顯示 PawnIO 需要重新開機，重開後 CPU 溫度才會出現。
 
 ### 3. 清理重複 sender（必要時）
 

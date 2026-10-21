@@ -20,12 +20,15 @@ docker compose logs -f sys_agent
 - `web_monitor` 是否啟動
 - Browser Console 是否有 WebSocket 錯誤
 
-## Windows 讀不到硬體資訊
+## Windows 讀不到 CPU 溫度
 
-- LibreHardwareMonitor 必須以管理員權限執行
-- 必須啟用 WMI Provider
+- sender 必須以管理員或 `SYSTEM` 執行（`-AtStartup`）
+- 日誌出現 `PawnIO driver is not installed` 時，重新執行安裝器，或手動安裝 [PawnIO](https://pawnio.eu/)
+- LibreHardwareMonitor 0.9.5 起沒有 WMI Provider，sender 改從 `LibreHardwareMonitorLib.dll` 讀取；日誌應出現 `LibreHardwareMonitorLib collector is available.`
 
 ## Windows Sender 自動啟動 LibreHardwareMonitor 失敗
+
+只有 `LibreHardwareMonitorLib.dll` 無法載入時，sender 才會啟動 LHM 並等待舊版 WMI namespace。
 
 檢查項目：
 
@@ -68,4 +71,4 @@ Current sender behavior:
 Notes:
 - Reboot is usually not required after installing the task.
 - If logs contain `WinError 740`, run sender task as `SYSTEM` (`-AtStartup`) or start LibreHardwareMonitor with elevated permission.
-- Windows sender now also tries `LibreHardwareMonitorLib.dll` (via `pythonnet`) when WMI returns empty results.
+- Windows sender reads `LibreHardwareMonitorLib.dll` (via `pythonnet`) first and uses WMI only when the library returns nothing.

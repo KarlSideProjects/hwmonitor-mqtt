@@ -251,6 +251,31 @@ def test_process_lhm_sensors_maps_cpu_gpu_and_storage():
     assert out["gpus"][0]["memory_percent"] == 25.0
 
 
+def test_process_lhm_sensors_skips_tjmax_distance_and_prefers_gpu_core():
+    module = _import_agent_sender_windows()
+
+    class Sensor:
+        def __init__(self, sensor_type, name, value, parent):
+            self.SensorType = sensor_type
+            self.Name = name
+            self.Value = value
+            self.Parent = parent
+
+    sensors = [
+        Sensor("Temperature", "CPU Package", 45.0, "/intelcpu/0"),
+        Sensor("Temperature", "Core #1 Distance to TjMax", 55.0, "/intelcpu/0"),
+        Sensor("Temperature", "GPU Hot Spot", 80.0, "/gpu-nvidia/0"),
+        Sensor("Temperature", "GPU Core", 66.0, "/gpu-nvidia/0"),
+        Sensor("Temperature", "GPU Memory Junction", 84.0, "/gpu-nvidia/0"),
+    ]
+
+    out = module.process_lhm_sensors(sensors, module.get_cpu_base_block())
+    assert [t["label"] for t in out["temperatures"]["cpu"]] == ["CPU Package"]
+    assert out["gpus"][0]["temperature_celsius"] == 66.0
+    assert out["gpus"][0]["temperature_label"] == "GPU Core"
+    assert len(out["gpus"][0]["temperatures"]) == 3
+
+
 def test_windows_gpu_nvidia_fallback_parses_csv():
     module = _import_agent_sender_windows()
 
