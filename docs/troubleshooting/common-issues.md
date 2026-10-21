@@ -25,6 +25,17 @@ docker compose logs -f sys_agent
 - sender 必須以管理員或 `SYSTEM` 執行（`-AtStartup`）
 - 日誌出現 `PawnIO driver is not installed` 時，重新執行安裝器，或手動安裝 [PawnIO](https://pawnio.eu/)
 - LibreHardwareMonitor 0.9.5 起沒有 WMI Provider，sender 改從 `LibreHardwareMonitorLib.dll` 讀取；日誌應出現 `LibreHardwareMonitorLib collector is available.`
+- sender 日誌第一段的 `Installed commit:` 顯示實際執行的版本
+- 在專案目錄執行 `.\.venv\Scripts\python.exe -m hwmonitor_mqtt.agents.agent_sender_windows --dump-sensors`，可列出函式庫讀到的所有感測器
+
+測試未合併的版本時，用 commit SHA，不用分支名稱：raw.githubusercontent.com 會快取分支網址約 5 分鐘，可能拿到舊版腳本。在系統管理員 PowerShell 執行：
+
+```powershell
+$env:HWMONITOR_REF = '<commit-sha>'
+irm "https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/$env:HWMONITOR_REF/bootstrap.ps1" | iex
+```
+
+`C:\ProgramData\hwmonitor-mqtt` 已存在時，bootstrap 會沿用既有程式碼並印出其 commit；要換版本請先移除該目錄。
 
 ## Windows Sender 自動啟動 LibreHardwareMonitor 失敗
 

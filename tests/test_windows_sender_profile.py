@@ -386,3 +386,49 @@ def test_update_lhm_metrics_keeps_missing_secondary_gpu_from_previous_cycle():
     gpu_by_id = {gpu["id"]: gpu for gpu in module.metrics["gpu"]}
     assert gpu_by_id["nvidia-0"]["temperature_celsius"] == 66.0
     assert gpu_by_id["nvidia-1"]["temperature_celsius"] == 75.0
+
+
+def test_process_lhm_sensors_real_intel_n100_dump():
+    import json
+    from types import SimpleNamespace
+
+    module = _import_agent_sender_windows()
+    fixture = Path(__file__).parent / "fixtures" / "lhm-intel-n100.json"
+    sensors = [SimpleNamespace(**s) for s in json.loads(fixture.read_text())["sensors"]]
+
+    out = module.process_lhm_sensors(sensors, module.get_cpu_base_block())
+
+    cpu_labels = {t["label"] for t in out["temperatures"]["cpu"]}
+    assert "CPU Package" in cpu_labels and not any("TjMax" in label for label in cpu_labels)
+    assert max(t["current"] for t in out["temperatures"]["cpu"]) == 68.0
+    assert [t["label"] for t in out["temperatures"]["storage"]["nvme1"]] == ["Composite Temperature"]
+    (gpu,) = out["gpus"]
+    assert gpu["usage_percent"] == 11.7
+    assert gpu["memory_percent"] == 8.4
+    # Intel integrated GPUs expose no temperature sensor in LHM.
+    assert gpu["temperature_celsius"] is None
+
+
+def test_dump_sensors_keeps_stdout_pure_json(monkeypatch, capsys):
+    import json
+
+    module = _import_agent_sender_windows()
+
+    class Collector:
+        _error = None
+
+        @property
+        def available(self):
+            print("Loaded LibreHardwareMonitorLib: fake.dll")
+            return True
+
+        def get_sensors(self):
+            return [module.LHMSensorSnapshot("Temperature", "CPU Package", 68.0, "/intelcpu/0")]
+
+    monkeypatch.setattr(module, "_lhm_lib_collector", Collector())
+    monkeypatch.setattr(module, "pawnio_version", lambda: "2.2.0.0")
+    module.dump_sensors()
+
+    out = capsys.readouterr()
+    assert json.loads(out.out)["sensors"] == [{"SensorType": "Temperature", "Name": "CPU Package", "Value": 68.0, "Parent": "/intelcpu/0"}]
+    assert "Loaded LibreHardwareMonitorLib" in out.err
