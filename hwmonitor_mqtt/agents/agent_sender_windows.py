@@ -1182,11 +1182,14 @@ async def main():
 
 def dump_sensors() -> None:
     """Print raw LHM sensors in the tests/fixtures/lhm-*.json format."""
+    import contextlib
     import json
 
-    print(f"PawnIO: {pawnio_version()}", file=sys.stderr)
-    print(f"LibreHardwareMonitorLib available: {_lhm_lib_collector.available} {_lhm_lib_collector._error or ''}", file=sys.stderr)
-    sensors = [dataclasses.asdict(s) for s in _lhm_lib_collector.get_sensors()]
+    # Library loading logs to stdout; keep stdout pure JSON so it can be saved as a fixture.
+    with contextlib.redirect_stdout(sys.stderr):
+        print(f"PawnIO: {pawnio_version()}")
+        print(f"LibreHardwareMonitorLib available: {_lhm_lib_collector.available} {_lhm_lib_collector._error or ''}")
+        sensors = [dataclasses.asdict(s) for s in _lhm_lib_collector.get_sensors()]
     print(json.dumps({"source": f"{platform.node()} {platform.platform()}", "sensors": sensors}, indent=1))
 
 

@@ -407,3 +407,28 @@ def test_process_lhm_sensors_real_intel_n100_dump():
     assert gpu["memory_percent"] == 8.4
     # Intel integrated GPUs expose no temperature sensor in LHM.
     assert gpu["temperature_celsius"] is None
+
+
+def test_dump_sensors_keeps_stdout_pure_json(monkeypatch, capsys):
+    import json
+
+    module = _import_agent_sender_windows()
+
+    class Collector:
+        _error = None
+
+        @property
+        def available(self):
+            print("Loaded LibreHardwareMonitorLib: fake.dll")
+            return True
+
+        def get_sensors(self):
+            return [module.LHMSensorSnapshot("Temperature", "CPU Package", 68.0, "/intelcpu/0")]
+
+    monkeypatch.setattr(module, "_lhm_lib_collector", Collector())
+    monkeypatch.setattr(module, "pawnio_version", lambda: "2.2.0.0")
+    module.dump_sensors()
+
+    out = capsys.readouterr()
+    assert json.loads(out.out)["sensors"] == [{"SensorType": "Temperature", "Name": "CPU Package", "Value": 68.0, "Parent": "/intelcpu/0"}]
+    assert "Loaded LibreHardwareMonitorLib" in out.err
