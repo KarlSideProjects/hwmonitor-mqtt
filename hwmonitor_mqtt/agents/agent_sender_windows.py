@@ -3,7 +3,9 @@
 """
 Async System Monitor for Windows (Multi-rate MQTT sender)
 - Uses psutil for CPU/MEM/NET/DISK baseline metrics.
-- Uses LibreHardwareMonitor WMI for CPU temperatures/clocks, storage temperatures, and GPU metrics.
+- Reads CPU temperatures/clocks, storage temperatures, and GPU metrics from LibreHardwareMonitorLib.dll
+  in-process (LHM >= 0.9.5 has no WMI provider; CPU temperatures need the PawnIO driver).
+- Falls back to the root/LibreHardwareMonitor WMI namespace of older LHM releases and to nvidia-smi.
 - Supports full/esp sender profiles compatible with agent_sender_async payloads.
 """
 
@@ -15,6 +17,7 @@ import platform
 import re
 import socket
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -230,6 +233,9 @@ class LHMInProcessCollector:
             return False
 
         try:
+            # pythonnet resolves dependent assemblies (HidSharp, DiskInfoToolkit, ...) from sys.path.
+            if str(dll_path.parent) not in sys.path:
+                sys.path.append(str(dll_path.parent))
             clr.AddReference(str(dll_path))
             from LibreHardwareMonitor.Hardware import Computer  # type: ignore
 
@@ -314,6 +320,22 @@ class LHMInProcessCollector:
             self._error = f"LibreHardwareMonitorLib read failed: {e}"
             return []
         return out
+
+
+def pawnio_version() -> Optional[str]:
+    """Installed PawnIO driver version, read from the same uninstall key LibreHardwareMonitorLib checks."""
+    try:
+        import winreg
+
+        with winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE,
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO",
+            0,
+            winreg.KEY_READ | winreg.KEY_WOW64_64KEY,
+        ) as key:
+            return str(winreg.QueryValueEx(key, "DisplayVersion")[0])
+    except Exception:
+        return None
 
 
 # ===== MQTT Client =====
@@ -602,7 +624,8 @@ def process_lhm_sensors(sensors: List[Any], cpu_seed: Optional[Dict[str, Any]] =
                 idx = _parse_core_index(name)
                 if idx is not None and ("cpu core" in lname or "core #" in lname or "core " in lname):
                     cpu_clocks[idx] = _safe_float(value)
-            elif sensor_type == "Temperature":
+            elif sensor_type == "Temperature" and "distance to tjmax" not in lname:
+                # "Distance to TjMax" is headroom, not a temperature; the display takes the max CPU entry.
                 cpu_temps.append({"label": name, "current": _safe_float(value)})
             continue
 
@@ -618,7 +641,11 @@ def process_lhm_sensors(sensors: List[Any], cpu_seed: Optional[Dict[str, Any]] =
             elif sensor_type == "Temperature":
                 temp = round(_safe_float(value), 1)
                 gpu["_temps"].append({"label": name, "current": temp})
-                if gpu["temperature_celsius"] is None or temp > _safe_float(gpu["temperature_celsius"], -273.15):
+                # Headline is the core sensor (same value nvidia-smi reports); hot spot/memory stay in the list.
+                core_locked = gpu["temperature_label"] == "GPU Core"
+                if name == "GPU Core" or not core_locked and (
+                    gpu["temperature_celsius"] is None or temp > _safe_float(gpu["temperature_celsius"], -273.15)
+                ):
                     gpu["temperature_celsius"] = temp
                     gpu["temperature_label"] = name
             elif sensor_type in {"SmallData", "Data", "Throughput"}:
@@ -629,7 +656,12 @@ def process_lhm_sensors(sensors: List[Any], cpu_seed: Optional[Dict[str, Any]] =
             continue
 
         # Storage temperature sensors
-        if ("/hdd/" in parent_lower or "/nvme/" in parent_lower or "/ssd/" in parent_lower) and sensor_type == "Temperature":
+        # NVMe "Warning/Critical Temperature" are fixed thresholds, not readings.
+        if (
+            ("/hdd/" in parent_lower or "/nvme/" in parent_lower or "/ssd/" in parent_lower)
+            and sensor_type == "Temperature"
+            and lname not in {"warning temperature", "critical temperature"}
+        ):
             key = _storage_key_from_parent(parent_lower)
             storage_temps.setdefault(key, []).append(
                 {"label": name if name != "Temperature" else f"{key} Temperature", "current": _safe_float(value)}
@@ -1056,9 +1088,9 @@ async def loop_network():
 
 async def loop_lhm_wmi():
     while True:
-        sensors = get_lhm_wmi_data()
+        sensors = _lhm_lib_collector.get_sensors()
         if not sensors:
-            sensors = _lhm_lib_collector.get_sensors()
+            sensors = get_lhm_wmi_data()
         update_lhm_metrics(sensors)
         await asyncio.sleep(10)
 
@@ -1105,16 +1137,19 @@ async def main():
     print(f"Async Agent for Windows started on {HOSTNAME}")
     print(f"Sender profile: {SENDER_PROFILE}")
 
-    if wmi is None:
-        print("python wmi package is not installed. LHM/WMI metrics will be unavailable.")
+    pawnio = pawnio_version()
+    if pawnio:
+        print(f"PawnIO driver: {pawnio}")
     else:
-        if not _lhm_manager.ensure_ready():
-            print("LHM WMI not ready. Will try LibreHardwareMonitorLib in-process collector.")
+        print("PawnIO driver is not installed; CPU temperatures will be missing. Re-run the Windows installer.")
 
+    # LHM >= 0.9.5 has no WMI provider and its GUI blocks on a PawnIO prompt, so prefer the in-process library.
     if _lhm_lib_collector.available:
         print("LibreHardwareMonitorLib collector is available.")
-    else:
-        print("LibreHardwareMonitorLib collector unavailable; CPU/GPU temperatures depend on WMI/fallback.")
+    elif wmi is None:
+        print("LibreHardwareMonitorLib and python wmi are unavailable; GPU metrics depend on nvidia-smi.")
+    elif not _lhm_manager.ensure_ready():
+        print("LHM WMI not ready; GPU metrics depend on nvidia-smi.")
 
     if SENDER_PROFILE == "esp":
         reset_esp_publish_state()

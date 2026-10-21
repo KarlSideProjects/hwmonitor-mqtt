@@ -12,6 +12,7 @@ param(
     [string]$LhmPath = "",
     [string]$LhmInstallDir = "",
     [string]$LhmDownloadUrl = "",
+    [bool]$EnsurePawnIo = $true,
     [switch]$AtStartup,
     [switch]$WhatIf
 )
@@ -220,6 +221,58 @@ function Ensure-LhmExecutable {
     }
 }
 
+# LibreHardwareMonitor >= 0.9.5 reads CPU temperatures through the PawnIO driver instead of WinRing0.
+$PawnIoUrl = "https://github.com/namazso/PawnIO.Setup/releases/download/2.2.0/PawnIO_setup.exe"
+$PawnIoSha256 = "1F519A22E47187F70A1379A48CA604981C4FCF694F4E65B734AAA74A9FBA3032"
+
+function Get-PawnIoVersion {
+    $key = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, [Microsoft.Win32.RegistryView]::Registry64)
+    try {
+        $sub = $key.OpenSubKey("SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO")
+        if (-not $sub) { return $null }
+        $version = $null
+        if ([version]::TryParse([string]$sub.GetValue("DisplayVersion"), [ref]$version)) { return $version }
+        return $null
+    }
+    finally {
+        $key.Dispose()
+    }
+}
+
+function Ensure-PawnIo {
+    $installed = Get-PawnIoVersion
+    # Same minimum LibreHardwareMonitor's own startup check accepts.
+    if ($installed -and $installed -ge [version]"2.0.0") {
+        Write-Output "PawnIO $installed already installed."
+        return
+    }
+
+    $tmpRoot = Join-Path $env:TEMP ("pawnio-install-" + [guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $tmpRoot -Force | Out-Null
+    $setup = Join-Path $tmpRoot "PawnIO_setup.exe"
+    try {
+        Write-Output "Downloading PawnIO from: $PawnIoUrl"
+        Invoke-WebRequest -UseBasicParsing -Uri $PawnIoUrl -OutFile $setup
+        $hash = (Get-FileHash -Path $setup -Algorithm SHA256).Hash
+        if ($hash -ne $PawnIoSha256) {
+            throw "PawnIO installer SHA-256 mismatch: $hash"
+        }
+        $proc = Start-Process -FilePath $setup -ArgumentList "-install", "-silent" -Wait -PassThru
+        if ($proc.ExitCode -eq 3010) {
+            Write-Output "PawnIO installed; restart Windows to enable CPU temperatures."
+        }
+        elseif ($proc.ExitCode -ne 0) {
+            throw "PawnIO installer failed with exit code $($proc.ExitCode)"
+        }
+        else {
+            Write-Output "PawnIO installed."
+        }
+    }
+    finally {
+        Remove-Item -Path $tmpRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 $resolvedUvExe = $null
 if ($UseUv) {
     if ($WhatIf) {
@@ -247,6 +300,9 @@ if ($WhatIf) {
 }
 else {
     $resolvedLhmExe = Ensure-LhmExecutable -Candidate $LhmPath -InstallDir $LhmInstallDir -RootPath $ProjectRoot -InstallIfMissing $EnsureLhm -DownloadUrl $LhmDownloadUrl
+    if ($EnsurePawnIo) {
+        Ensure-PawnIo
+    }
 }
 
 $taskUseUv = $UseUv
@@ -298,6 +354,7 @@ if ($WhatIf) {
     Write-Output "  EnsureDeps: $EnsureDeps"
     Write-Output "  EnsureLhm: $EnsureLhm"
     Write-Output "  LhmPath: $resolvedLhmExe"
+    Write-Output "  EnsurePawnIo: $EnsurePawnIo (installed: $(Get-PawnIoVersion))"
     Write-Output "  TaskUseUv: $taskUseUv"
     Write-Output "  TaskPythonExe: $taskPythonExe"
     Write-Output "  LhmInstallDir: $LhmInstallDir"
