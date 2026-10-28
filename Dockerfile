@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     intel-gpu-tools \
     pciutils \
     procps \
+    smartmontools \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir psutil paho-mqtt python-dotenv

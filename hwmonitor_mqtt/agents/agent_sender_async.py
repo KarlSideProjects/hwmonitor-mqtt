@@ -8,6 +8,7 @@ CPU/MEM/NET 每秒、DISK 每 3 秒、TEMP 每 10 秒
 """
 
 import asyncio
+import copy
 import os
 import re
 import socket
@@ -19,6 +20,7 @@ from typing import Any, Dict, Optional
 import psutil
 from dotenv import load_dotenv
 from hwmonitor_mqtt.transport.mqtt import configuration, create_client, publish
+from hwmonitor_mqtt.collectors.smart import SmartCollector
 
 if os.getenv("PVE_ENV_PRELOADED") != "1":
     load_dotenv()
@@ -53,6 +55,8 @@ ESP_TEMP_DELTA = _env_float("ESP_TEMP_DELTA", 1.0)
 ESP_NET_DELTA_BYTES = _env_float("ESP_NET_DELTA_BYTES", 16384.0)
 ESP_DISK_DELTA_BYTES = _env_float("ESP_DISK_DELTA_BYTES", 65536.0)
 ESP_GPU_DELTA = _env_float("ESP_GPU_DELTA", 3.0)
+MAX_PAYLOAD_BYTES = 262144
+SMART_POLL_INTERVAL_SEC = _env_float("SMART_POLL_INTERVAL_SEC", 300.0)
 
 # ===== MQTT Client =====
 mqtt_client, mqtt_stats, on_connect, on_disconnect = create_client(MQTT_CONFIG)
@@ -73,9 +77,12 @@ metrics: Dict[str, Any] = {
     "network_io": None,
     "system": None,
     "gpu": None,
+    "disk_smart": {"observed_at": None, "status": "unavailable", "alerts": [], "devices": {}},
 }
+smart_collector = SmartCollector()
 _last_esp_signature: Optional[Dict[str, float]] = None
 _last_esp_publish_monotonic = 0.0
+_last_esp_disk_health = None
 pve_collector = None
 
 
@@ -89,6 +96,7 @@ def initialize_pve_collector():
     try:
         config = PveConfig.from_environment(env_file=os.getenv("PVE_CONFIG_FILE", "/etc/hwmonitor-mqtt/pve.env"))
         pve_collector = PveCollector(PveApiClient(config)) if config else PveCollector(None)
+        smart_collector.pve_client = pve_collector.client
     except PveError as error:
         pve_collector = PveCollector(None)
         pve_collector.mark_error(error)
@@ -747,6 +755,7 @@ def build_full_payload(now_ts: Optional[int] = None) -> Dict[str, Any]:
         "network_io": metrics["network_io"],
         "gpu": metrics["gpu"][0] if metrics["gpu"] else None,
         "gpus": metrics["gpu"],
+        "disk_smart": copy.deepcopy(metrics.get("disk_smart") or {"observed_at": None, "status": "unavailable", "alerts": [], "devices": {}}),
         "mqtt_stats": {
             "publish_ok": mqtt_stats["publish_ok"],
             "publish_err": mqtt_stats["publish_err"],
@@ -758,8 +767,14 @@ def build_full_payload(now_ts: Optional[int] = None) -> Dict[str, Any]:
     }
     if pve_collector is not None:
         payload["virtualization"] = pve_collector.snapshot()
-        if len(json.dumps(payload, separators=(",", ":")).encode()) > 262144:
-            payload["virtualization"] = pve_collector.capacity_error()
+    if len(json.dumps(payload, separators=(",", ":")).encode()) > MAX_PAYLOAD_BYTES:
+        for device in payload.get("disk_smart", {}).get("devices", {}).values():
+            if "raw_attributes" in device:
+                device.pop("raw_attributes")
+                device["raw_attributes_truncated"] = True
+    if (len(json.dumps(payload, separators=(",", ":")).encode()) > MAX_PAYLOAD_BYTES and
+            pve_collector is not None):
+        payload["virtualization"] = pve_collector.capacity_error()
     return payload
 
 
@@ -797,6 +812,7 @@ def build_esp_payload(now_ts: Optional[int] = None) -> Dict[str, Any]:
         },
         "temperatures": _pick_cpu_temp_block(metrics.get("temperatures")),
         "gpu": _normalize_gpu_payload(gpu_obj),
+        "disk_health": (metrics.get("disk_smart") or {}).get("status", "unavailable"),
     }
     return payload
 
@@ -837,30 +853,40 @@ def _build_esp_signature(payload: Dict[str, Any]) -> Dict[str, float]:
 
 
 def reset_esp_publish_state():
-    global _last_esp_signature, _last_esp_publish_monotonic
+    global _last_esp_signature, _last_esp_publish_monotonic, _last_esp_disk_health
     _last_esp_signature = None
     _last_esp_publish_monotonic = 0.0
+    _last_esp_disk_health = None
 
 
 def should_publish_esp_payload(payload: Dict[str, Any], now_monotonic: Optional[float] = None) -> bool:
-    global _last_esp_signature, _last_esp_publish_monotonic
+    global _last_esp_signature, _last_esp_publish_monotonic, _last_esp_disk_health
     if now_monotonic is None:
         now_monotonic = time.monotonic()
 
     current = _build_esp_signature(payload)
+    disk_health = payload.get("disk_health", "unavailable")
     if _last_esp_signature is None:
         _last_esp_signature = current
+        _last_esp_disk_health = disk_health
         _last_esp_publish_monotonic = now_monotonic
         return True
 
     elapsed = now_monotonic - _last_esp_publish_monotonic
     if elapsed >= ESP_HEARTBEAT_INTERVAL_SEC:
         _last_esp_signature = current
+        _last_esp_disk_health = disk_health
         _last_esp_publish_monotonic = now_monotonic
         return True
 
     if elapsed < ESP_MIN_PUBLISH_INTERVAL_SEC:
         return False
+
+    if disk_health != _last_esp_disk_health:
+        _last_esp_signature = current
+        _last_esp_disk_health = disk_health
+        _last_esp_publish_monotonic = now_monotonic
+        return True
 
     thresholds = {
         "cpu": ESP_CPU_DELTA,
@@ -876,6 +902,7 @@ def should_publish_esp_payload(payload: Dict[str, Any], now_monotonic: Optional[
     for key, threshold in thresholds.items():
         if abs(current.get(key, 0.0) - _last_esp_signature.get(key, 0.0)) >= threshold:
             _last_esp_signature = current
+            _last_esp_disk_health = disk_health
             _last_esp_publish_monotonic = now_monotonic
             return True
     return False
@@ -933,6 +960,11 @@ async def loop_network():
         metrics["network_io"] = get_net_io_block(max(1e-6, now - last))
         last = now
         await asyncio.sleep(1)
+
+async def loop_smart():
+    while True:
+        metrics["disk_smart"] = await asyncio.to_thread(smart_collector.poll_once)
+        await asyncio.sleep(max(1.0, SMART_POLL_INTERVAL_SEC))
 
 async def loop_publish():
     while True:
@@ -993,6 +1025,7 @@ async def main():
             loop_temps(),
             loop_gpu(),
             loop_network(),
+            loop_smart(),
             loop_publish(),
             mqtt_reconnector(),
         )

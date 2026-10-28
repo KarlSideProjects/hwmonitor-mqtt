@@ -9,3 +9,17 @@
 改感測器解析前，先在實機執行 `python -m hwmonitor_mqtt.agents.agent_sender_windows --dump-sensors`，把輸出存成 `tests/fixtures/lhm-<機型>.json` 再寫測試。
 
 請使用者在 Windows 測試未合併的版本時，給 commit SHA 網址，步驟見 `docs/troubleshooting/common-issues.md`。
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs are tracked in GitHub Issues (`KarlSideProjects/hwmonitor-mqtt`). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Uses the default five canonical triage labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout (`GLOSSARY.md` at the repo root and `docs/adr/`). See `docs/agents/domain.md`.

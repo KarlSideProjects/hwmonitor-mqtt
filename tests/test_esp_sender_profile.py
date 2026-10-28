@@ -86,6 +86,7 @@ def test_build_esp_payload_keeps_minimal_schema_and_aggregates():
 
     assert sorted(payload.keys()) == [
         "cpu",
+        "disk_health",
         "disk_io",
         "gpu",
         "host",
@@ -95,6 +96,7 @@ def test_build_esp_payload_keeps_minimal_schema_and_aggregates():
         "ts",
     ]
     assert payload["ts"] == 1700000000
+    assert payload["disk_health"] == "unavailable"
     assert payload["cpu"]["percent_total"] == 37.4
     assert payload["memory"]["ram"]["percent"] == 66.6
     assert payload["disk_io"]["total"]["rate"]["read_bytes_per_s"] == 150.0
@@ -130,3 +132,45 @@ def test_should_publish_esp_payload_by_change_or_heartbeat():
     }
     assert module.should_publish_esp_payload(changed, now_monotonic=12.0) is False
     assert module.should_publish_esp_payload(changed, now_monotonic=13.2) is True
+
+
+def test_esp_disk_health_transition_bypasses_delta_thresholds():
+    module = _import_agent_sender_async()
+    module.reset_esp_publish_state()
+    payload = {"disk_health": "ok"}
+    assert module.should_publish_esp_payload(payload, now_monotonic=0.0)
+    assert module.should_publish_esp_payload({"disk_health": "critical"}, now_monotonic=2.1)
+
+
+def test_full_payload_truncates_raw_smart_attributes_only_when_oversized():
+    module = _import_agent_sender_async()
+    module.metrics["gpu"] = []
+    attributes = [{"name": "x" * 300000}]
+    module.metrics["disk_smart"] = {"status": "warning", "alerts": [{"severity": "warning"}], "devices": {
+        "disk0": {"critical_metrics": {"wear_percent": 90}, "raw_attributes": attributes}}
+    }
+    payload = module.build_full_payload(now_ts=1)
+    disk = payload["disk_smart"]["devices"]["disk0"]
+    assert disk["critical_metrics"]["wear_percent"] == 90
+    assert "raw_attributes" not in disk and disk["raw_attributes_truncated"] is True
+    assert payload["disk_smart"]["status"] == "warning"
+    assert payload["disk_smart"]["alerts"]
+    assert module.metrics["disk_smart"]["devices"]["disk0"]["raw_attributes"] == attributes
+
+
+def test_full_payload_truncates_smart_attributes_before_pve_capacity_fallback():
+    module = _import_agent_sender_async()
+    module.metrics["gpu"] = []
+    attributes = [{"name": "x" * 180000}]
+    module.metrics["disk_smart"] = {"status": "warning", "alerts": [], "devices": {
+        "disk0": {"critical_metrics": {"wear_percent": 90}, "raw_attributes": attributes}}
+    }
+    class Pve:
+        def snapshot(self): return {"status": "ok", "guests": [{"name": "y" * 100000}]}
+        def capacity_error(self): return {"status": "error", "error": "capacity_error"}
+    module.pve_collector = Pve()
+    payload = module.build_full_payload(now_ts=1)
+    disk = payload["disk_smart"]["devices"]["disk0"]
+    assert payload["virtualization"]["status"] == "ok"
+    assert "raw_attributes" not in disk and disk["raw_attributes_truncated"] is True
+    assert module.metrics["disk_smart"]["devices"]["disk0"]["raw_attributes"] == attributes

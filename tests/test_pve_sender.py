@@ -31,6 +31,15 @@ def test_preloaded_systemd_config_does_not_open_private_file():
     assert PveConfig.from_environment(env, "/root/unreadable/pve.env").node == "node-a"
 
 
+def test_api_client_quotes_disk_path_for_read_only_smart_endpoint(monkeypatch):
+    client = PveApiClient(config("https://pve.example:8006"))
+    paths = []
+    monkeypatch.setattr(client, "_get", lambda path: paths.append(path) or [])
+    assert client.disks_list() == []
+    assert client.disk_smart("/dev/nvme0n1") == []
+    assert paths == ["nodes/node-a/disks/list", "nodes/node-a/disks/smart?disk=%2Fdev%2Fnvme0n1"]
+
+
 def test_api_client_rejects_redirects_without_following_authorization(tmp_path):
     cert, key = tmp_path / "cert.pem", tmp_path / "key.pem"
     subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", str(key),
