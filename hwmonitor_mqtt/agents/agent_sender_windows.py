@@ -39,6 +39,11 @@ try:
 except ImportError:
     wmi = None
 
+try:
+    import pythoncom
+except ImportError:
+    pythoncom = None
+
 load_dotenv()
 
 
@@ -374,37 +379,55 @@ def get_windows_disk_sources():
     except Exception:
         sources = []
     if wmi is not None:
+        initialized = False
         try:
+            if pythoncom is not None:
+                pythoncom.CoInitialize()
+                initialized = True
             storage = wmi.WMI(namespace=r"root\Microsoft\Windows\Storage")
             physical = storage.MSFT_PhysicalDisk()
             counters = storage.MSFT_StorageReliabilityCounter()
             by_id = {str(getattr(c, "DeviceId", "")): c for c in counters}
             for disk in physical:
-                ident = str(getattr(disk, "DeviceId", getattr(disk, "ObjectId", "disk")))
-                counter = by_id.get(ident)
-                def value(name): return getattr(counter, name, None) if counter else None
-                def number(name):
-                    raw = value(name)
-                    return _safe_float(raw) if raw is not None else None
-                read_errors, write_errors = number("ReadErrorsUncorrected"), number("WriteErrorsUncorrected")
-                operational = getattr(disk, "OperationalStatus", None)
-                passed = not operational or all(str(x).lower() in {"2", "ok", "healthy"} for x in (operational if isinstance(operational, (list, tuple)) else [operational]))
-                critical = {
-                    "overall_passed": passed,
-                    "uncorrectable_errors": read_errors + write_errors if read_errors is not None or write_errors is not None else None,
-                    "wear_percent": number("Wear"), "temperature_c": number("Temperature"),
-                    "power_on_hours": number("PowerOnHours"), "total_bytes_written": number("WriteBytes"),
-                }
-                attrs = [{"id": None, "name": name, "raw_value": value(name), "normalized_value": None,
-                          "worst": None, "threshold": None, "when_failed": None}
-                         for name in ("ReadErrorsUncorrected", "WriteErrorsUncorrected", "Wear", "Temperature", "PowerOnHours", "WriteBytes")
-                         if value(name) is not None]
-                sources.append((ident, {"critical_metrics": critical, "raw_attributes": attrs}, {
-                    "model": getattr(disk, "FriendlyName", None), "serial": getattr(disk, "SerialNumber", None),
-                    "type": "wmi", "media_type": "ssd" if str(getattr(disk, "MediaType", "")).lower() in {"4", "ssd"} else "hdd",
-                }))
+                try:
+                    ident = str(getattr(disk, "DeviceId", getattr(disk, "ObjectId", "disk")))
+                    counter = by_id.get(ident)
+                    def value(name): return getattr(counter, name, None) if counter else None
+                    def number(name):
+                        raw = value(name)
+                        return _safe_float(raw) if raw is not None else None
+                    read_errors, write_errors = number("ReadErrorsUncorrected"), number("WriteErrorsUncorrected")
+                    health = getattr(disk, "HealthStatus", None)
+                    health_text = str(health).lower() if health is not None else None
+                    health_passed = (True if health_text in {"0", "healthy"} else
+                                     False if health_text in {"1", "2", "warning", "unhealthy"} else None)
+                    operational = getattr(disk, "OperationalStatus", None)
+                    operational_values = operational if isinstance(operational, (list, tuple)) else [operational]
+                    operational_passed = (None if operational is None or not operational_values else
+                        all(str(x).lower() in {"2", "ok", "healthy"} for x in operational_values))
+                    passed = (False if health_passed is False or operational_passed is False else
+                              True if health_passed is True or operational_passed is True else None)
+                    critical = {
+                        "overall_passed": passed,
+                        "uncorrectable_errors": sum(x for x in (read_errors, write_errors) if x is not None) if read_errors is not None or write_errors is not None else None,
+                        "wear_percent": number("Wear"), "temperature_c": number("Temperature"),
+                        "power_on_hours": number("PowerOnHours"), "total_bytes_written": number("WriteBytes"),
+                    }
+                    attrs = [{"id": None, "name": name, "raw_value": value(name), "normalized_value": None,
+                              "worst": None, "threshold": None, "when_failed": None}
+                             for name in ("ReadErrorsUncorrected", "WriteErrorsUncorrected", "Wear", "Temperature", "PowerOnHours", "WriteBytes")
+                             if value(name) is not None]
+                    sources.append((ident, {"critical_metrics": critical, "raw_attributes": attrs}, {
+                        "model": getattr(disk, "FriendlyName", None), "serial": getattr(disk, "SerialNumber", None),
+                        "type": "wmi", "media_type": "ssd" if str(getattr(disk, "MediaType", "")).lower() in {"4", "ssd"} else "hdd",
+                    }))
+                except Exception:
+                    continue
         except Exception:
             pass
+        finally:
+            if initialized:
+                pythoncom.CoUninitialize()
     try:
         for sensor in _lhm_lib_collector.get_sensors():
             sensor_type = str(getattr(sensor, "SensorType", "")).lower()

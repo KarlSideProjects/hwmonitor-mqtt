@@ -62,6 +62,37 @@ def test_missing_smartctl_is_unavailable(monkeypatch):
     assert SmartCollector().poll_once()["status"] == "unavailable"
 
 
+def test_smartctl_open_failure_uses_pve_fallback_or_unavailable(monkeypatch):
+    class Result:
+        def __init__(self, value): self.stdout = json.dumps(value)
+
+    def run(args, **kwargs):
+        if args[1] == "--scan": return Result({"devices": [{"name": "/dev/sda"}]})
+        return Result({"smartctl": {"exit_status": 2}, "device": {"protocol": "ATA"},
+                       "smartctl": {"exit_status": 2, "messages": [{"string": "Permission denied"}]}})
+
+    monkeypatch.setattr("hwmonitor_mqtt.collectors.smart.shutil.which", lambda _: "/usr/sbin/smartctl")
+    monkeypatch.setattr("hwmonitor_mqtt.collectors.smart.subprocess.run", run)
+    class Pve:
+        def __init__(self): self.called = 0
+        def disks_list(self): self.called += 1; return [{"devpath": "/dev/sda", "type": "ata"}]
+        def disk_smart(self, _): return {"attributes": [{"id": 197, "name": "Current_Pending_Sector", "raw_value": 1}]}
+    pve = Pve()
+    assert SmartCollector(pve_client=pve).poll_once()["devices"]["/dev/sda"]["critical_metrics"]["unstable_sectors"] == 1
+    assert pve.called == 1
+    assert SmartCollector().poll_once()["status"] == "unavailable"
+
+
+def test_smartctl_preserves_usable_data_with_disk_failure_exit_bits(monkeypatch):
+    class Result:
+        def __init__(self, value): self.stdout = json.dumps(value)
+    monkeypatch.setattr("hwmonitor_mqtt.collectors.smart.shutil.which", lambda _: "/usr/sbin/smartctl")
+    monkeypatch.setattr("hwmonitor_mqtt.collectors.smart.subprocess.run", lambda args, **kwargs:
+        Result({"devices": [{"name": "/dev/sda"}]} if args[1] == "--scan" else {
+            "smartctl": {"exit_status": 4}, "device": {"protocol": "ATA"}, "smart_status": {"passed": False}}))
+    assert SmartCollector().poll_once()["devices"]["/dev/sda"]["status"] == "critical"
+
+
 def test_pve_inventory_api_error_degrades_to_unavailable(monkeypatch):
     class Pve:
         def disks_list(self): raise RuntimeError("API unavailable")
@@ -134,6 +165,61 @@ def test_pve_nvme_text_parses_reliability_fields_and_temperature_thresholds(monk
     assert metrics["warning_temp"] == 70 and metrics["critical_temp"] == 80
     assert any(a["name"] == "Data Units Written" and a["raw_value"] == 1_234_567 for a in device["raw_attributes"])
     assert any(a["name"] == "Critical Warning" and a["threshold"] is None for a in device["raw_attributes"])
+
+
+def test_pve_health_text_is_case_insensitive_and_missing_health_is_unknown(monkeypatch):
+    class Pve:
+        def disks_list(self): return [{"devpath": path, "type": "scsi"} for path in ("/dev/sda", "/dev/sdb")]
+        def disk_smart(self, path):
+            return {"text": ("SMART overall-health self-assessment test result: FAILED!" if path.endswith("sda")
+                              else "Device Model: Unknown\n")}
+    monkeypatch.setattr("hwmonitor_mqtt.collectors.smart.shutil.which", lambda _: None)
+    devices = SmartCollector(pve_client=Pve()).poll_once()["devices"]
+    assert devices["/dev/sda"]["critical_metrics"]["overall_passed"] is False
+    assert devices["/dev/sda"]["status"] == "critical"
+    assert devices["/dev/sdb"]["critical_metrics"]["overall_passed"] is None
+
+
+def test_sas_smartctl_json_normalizes_error_counters_and_health_fields():
+    sas = {"device": {"protocol": "SCSI"}, "smart_status": {"passed": False},
+           "scsi_error_counter_log": {"read": {"total_uncorrected_errors": 12},
+                                      "write": {"total_uncorrected_errors": 2},
+                                      "verify": {"total_uncorrected_errors": 1}},
+           "scsi_grown_defect_list": {"grown_defect_list_count": 3},
+           "temperature": {"current": 60, "drive_trip": 68}, "power_on_time": {"hours": 24000}}
+    disk = SmartCollector(provider=lambda: [("/dev/sas0", sas, {})]).poll_once()["devices"]["/dev/sas0"]
+    metrics = disk["critical_metrics"]
+    assert disk["protocol"] == "sas"
+    assert metrics["uncorrectable_errors"] == 15 and metrics["reallocated_sectors"] == 3
+    assert metrics["temperature_c"] == 60 and metrics["critical_temp"] == 68
+    assert metrics["power_on_hours"] == 24000 and disk["status"] == "critical"
+    assert {a["name"] for a in disk["raw_attributes"]} >= {
+        "scsi_error_counter_log.read.total_uncorrected_errors", "scsi_grown_defect_list.grown_defect_list_count",
+        "temperature.current", "temperature.drive_trip", "power_on_time.hours"}
+
+
+def test_nvme_error_log_entries_drive_crc_delta_alert_and_pve_text_metric(monkeypatch):
+    source = {"device": {"protocol": "nvme"}, "nvme_smart_health_information_log": {"num_err_log_entries": 5}}
+    collector = SmartCollector(provider=lambda: [("nvme0", source, {})])
+    collector.poll_once(now=1)
+    source["nvme_smart_health_information_log"]["num_err_log_entries"] = 6
+    second = collector.poll_once(now=2)
+    alert = next(a for a in second["alerts"] if a["metric"] == "interface_crc_errors")
+    assert alert["value"] == 6 and "delta 1" in alert["message"]
+
+    class Pve:
+        def disks_list(self): return [{"devpath": "/dev/nvme0", "type": "nvme"}]
+        def disk_smart(self, _): return {"text": "Error Information Log Entries: 7\n"}
+    monkeypatch.setattr("hwmonitor_mqtt.collectors.smart.shutil.which", lambda _: None)
+    pve_metric = SmartCollector(pve_client=Pve()).poll_once()["devices"]["/dev/nvme0"]["critical_metrics"]
+    assert pve_metric["interface_crc_errors"] == 7
+
+
+def test_ata_read_lba_attribute_is_not_used_as_bytes_written():
+    source = ("disk", {"device": {"protocol": "ATA"}, "ata_smart_attributes": {"table": [
+        {"id": 242, "name": "Total_LBAs_Read", "raw": {"value": 100}}]}}, {})
+    metrics = SmartCollector(provider=lambda: [source]).poll_once()["devices"]["disk"]["critical_metrics"]
+    assert metrics["total_bytes_written"] is None
 
 
 def test_device_temperature_thresholds_override_defaults_but_env_wins(monkeypatch):

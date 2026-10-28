@@ -65,6 +65,15 @@ class SmartCollector:
                     data = json.loads(self._run("-a", "-j", path).stdout)
                 except (OSError, subprocess.SubprocessError, ValueError, TypeError):
                     continue
+                usable = isinstance(data, dict) and any((
+                    isinstance(data.get("smart_status"), dict) and data["smart_status"].get("passed") is not None,
+                    isinstance(data.get("critical_metrics"), dict) and bool(data["critical_metrics"]),
+                    isinstance(data.get("ata_smart_attributes"), dict) and bool(data["ata_smart_attributes"].get("table")),
+                    isinstance(data.get("nvme_smart_health_information_log"), dict) and bool(data["nvme_smart_health_information_log"]),
+                    any(data.get(key) for key in ("scsi_error_counter_log", "scsi_grown_defect_list", "temperature", "power_on_time")),
+                ))
+                if not usable:
+                    continue
                 result.append((path, data, {}))
             if result or not self.pve_client:
                 return result
@@ -97,10 +106,35 @@ def _normalize_device(name, data, metadata, baselines):
                       "threshold": row.get("thresh"), "when_failed": row.get("when_failed")})
     health = data.get("nvme_smart_health_information_log", {})
     if not isinstance(health, dict): health = {}
+    scsi_errors = data.get("scsi_error_counter_log", {})
+    if not isinstance(scsi_errors, dict): scsi_errors = {}
+    scsi_error_values = [
+        _number(scsi_errors.get(kind, {}).get("total_uncorrected_errors"))
+        if isinstance(scsi_errors.get(kind), dict) else None for kind in ("read", "write", "verify")
+    ]
+    scsi_uncorrectable = sum(value for value in scsi_error_values if value is not None) if any(
+        value is not None for value in scsi_error_values) else None
+    grown_defects = data.get("scsi_grown_defect_list")
+    if isinstance(grown_defects, dict):
+        grown_defects = grown_defects.get("grown_defect_list_count")
+    temperature = data.get("temperature") if isinstance(data.get("temperature"), dict) else {}
+    power_on_time = data.get("power_on_time") if isinstance(data.get("power_on_time"), dict) else {}
     if not has_raw_attributes:
         attrs.extend({"id": None, "name": key, "raw_value": value, "normalized_value": None,
                       "worst": None, "threshold": health.get("available_spare_threshold") if key == "available_spare" else None,
                       "when_failed": None} for key, value in health.items())
+        attrs.extend({"id": None, "name": f"scsi_error_counter_log.{kind}.total_uncorrected_errors",
+                      "raw_value": section["total_uncorrected_errors"], "normalized_value": None,
+                      "worst": None, "threshold": None, "when_failed": None}
+                     for kind, section in scsi_errors.items() if isinstance(section, dict) and
+                     section.get("total_uncorrected_errors") is not None)
+        for key, value in (("scsi_grown_defect_list.grown_defect_list_count", grown_defects),
+                           ("temperature.current", temperature.get("current")),
+                           ("temperature.drive_trip", temperature.get("drive_trip")),
+                           ("power_on_time.hours", power_on_time.get("hours"))):
+            if value is not None:
+                attrs.append({"id": None, "name": key, "raw_value": value, "normalized_value": None,
+                              "worst": None, "threshold": None, "when_failed": None})
     values = {int(a["id"]): a for a in attrs if isinstance(a.get("id"), int)}
     def attr(ids):
         for ident in ids:
@@ -115,31 +149,37 @@ def _normalize_device(name, data, metadata, baselines):
         if life is not None and life <= 100: wear = max(0.0, 100.0 - life)
     protocol = (data.get("device", {}).get("protocol") or metadata.get("type") or "unknown").lower()
     if protocol == "ata": protocol = "sata"
+    if protocol == "scsi": protocol = "sas"
     rotation = _number(data.get("rotation_rate"))
     media = "nvme" if "nvme" in protocol else metadata.get("media_type", "hdd" if rotation and rotation > 0 else "ssd" if rotation == 0 else "unknown")
     temp = _number(health.get("temperature"))
     if temp is not None: temp -= 273.15 if temp > 200 else 0
+    if temp is None: temp = _number(temperature.get("current"))
     if temp is None: temp = attr((194, 190))
     hours = _number(health.get("power_on_hours"))
+    if hours is None: hours = _number(power_on_time.get("hours"))
     if hours is None: hours = attr((9,))
     written = _number(health.get("data_units_written"))
     if written is not None: written *= 512000
     else:
-        sectors_written = attr((241, 242))
+        sectors_written = attr((241,))
         if sectors_written is not None: written = sectors_written * 512
     metrics = {
         "overall_passed": data.get("smart_status", {}).get("passed") if isinstance(data.get("smart_status"), dict) else metadata.get("overall_passed"),
         "unstable_sectors": attr((197,)),
-        "uncorrectable_errors": max([x for x in (attr((187,)), attr((198,)), _number(health.get("media_errors"))) if x is not None], default=None),
-        "reallocated_sectors": attr((5,)), "wear_percent": wear,
+        "uncorrectable_errors": max([x for x in (attr((187,)), attr((198,)), _number(health.get("media_errors")), scsi_uncorrectable) if x is not None], default=None),
+        "reallocated_sectors": _number(grown_defects) if grown_defects is not None else attr((5,)), "wear_percent": wear,
         "spare_percent": _number(health.get("available_spare")) if health.get("available_spare") is not None else attr((232,)),
-        "interface_crc_errors": attr((199,)), "temperature_c": temp, "power_on_hours": hours,
+        "interface_crc_errors": attr((199,)) if attr((199,)) is not None else _number(health.get("num_err_log_entries")),
+        "temperature_c": temp, "power_on_hours": hours,
         "total_bytes_written": written,
     }
     for key, aliases in (("warning_temp", ("warning_temp", "warning_temperature")),
                          ("critical_temp", ("critical_temp", "critical_comp_temperature"))):
         metrics[key] = next((_number(health.get(alias, data.get(alias))) for alias in aliases
                              if _number(health.get(alias, data.get(alias))) is not None), None)
+    if metrics["critical_temp"] is None:
+        metrics["critical_temp"] = _number(temperature.get("drive_trip"))
     if "available_spare_threshold" in data:
         health = {**health, "available_spare_threshold": data["available_spare_threshold"]}
     if metrics.get("temperature_c") is not None and metrics["temperature_c"] > 200:
@@ -174,8 +214,9 @@ def _pve_smart_to_json(value):
                 attrs.append({"id": row.get("id"), "name": row.get("name", ""), "raw_value": row.get("raw_value", row.get("raw")),
                               "normalized_value": row.get("normalized_value", row.get("value")), "worst": row.get("worst"),
                               "threshold": row.get("threshold", row.get("thresh")), "when_failed": row.get("when_failed")})
+        health = data.get("health")
         return {"raw_attributes": attrs, "model_name": data.get("model"),
-                "smart_status": {"passed": str(data.get("health", "PASSED")).upper() not in {"FAILED", "FAIL"}}}
+                "smart_status": {"passed": str(health).upper() not in {"FAILED", "FAIL"} if health is not None else None}}
     text = data.get("text")
     if not isinstance(text, str): return data if "smart_status" in data else {}
     attrs = []
@@ -197,6 +238,7 @@ def _pve_smart_to_json(value):
         return None
     units_written = field("Data Units Written")
     spare_threshold = field("Available Spare Threshold")
+    error_log_entries = field("Error Information Log Entries")
     for line in text.splitlines():
         match = re.match(r"\s*([^:]+):\s*(.*?)\s*$", line)
         if match:
@@ -219,6 +261,7 @@ def _pve_smart_to_json(value):
         "total_bytes_written": units_written * 512000 if units_written is not None else None,
         "warning_temp": field("Warning Temperature", "Warning Temp"),
         "critical_temp": field("Critical Temperature", "Critical Temp", "Critical Comp Temperature"),
+        "interface_crc_errors": error_log_entries,
     }
     critical_warning = re.search(r"^\s*Critical Warning\s*:\s*(0x[0-9a-f]+|[0-9]+)", text, re.I | re.M)
     if critical_warning:
@@ -231,9 +274,13 @@ def _pve_smart_to_json(value):
     if metrics["temperature_c"] is not None and metrics["temperature_c"] > 200:
         metrics["temperature_c"] = round(metrics["temperature_c"] - 273.15, 2)
     metrics = {key: value for key, value in metrics.items() if value is not None}
+    health_match = re.search(r"^\s*SMART overall-health self-assessment test result\s*:\s*(.*?)\s*$|^\s*SMART Health Status\s*:\s*(.*?)\s*$", text, re.I | re.M)
+    health_text = next((value for value in health_match.groups() if value is not None), "") if health_match else ""
+    passed = (True if re.match(r"^(?:PASSED?|OK|GOOD)\b", health_text, re.I) else
+              False if re.match(r"^(?:FAILED?|FAILURE|BAD|CRITICAL)\b", health_text, re.I) else None)
     return {"raw_attributes": attrs, "critical_metrics": metrics,
             "available_spare_threshold": spare_threshold,
-            "smart_status": {"passed": "SMART overall-health self-assessment test result: FAILED" not in text.upper()}}
+            "smart_status": {"passed": passed}}
 
 
 def _evaluate(device, host_alerts):

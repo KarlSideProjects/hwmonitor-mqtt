@@ -765,14 +765,16 @@ def build_full_payload(now_ts: Optional[int] = None) -> Dict[str, Any]:
             "last_error": mqtt_stats["last_error"],
         },
     }
-    if len(json.dumps(payload, separators=(",", ":")).encode()) > MAX_PAYLOAD_BYTES:
-        for device in payload.get("disk_smart", {}).get("devices", {}).values():
-            device.pop("raw_attributes", None)
-            device["raw_attributes_truncated"] = True
     if pve_collector is not None:
         payload["virtualization"] = pve_collector.snapshot()
-        if len(json.dumps(payload, separators=(",", ":")).encode()) > MAX_PAYLOAD_BYTES:
-            payload["virtualization"] = pve_collector.capacity_error()
+    if len(json.dumps(payload, separators=(",", ":")).encode()) > MAX_PAYLOAD_BYTES:
+        for device in payload.get("disk_smart", {}).get("devices", {}).values():
+            if "raw_attributes" in device:
+                device.pop("raw_attributes")
+                device["raw_attributes_truncated"] = True
+    if (len(json.dumps(payload, separators=(",", ":")).encode()) > MAX_PAYLOAD_BYTES and
+            pve_collector is not None):
+        payload["virtualization"] = pve_collector.capacity_error()
     return payload
 
 

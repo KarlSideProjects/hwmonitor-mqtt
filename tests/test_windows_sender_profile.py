@@ -321,6 +321,74 @@ def test_windows_wmi_missing_reliability_fields_remain_unknown():
     assert metrics["power_on_hours"] is None
 
 
+def test_windows_wmi_initializes_com_around_disk_access_and_isolates_bad_disks():
+    module = _import_agent_sender_windows()
+    events = []
+    class Com:
+        def CoInitialize(self): events.append("init")
+        def CoUninitialize(self): events.append("uninit")
+    module.pythoncom = Com()
+    class Disk:
+        DeviceId = "good"
+        FriendlyName = "Disk"
+        MediaType = "4"
+        HealthStatus = 0
+        OperationalStatus = [2]
+    class BadDisk:
+        @property
+        def DeviceId(self): raise ValueError("malformed disk")
+    class Counter:
+        DeviceId = "good"
+        ReadErrorsUncorrected = 1
+        WriteErrorsUncorrected = None
+    class Storage:
+        def MSFT_PhysicalDisk(self): return [BadDisk(), Disk()]
+        def MSFT_StorageReliabilityCounter(self): return [Counter()]
+    class WMI:
+        def WMI(self, **kwargs):
+            assert events == ["init"]
+            return Storage()
+    module.wmi = WMI()
+    module._lhm_lib_collector.get_sensors = lambda: []
+    disk = module.smart_collector.poll_once(now=1)["devices"]["good"]
+    assert disk["critical_metrics"]["uncorrectable_errors"] == 1
+    assert events == ["init", "uninit"]
+
+
+def test_windows_wmi_health_status_and_unknown_health_are_respected():
+    module = _import_agent_sender_windows()
+    class Healthy:
+        DeviceId = "healthy"
+        FriendlyName = "Healthy"
+        MediaType = "4"
+        HealthStatus = "Healthy"
+        OperationalStatus = [2]
+    class Unhealthy:
+        DeviceId = "unhealthy"
+        FriendlyName = "Unhealthy"
+        MediaType = "4"
+        HealthStatus = 2
+        OperationalStatus = [2]
+    class Unknown:
+        DeviceId = "unknown"
+        FriendlyName = "Unknown"
+        MediaType = "4"
+        HealthStatus = None
+        OperationalStatus = None
+    class Storage:
+        def MSFT_PhysicalDisk(self): return [Healthy(), Unhealthy(), Unknown()]
+        def MSFT_StorageReliabilityCounter(self): return []
+    class WMI:
+        def WMI(self, **kwargs): return Storage()
+    module.wmi = WMI()
+    module.pythoncom = None
+    module._lhm_lib_collector.get_sensors = lambda: []
+    devices = module.smart_collector.poll_once(now=1)["devices"]
+    assert devices["healthy"]["critical_metrics"]["overall_passed"] is True
+    assert devices["unhealthy"]["critical_metrics"]["overall_passed"] is False
+    assert devices["unknown"]["critical_metrics"]["overall_passed"] is None
+
+
 def test_windows_collector_merges_smartctl_and_lhm_storage_temperature(monkeypatch):
     from types import SimpleNamespace
     module = _import_agent_sender_windows()
