@@ -121,6 +121,25 @@ def test_pve_inventory_api_error_degrades_to_unavailable(monkeypatch):
     assert snapshot["status"] == "unavailable" and snapshot["alerts"] == []
 
 
+def test_pve_inventory_api_error_preserves_local_smart_results(monkeypatch):
+    class Result:
+        def __init__(self, value): self.stdout = json.dumps(value)
+    def run(args, **kwargs):
+        if args[1] == "--scan":
+            return Result({"devices": [{"name": "/dev/sda"}, {"name": "/dev/sdb"}]})
+        if args[-1] == "/dev/sda":
+            return Result({"smart_status": {"passed": False}})
+        return Result({"smart_status": {"passed": None}})
+    monkeypatch.setattr("hwmonitor_mqtt.collectors.smart.shutil.which", lambda _: "/usr/sbin/smartctl")
+    monkeypatch.setattr("hwmonitor_mqtt.collectors.smart.subprocess.run", run)
+    class Pve:
+        def disks_list(self): raise RuntimeError("API unavailable")
+    snapshot = SmartCollector(pve_client=Pve()).poll_once()
+    assert set(snapshot["devices"]) == {"/dev/sda"}
+    assert snapshot["devices"]["/dev/sda"]["critical_metrics"]["overall_passed"] is False
+    assert snapshot["status"] == "critical"
+
+
 def test_pve_smart_api_fallback_normalizes_structured_and_text(monkeypatch):
     class Pve:
         def disks_list(self):

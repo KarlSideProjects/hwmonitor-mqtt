@@ -53,18 +53,20 @@ class SmartCollector:
 
     def _smartctl_devices(self):
         result = []
+        fallback_needed = False
         try:
             if not shutil.which(self.smartctl):
                 raise FileNotFoundError(self.smartctl)
             scan = json.loads(self._run("--scan", "-j").stdout)
-            result = []
             for row in scan.get("devices", []):
                 path = row.get("name")
                 if not isinstance(path, str) or not (path.startswith("/") or path.lower().startswith("\\\\.\\physicaldrive")):
+                    fallback_needed = True
                     continue
                 try:
                     data = json.loads(self._run("-a", "-j", path).stdout)
                 except (OSError, subprocess.SubprocessError, ValueError, TypeError):
+                    fallback_needed = True
                     continue
                 usable = isinstance(data, dict) and any((
                     isinstance(data.get("smart_status"), dict) and data["smart_status"].get("passed") is not None,
@@ -74,14 +76,20 @@ class SmartCollector:
                     any(data.get(key) for key in ("scsi_error_counter_log", "scsi_grown_defect_list", "temperature", "power_on_time")),
                 ))
                 if not usable:
+                    fallback_needed = True
                     continue
                 result.append((path, data, {}))
-            if not self.pve_client:
-                return result
         except (OSError, subprocess.SubprocessError, ValueError, TypeError):
-            if not self.pve_client: raise
+            if not self.pve_client:
+                raise
+            fallback_needed = True
+        if not self.pve_client or (result and not fallback_needed):
+            return result
         collected = {path for path, _, _ in result}
-        rows = self.pve_client.disks_list()
+        try:
+            rows = self.pve_client.disks_list()
+        except Exception:
+            return result
         for row in rows:
             path = row.get("devpath") or row.get("path") or row.get("dev")
             if not isinstance(path, str) or path in collected: continue
