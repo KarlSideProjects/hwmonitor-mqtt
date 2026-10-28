@@ -389,6 +389,26 @@ def test_windows_wmi_health_status_and_unknown_health_are_respected():
     assert devices["unknown"]["critical_metrics"]["overall_passed"] is None
 
 
+def test_windows_explicit_unknown_health_stays_unknown_when_operational_status_is_ok():
+    module = _import_agent_sender_windows()
+    class Disk:
+        DeviceId = "unknown"
+        FriendlyName = "Unknown"
+        MediaType = "4"
+        HealthStatus = 5
+        OperationalStatus = [2]
+    class Storage:
+        def MSFT_PhysicalDisk(self): return [Disk()]
+        def MSFT_StorageReliabilityCounter(self): return []
+    class WMI:
+        def WMI(self, **kwargs): return Storage()
+    module.wmi = WMI()
+    module.pythoncom = None
+    module._lhm_lib_collector.get_sensors = lambda: []
+    metrics = module.smart_collector.poll_once(now=1)["devices"]["unknown"]["critical_metrics"]
+    assert metrics["overall_passed"] is None
+
+
 def test_windows_collector_merges_smartctl_and_lhm_storage_temperature(monkeypatch):
     from types import SimpleNamespace
     module = _import_agent_sender_windows()

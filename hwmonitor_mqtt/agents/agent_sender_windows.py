@@ -406,7 +406,7 @@ def get_windows_disk_sources():
                     operational_passed = (None if operational is None or not operational_values else
                         all(str(x).lower() in {"2", "ok", "healthy"} for x in operational_values))
                     passed = (False if health_passed is False or operational_passed is False else
-                              True if health_passed is True or operational_passed is True else None)
+                              True if health_passed is True or health is None and operational_passed is True else None)
                     critical = {
                         "overall_passed": passed,
                         "uncorrectable_errors": sum(x for x in (read_errors, write_errors) if x is not None) if read_errors is not None or write_errors is not None else None,
