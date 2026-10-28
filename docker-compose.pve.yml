@@ -8,6 +8,7 @@ services:
     pid: host
     volumes:
       - /sys:/sys:ro
+      - /dev:/dev:ro
       - type: bind
         source: ${PVE_CONFIG_HOST:?set by host-aware installer}
         target: /run/secrets/pve.env
@@ -16,6 +17,9 @@ services:
         source: ${PVE_CA_HOST:?set by host-aware installer}
         target: ${PVE_CA_TARGET:?set by host-aware installer}
         read_only: true
+    cap_add:
+      - SYS_RAWIO
+      - SYS_ADMIN
     environment:
       BROKER_HOST: ${BROKER_HOST}
       BROKER_PORT: ${BROKER_PORT:-1883}

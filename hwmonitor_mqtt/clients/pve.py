@@ -149,6 +149,20 @@ class PveApiClient:
             raise PveError("invalid_response")
         return data
 
+    def disks_list(self):
+        """Return the node's physical disk inventory using the existing read-only token."""
+        data = self._get(f"nodes/{urllib.parse.quote(self.config.node, safe='')}/disks/list")
+        if not isinstance(data, list):
+            raise PveError("invalid_response")
+        return data
+
+    def disk_smart(self, disk):
+        """Return SMART data for one device; quote the complete device path as a query value."""
+        if not isinstance(disk, str) or not disk or len(disk) > 512:
+            raise PveError("invalid_response")
+        query = urllib.parse.urlencode({"disk": disk})
+        return self._get(f"nodes/{urllib.parse.quote(self.config.node, safe='')}/disks/smart?{query}")
+
     def validate_scope(self):
         nodes = self._get("nodes")
         if not isinstance(nodes, list) or not any(isinstance(row, dict) and row.get("node") == self.config.node for row in nodes):

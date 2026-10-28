@@ -167,6 +167,7 @@ def test_windows_build_esp_payload_schema_and_aggregation():
 
     assert sorted(payload.keys()) == [
         "cpu",
+        "disk_health",
         "disk_io",
         "gpu",
         "host",
@@ -176,6 +177,7 @@ def test_windows_build_esp_payload_schema_and_aggregation():
         "ts",
     ]
     assert payload["ts"] == 1700000000
+    assert payload["disk_health"] == "unavailable"
     assert payload["cpu"]["percent_total"] == 37.4
     assert payload["memory"]["ram"]["percent"] == 66.6
     assert payload["disk_io"]["total"]["rate"]["read_bytes_per_s"] == 150.0
@@ -210,6 +212,135 @@ def test_windows_should_publish_esp_payload_by_change_or_heartbeat():
     }
     assert module.should_publish_esp_payload(changed, now_monotonic=12.0) is False
     assert module.should_publish_esp_payload(changed, now_monotonic=13.2) is True
+
+
+def test_windows_esp_disk_health_transition_publishes_after_minimum_interval():
+    module = _import_agent_sender_windows()
+    module.reset_esp_publish_state()
+    assert module.should_publish_esp_payload({"disk_health": "ok"}, now_monotonic=0.0)
+    assert module.should_publish_esp_payload({"disk_health": "critical"}, now_monotonic=2.1)
+
+
+def test_windows_full_payload_truncates_only_raw_attributes():
+    module = _import_agent_sender_windows()
+    attributes = [{"name": "x" * 300000}]
+    module.metrics["disk_smart"] = {"status": "critical", "alerts": [{"severity": "critical"}], "devices": {
+        "disk0": {"critical_metrics": {"wear_percent": 100}, "raw_attributes": attributes}}}
+    disk = module.build_full_payload(now_ts=1)["disk_smart"]["devices"]["disk0"]
+    assert disk["critical_metrics"]["wear_percent"] == 100
+    assert "raw_attributes" not in disk and disk["raw_attributes_truncated"] is True
+    assert module.metrics["disk_smart"]["devices"]["disk0"]["raw_attributes"] == attributes
+
+
+def test_windows_storage_wmi_normalizes_reliability_metrics_and_alerts():
+    module = _import_agent_sender_windows()
+    class Disk:
+        DeviceId = "7"
+        FriendlyName = "SSD"
+        SerialNumber = "serial"
+        MediaType = "4"
+        OperationalStatus = [2]
+    class Counter:
+        DeviceId = "7"
+        ReadErrorsUncorrected = 1
+        WriteErrorsUncorrected = 0
+        Wear = 82
+        Temperature = 67
+        PowerOnHours = 9
+        WriteBytes = 1000
+    class Storage:
+        def MSFT_PhysicalDisk(self): return [Disk()]
+        def MSFT_StorageReliabilityCounter(self): return [Counter()]
+    class WMI:
+        def WMI(self, **kwargs): return Storage()
+    module.wmi = WMI()
+    module._lhm_lib_collector.get_sensors = lambda: []
+    snapshot = module.smart_collector.poll_once(now=1)
+    disk = snapshot["devices"]["7"]
+    assert disk["critical_metrics"]["uncorrectable_errors"] == 1
+    assert disk["critical_metrics"]["wear_percent"] == 82
+    assert disk["status"] == "critical"
+    assert {a["name"] for a in disk["raw_attributes"]} >= {"Wear", "Temperature", "PowerOnHours", "WriteBytes"}
+
+
+def test_windows_lhm_storage_sensors_map_values_attributes_and_temperature_limits():
+    from types import SimpleNamespace
+    module = _import_agent_sender_windows()
+    class Storage:
+        def MSFT_PhysicalDisk(self): return []
+        def MSFT_StorageReliabilityCounter(self): return []
+    class WMI:
+        def WMI(self, **kwargs): return Storage()
+    module.wmi = WMI()
+    module._lhm_lib_collector.get_sensors = lambda: [
+        SimpleNamespace(SensorType="Temperature", Name="Composite", Parent="/nvme/0", Value=42),
+        SimpleNamespace(SensorType="Temperature", Name="Warning Temperature", Parent="/nvme/0", Value=70),
+        SimpleNamespace(SensorType="Temperature", Name="Critical Temperature", Parent="/nvme/0", Value=80),
+        SimpleNamespace(SensorType="Level", Name="Available Spare", Parent="/nvme/0", Value=15),
+        SimpleNamespace(SensorType="Level", Name="Available Spare Threshold", Parent="/nvme/0", Value=10),
+        SimpleNamespace(SensorType="Level", Name="Percentage Used", Parent="/nvme/0", Value=85),
+        SimpleNamespace(SensorType="Level", Name="Remaining Life", Parent="/ssd/1", Value=90),
+        SimpleNamespace(SensorType="Data", Name="Data Units Written", Parent="/nvme/0", Value=123),
+        SimpleNamespace(SensorType="Data", Name="Host Writes", Parent="/ssd/1", Value=456),
+    ]
+    snapshot = module.smart_collector.poll_once(now=1)
+    nvme = snapshot["devices"]["/nvme/0"]
+    assert nvme["critical_metrics"]["temperature_c"] == 42
+    assert nvme["critical_metrics"]["warning_temp"] == 70
+    assert nvme["critical_metrics"]["critical_temp"] == 80
+    assert nvme["critical_metrics"]["spare_percent"] == 15
+    assert nvme["critical_metrics"]["wear_percent"] == 85
+    assert nvme["critical_metrics"]["total_bytes_written"] == 123 * 512000
+    assert {a["name"] for a in nvme["raw_attributes"]} >= {
+        "Composite", "Warning Temperature", "Critical Temperature", "Available Spare",
+        "Available Spare Threshold", "Percentage Used", "Data Units Written",
+    }
+    assert snapshot["devices"]["/ssd/1"]["critical_metrics"]["wear_percent"] == 10
+    assert snapshot["devices"]["/ssd/1"]["critical_metrics"]["total_bytes_written"] == 456
+
+
+def test_windows_wmi_missing_reliability_fields_remain_unknown():
+    module = _import_agent_sender_windows()
+    class Disk:
+        DeviceId = "8"
+        FriendlyName = "Disk"
+        MediaType = "4"
+        OperationalStatus = [2]
+    class Counter:
+        DeviceId = "8"
+    class Storage:
+        def MSFT_PhysicalDisk(self): return [Disk()]
+        def MSFT_StorageReliabilityCounter(self): return [Counter()]
+    class WMI:
+        def WMI(self, **kwargs): return Storage()
+    module.wmi = WMI()
+    module._lhm_lib_collector.get_sensors = lambda: []
+    metrics = module.smart_collector.poll_once(now=1)["devices"]["8"]["critical_metrics"]
+    assert metrics["wear_percent"] is None
+    assert metrics["temperature_c"] is None
+    assert metrics["power_on_hours"] is None
+
+
+def test_windows_collector_merges_smartctl_and_lhm_storage_temperature(monkeypatch):
+    from types import SimpleNamespace
+    module = _import_agent_sender_windows()
+    class Storage:
+        def MSFT_PhysicalDisk(self): return []
+        def MSFT_StorageReliabilityCounter(self): return []
+    class WMI:
+        def WMI(self, **kwargs): return Storage()
+    module.wmi = WMI()
+    module._lhm_lib_collector.get_sensors = lambda: [SimpleNamespace(
+        SensorType="Temperature", Name="Temperature", Parent="/nvme/nvme0", Value=80)]
+    class Smartctl:
+        def __init__(self): pass
+        def _smartctl_devices(self):
+            return [(r"\\.\PhysicalDrive0", {"model_name": "Drive", "smart_status": {"passed": True},
+                "ata_smart_attributes": {"table": [{"id": 197, "name": "Current_Pending_Sector", "raw": {"value": 1}}]}}, {})]
+    monkeypatch.setattr(module, "SmartCollector", Smartctl)
+    snapshot = module.smart_collector.poll_once(now=2)
+    assert snapshot["devices"][r"\\.\PhysicalDrive0"]["critical_metrics"]["unstable_sectors"] == 1
+    assert snapshot["devices"]["/nvme/nvme0"]["critical_metrics"]["temperature_c"] == 80
 
 
 def test_process_lhm_sensors_maps_cpu_gpu_and_storage():

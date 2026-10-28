@@ -8,6 +8,10 @@ services:
     pid: host
     volumes:
       - /sys:/sys:ro
+      - /dev:/dev:ro
+    cap_add:
+      - SYS_RAWIO
+      - SYS_ADMIN
     environment:
       BROKER_HOST: ${BROKER_HOST}
       BROKER_PORT: ${BROKER_PORT:-1883}

@@ -10,6 +10,7 @@ Async System Monitor for Windows (Multi-rate MQTT sender)
 """
 
 import asyncio
+import copy
 import csv
 import dataclasses
 import os
@@ -19,6 +20,7 @@ import socket
 import subprocess
 import sys
 import time
+import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -26,6 +28,7 @@ try:
     import psutil
     from dotenv import load_dotenv
     from hwmonitor_mqtt.transport.mqtt import configuration, create_client, publish
+    from hwmonitor_mqtt.collectors.smart import SmartCollector
 except ImportError as e:
     print(f"A required package is not installed: {e}")
     print("Please install dependencies first.")
@@ -89,6 +92,8 @@ ESP_TEMP_DELTA = _env_float("ESP_TEMP_DELTA", 1.0)
 ESP_NET_DELTA_BYTES = _env_float("ESP_NET_DELTA_BYTES", 16384.0)
 ESP_DISK_DELTA_BYTES = _env_float("ESP_DISK_DELTA_BYTES", 65536.0)
 ESP_GPU_DELTA = _env_float("ESP_GPU_DELTA", 3.0)
+MAX_PAYLOAD_BYTES = 262144
+SMART_POLL_INTERVAL_SEC = _env_float("SMART_POLL_INTERVAL_SEC", 300.0)
 
 # ===== LibreHardwareMonitor Process Config =====
 LHM_PATH = os.getenv("LHM_PATH", "").strip()
@@ -351,12 +356,90 @@ metrics: Dict[str, Any] = {
     "network_io": None,
     "system": None,
     "gpu": [],
+    "disk_smart": {"observed_at": None, "status": "unavailable", "alerts": [], "devices": {}},
 }
+smart_collector = SmartCollector(provider=lambda: get_windows_disk_sources())
 
 _lhm_manager = LHMProcessManager()
 _lhm_lib_collector = LHMInProcessCollector()
 _last_esp_signature: Optional[Dict[str, float]] = None
 _last_esp_publish_monotonic = 0.0
+_last_esp_disk_health = None
+
+
+def get_windows_disk_sources():
+    """Build canonical metric inputs from Windows Storage WMI and LHM sensors."""
+    try:
+        sources = SmartCollector()._smartctl_devices()
+    except Exception:
+        sources = []
+    if wmi is not None:
+        try:
+            storage = wmi.WMI(namespace=r"root\Microsoft\Windows\Storage")
+            physical = storage.MSFT_PhysicalDisk()
+            counters = storage.MSFT_StorageReliabilityCounter()
+            by_id = {str(getattr(c, "DeviceId", "")): c for c in counters}
+            for disk in physical:
+                ident = str(getattr(disk, "DeviceId", getattr(disk, "ObjectId", "disk")))
+                counter = by_id.get(ident)
+                def value(name): return getattr(counter, name, None) if counter else None
+                def number(name):
+                    raw = value(name)
+                    return _safe_float(raw) if raw is not None else None
+                read_errors, write_errors = number("ReadErrorsUncorrected"), number("WriteErrorsUncorrected")
+                operational = getattr(disk, "OperationalStatus", None)
+                passed = not operational or all(str(x).lower() in {"2", "ok", "healthy"} for x in (operational if isinstance(operational, (list, tuple)) else [operational]))
+                critical = {
+                    "overall_passed": passed,
+                    "uncorrectable_errors": read_errors + write_errors if read_errors is not None or write_errors is not None else None,
+                    "wear_percent": number("Wear"), "temperature_c": number("Temperature"),
+                    "power_on_hours": number("PowerOnHours"), "total_bytes_written": number("WriteBytes"),
+                }
+                attrs = [{"id": None, "name": name, "raw_value": value(name), "normalized_value": None,
+                          "worst": None, "threshold": None, "when_failed": None}
+                         for name in ("ReadErrorsUncorrected", "WriteErrorsUncorrected", "Wear", "Temperature", "PowerOnHours", "WriteBytes")
+                         if value(name) is not None]
+                sources.append((ident, {"critical_metrics": critical, "raw_attributes": attrs}, {
+                    "model": getattr(disk, "FriendlyName", None), "serial": getattr(disk, "SerialNumber", None),
+                    "type": "wmi", "media_type": "ssd" if str(getattr(disk, "MediaType", "")).lower() in {"4", "ssd"} else "hdd",
+                }))
+        except Exception:
+            pass
+    try:
+        for sensor in _lhm_lib_collector.get_sensors():
+            sensor_type = str(getattr(sensor, "SensorType", "")).lower()
+            name = str(getattr(sensor, "Name", ""))
+            lname = name.lower()
+            if sensor_type not in {"temperature", "level", "data"} or not re.search(r"/(?:nvme|ssd|hdd)/", str(getattr(sensor, "Parent", "")).lower()):
+                continue
+            ident = sensor.Parent
+            existing = next((i for i, row in enumerate(sources) if row[0] == ident), None)
+            value = _safe_float(sensor.Value)
+            if existing is None:
+                sources.append((ident, {"critical_metrics": {}, "raw_attributes": []}, {"type": "lhm", "media_type": "unknown"}))
+                existing = len(sources) - 1
+            data = sources[existing][1]
+            critical = data.setdefault("critical_metrics", {})
+            data.setdefault("raw_attributes", []).append({"id": None, "name": name, "raw_value": value,
+                "normalized_value": None, "worst": None, "threshold": None, "when_failed": None})
+            if sensor_type == "temperature":
+                if lname == "warning temperature":
+                    critical["warning_temp"] = value
+                elif lname == "critical temperature":
+                    critical["critical_temp"] = value
+                else:
+                    critical["temperature_c"] = value
+            elif sensor_type == "level":
+                if lname == "available spare": critical["spare_percent"] = value
+                elif lname == "available spare threshold": data["available_spare_threshold"] = value
+                elif lname == "percentage used": critical["wear_percent"] = value
+                elif lname == "remaining life": critical["wear_percent"] = 100 - value
+            elif sensor_type == "data":
+                if lname == "data units written": critical["total_bytes_written"] = value * 512000
+                elif lname == "host writes": critical["total_bytes_written"] = value
+    except Exception:
+        pass
+    return sources
 
 
 # ===== CPU / MEM / SYSTEM =====
@@ -901,7 +984,7 @@ def _normalize_gpu_payload(gpu_obj: Any) -> Optional[Dict[str, Any]]:
 
 def build_full_payload(now_ts: Optional[int] = None) -> Dict[str, Any]:
     gpus = metrics["gpu"] if isinstance(metrics["gpu"], list) else []
-    return {
+    payload = {
         "ts": int(time.time()) if now_ts is None else int(now_ts),
         "host": HOSTNAME,
         "system": metrics["system"],
@@ -912,6 +995,7 @@ def build_full_payload(now_ts: Optional[int] = None) -> Dict[str, Any]:
         "network_io": metrics["network_io"],
         "gpu": gpus[0] if gpus else None,
         "gpus": gpus,
+        "disk_smart": copy.deepcopy(metrics.get("disk_smart") or {"observed_at": None, "status": "unavailable", "alerts": [], "devices": {}}),
         "mqtt_stats": {
             "publish_ok": mqtt_stats["publish_ok"],
             "publish_err": mqtt_stats["publish_err"],
@@ -921,6 +1005,11 @@ def build_full_payload(now_ts: Optional[int] = None) -> Dict[str, Any]:
             "last_error": mqtt_stats["last_error"],
         },
     }
+    if len(json.dumps(payload, separators=(",", ":")).encode()) > MAX_PAYLOAD_BYTES:
+        for device in payload["disk_smart"].get("devices", {}).values():
+            device.pop("raw_attributes", None)
+            device["raw_attributes_truncated"] = True
+    return payload
 
 
 def build_esp_payload(now_ts: Optional[int] = None) -> Dict[str, Any]:
@@ -957,6 +1046,7 @@ def build_esp_payload(now_ts: Optional[int] = None) -> Dict[str, Any]:
         },
         "temperatures": _pick_cpu_temp_block(metrics.get("temperatures")),
         "gpu": _normalize_gpu_payload(gpu_obj),
+        "disk_health": (metrics.get("disk_smart") or {}).get("status", "unavailable"),
     }
     return payload
 
@@ -997,30 +1087,40 @@ def _build_esp_signature(payload: Dict[str, Any]) -> Dict[str, float]:
 
 
 def reset_esp_publish_state():
-    global _last_esp_signature, _last_esp_publish_monotonic
+    global _last_esp_signature, _last_esp_publish_monotonic, _last_esp_disk_health
     _last_esp_signature = None
     _last_esp_publish_monotonic = 0.0
+    _last_esp_disk_health = None
 
 
 def should_publish_esp_payload(payload: Dict[str, Any], now_monotonic: Optional[float] = None) -> bool:
-    global _last_esp_signature, _last_esp_publish_monotonic
+    global _last_esp_signature, _last_esp_publish_monotonic, _last_esp_disk_health
     if now_monotonic is None:
         now_monotonic = time.monotonic()
 
     current = _build_esp_signature(payload)
+    disk_health = payload.get("disk_health", "unavailable")
     if _last_esp_signature is None:
         _last_esp_signature = current
+        _last_esp_disk_health = disk_health
         _last_esp_publish_monotonic = now_monotonic
         return True
 
     elapsed = now_monotonic - _last_esp_publish_monotonic
     if elapsed >= ESP_HEARTBEAT_INTERVAL_SEC:
         _last_esp_signature = current
+        _last_esp_disk_health = disk_health
         _last_esp_publish_monotonic = now_monotonic
         return True
 
     if elapsed < ESP_MIN_PUBLISH_INTERVAL_SEC:
         return False
+
+    if disk_health != _last_esp_disk_health:
+        _last_esp_signature = current
+        _last_esp_disk_health = disk_health
+        _last_esp_publish_monotonic = now_monotonic
+        return True
 
     thresholds = {
         "cpu": ESP_CPU_DELTA,
@@ -1036,6 +1136,7 @@ def should_publish_esp_payload(payload: Dict[str, Any], now_monotonic: Optional[
     for key, threshold in thresholds.items():
         if abs(current.get(key, 0.0) - _last_esp_signature.get(key, 0.0)) >= threshold:
             _last_esp_signature = current
+            _last_esp_disk_health = disk_health
             _last_esp_publish_monotonic = now_monotonic
             return True
     return False
@@ -1093,6 +1194,12 @@ async def loop_lhm_wmi():
             sensors = get_lhm_wmi_data()
         update_lhm_metrics(sensors)
         await asyncio.sleep(10)
+
+
+async def loop_smart():
+    while True:
+        metrics["disk_smart"] = await asyncio.to_thread(smart_collector.poll_once)
+        await asyncio.sleep(max(1.0, SMART_POLL_INTERVAL_SEC))
 
 
 async def loop_publish():
@@ -1168,6 +1275,7 @@ async def main():
             loop_disk(),
             loop_network(),
             loop_lhm_wmi(),
+            loop_smart(),
             loop_publish(),
             mqtt_reconnector(),
         )

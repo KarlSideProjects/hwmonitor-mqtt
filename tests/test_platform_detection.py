@@ -157,6 +157,11 @@ def test_docker_compose_profiles_keep_stable_host_identity_and_private_mounts():
     assert "target: ${PVE_CA_TARGET:?set by host-aware installer}" in pve
     assert "PVE_ENABLED: \"1\"" in pve and "PVE_CONFIG_FILE: /run/secrets/pve.env" in pve
     assert "privileged" not in pve and "MQTT_PASS" in pve
+    volumes = pve.split("    volumes:", 1)[1].split("    cap_add:", 1)[0]
+    capabilities = pve.split("    cap_add:", 1)[1].split("    environment:", 1)[0]
+    assert "target: ${PVE_CA_TARGET:?set by host-aware installer}" in volumes
+    assert "SYS_RAWIO" in capabilities and "SYS_ADMIN" in capabilities
+    assert "type: bind" not in capabilities
 
 
 def test_live_pve_docker_install_passes_private_paths_without_printing_them(monkeypatch, capsys, tmp_path):
