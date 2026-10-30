@@ -19,7 +19,7 @@ try {
     if (Test-Path -LiteralPath $package) { Move-Item -LiteralPath $package -Destination $backup; $movedOld = $true }
     Move-Item -LiteralPath $StagedPackage -Destination $package
     $movedNew = $true
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $package 'scripts/windows/install_windows_sender_task.ps1') -ProjectRoot $ProjectRoot -SenderExe (Join-Path $package 'sender.exe') -AtStartup
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $package 'scripts/windows/install_windows_sender_task.ps1') -ProjectRoot $ProjectRoot -SenderExe (Join-Path $package 'sender.exe') -LhmInstallDir (Join-Path $package 'third_party/librehardwaremonitor') -AtStartup
     if ($LASTEXITCODE -ne 0) { throw "Windows task installer failed with exit code $LASTEXITCODE" }
     Start-ScheduledTask -TaskName $taskName
     $deadline = [DateTime]::UtcNow.AddSeconds(10)

@@ -163,7 +163,7 @@ function Ensure-LhmExecutable {
         [string]$DownloadUrl
     )
 
-    $resolved = Resolve-LhmExePath -Candidate $Candidate -InstallDir $InstallDir -RootPath $RootPath
+    $resolved = if ($SenderExe) { $null } else { Resolve-LhmExePath -Candidate $Candidate -InstallDir $InstallDir -RootPath $RootPath }
     if ($resolved) {
         return $resolved
     }
