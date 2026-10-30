@@ -26,6 +26,7 @@ if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
 $ProjectRoot = [System.IO.Path]::GetFullPath($ProjectRoot)
 if (-not [string]::IsNullOrWhiteSpace($SenderExe)) {
     if (-not (Test-Path -LiteralPath $SenderExe -PathType Leaf)) { throw "Sender executable not found: $SenderExe" }
+    if (-not [string]::IsNullOrWhiteSpace($LhmDownloadUrl) -or -not [string]::IsNullOrWhiteSpace($LhmPath)) { throw 'Compiled sender cannot use unverified LibreHardwareMonitor paths or download URLs.' }
     $SenderExe = [System.IO.Path]::GetFullPath($SenderExe)
     $UseUv = $false
 }

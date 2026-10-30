@@ -93,3 +93,15 @@ def test_compiled_sender_uses_installation_directory_for_lhm_fallback(tmp_path):
     result = subprocess.run([sys.executable, str(runner), str(agent)], cwd=tmp_path, env=env, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == str(tmp_path / "third_party/librehardwaremonitor/LibreHardwareMonitor.exe")
+
+
+def test_compiled_install_rejects_unverified_lhm_download_url(tmp_path):
+    sender = tmp_path / "sender.exe"
+    sender.write_bytes(b"placeholder")
+    script = Path(__file__).resolve().parents[1] / "scripts/windows/install_windows_sender_task.ps1"
+    result = run_pwsh(
+        '& $env:INSTALL_SCRIPT -ProjectRoot $env:PROJECT_ROOT -SenderExe $env:SENDER_EXE -LhmDownloadUrl "https://example.invalid/lhm.zip" -EnsurePawnIo:$false -WhatIf',
+        env={"INSTALL_SCRIPT": str(script), "PROJECT_ROOT": str(tmp_path), "SENDER_EXE": str(sender)},
+    )
+    assert result.returncode != 0
+    assert "unverified" in (result.stdout + result.stderr).lower()
