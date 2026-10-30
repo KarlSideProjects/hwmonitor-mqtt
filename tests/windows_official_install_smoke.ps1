@@ -83,6 +83,17 @@ function Assert-TreeExited($tree) {
         if ($remaining -and $remaining.CreationDate.ToString('o') -eq $process.created) { throw "Prior sender process $($process.pid) remains running." }
     }
 }
+function Get-CompleteSenderTree {
+    for ($attempt = 0; $attempt -lt 20; $attempt++) {
+        $tree = @(Get-SenderTree)
+        $senders = @($tree | Where-Object { $_.name -ieq 'sender.exe' })
+        foreach ($sender in $senders) {
+            if (@($senders | Where-Object { $_.pid -eq $sender.parent }).Count) { return $tree }
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    throw 'Could not observe the complete compiled sender process tree.'
+}
 try {
     if (Test-Path -LiteralPath $root) { throw 'Refusing to replace an existing install in the smoke environment.' }
     if (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue) { throw 'Refusing to replace an existing task in the smoke environment.' }
@@ -124,7 +135,7 @@ try {
     if ((Get-FileHash (Join-Path $root '.env') -Algorithm SHA256).Hash -ne $firstEnv -or (Get-Acl (Join-Path $root '.env')).Sddl -ne $firstAcl) { throw 'Retry changed settings or ACL.' }
     & .venv/Scripts/python.exe tests/windows_mqtt_observer.py --profile full --port 18884
     if ($LASTEXITCODE -ne 0) { throw 'No installed full payload.' }
-    $oldTree = @(Get-SenderTree)
+    $oldTree = @(Get-CompleteSenderTree)
     $observations.Add([pscustomobject]@{phase='old-running'; processes=$oldTree})
 
     [IO.File]::AppendAllText((Join-Path $root '.env'), "SENDER_PROFILE=esp`n", [Text.UTF8Encoding]::new($false))
@@ -166,7 +177,9 @@ try {
     try { & $bootstrap; throw 'Expected upgrade start failure.' } catch { if ($_ -notmatch 'Injected start failure') { throw } }
     Assert-OldState $oldExe $oldEnv $oldAcl
     Assert-TreeExited $oldTree
-    $rollbackTree = @(Get-SenderTree)
+    & .venv/Scripts/python.exe tests/windows_mqtt_observer.py --profile esp --port 18884
+    if ($LASTEXITCODE -ne 0) { throw 'No rollback sender payload.' }
+    $rollbackTree = @(Get-CompleteSenderTree)
     $observations.Add([pscustomobject]@{phase='rollback-running'; processes=$rollbackTree})
     & $bootstrap
     if ((Get-FileHash (Join-Path $root '.env') -Algorithm SHA256).Hash -ne $oldEnv -or (Get-Acl (Join-Path $root '.env')).Sddl -ne $oldAcl) { throw 'Upgrade changed settings or ACL.' }
