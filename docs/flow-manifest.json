@@ -50,27 +50,27 @@
     {
       "path": "release-public/README.md",
       "kind": "file",
-      "md5": "73120b122ad86db1f404e18c6a4cbc64"
+      "md5": "705a2a913e2b16f50477b6046612bacd"
     },
     {
       "path": "release-public/LICENSE-NOTICE.md",
       "kind": "file",
-      "md5": "5e19fee48c952ef2916bf4c8dd2c650d"
+      "md5": "b475f0a088b95d25860073be3e91320a"
     },
     {
       "path": "scripts/inspect_sender_candidate.py",
       "kind": "file",
-      "md5": "5cd09da37cadc8aa82713525e43f163c"
+      "md5": "ba93019faa4a99e93c68a8ffd7408c88"
     },
     {
       "path": "tests/test_release_candidate.py",
       "kind": "file",
-      "md5": "147a88186772950e765d8185ea30786c"
+      "md5": "12663724823a10136d52f507dc285341"
     },
     {
       "path": "docs/release/sender-candidate.md",
       "kind": "file",
-      "md5": "eeb40960f7712537fd1292b533e51425"
+      "md5": "4a5a04b3356174c282cea299f93b4296"
     }
   ],
   "features": [
@@ -287,7 +287,13 @@
     "docs/configuration/pve.env.example",
     "docs/deployment/installation.md",
     "docker-compose.linux.yml",
-    "scripts/windows/uninstall_windows_sender_task.ps1"
+    "scripts/windows/uninstall_windows_sender_task.ps1",
+    "tests/fixtures/release-notices/paho-mqtt.txt",
+    "tests/fixtures/release-notices/psutil.txt",
+    "tests/fixtures/release-notices/python-dotenv.txt",
+    "tests/fixtures/release-notices/python.txt",
+    "tests/fixtures/release-notices/pythonnet.txt",
+    "tests/fixtures/release-notices/wmi.txt"
   ],
   "limits": {
     "nodes": 25,

@@ -6,6 +6,7 @@ import pytest
 
 
 CHECKER = Path(__file__).resolve().parents[1] / 'scripts' / 'inspect_sender_candidate.py'
+REPO_NOTICES = Path(__file__).resolve().parent / 'fixtures' / 'release-notices'
 
 
 def candidate(tmp_path, platform='linux-x64'):
@@ -15,7 +16,7 @@ def candidate(tmp_path, platform='linux-x64'):
     licenses = root / 'licenses'
     licenses.mkdir()
     for name in ('python', 'paho-mqtt', 'psutil', 'python-dotenv') + (('pythonnet', 'wmi') if platform == 'windows-x64' else ()):
-        (licenses / f'{name}.txt').write_text('example third-party notice')
+        (licenses / f'{name}.txt').write_bytes((REPO_NOTICES / f'{name}.txt').read_bytes())
     return root
 
 
@@ -64,4 +65,16 @@ def test_rejects_unknown_platform(tmp_path):
 def test_rejects_python_source_disguised_as_executable(tmp_path):
     root = candidate(tmp_path)
     (root / 'sender').write_text('def send():\n    pass\n')
+    assert inspect(root).returncode != 0
+
+
+def test_rejects_altered_notice_at_approved_path(tmp_path):
+    root = candidate(tmp_path)
+    (root / 'licenses' / 'python.txt').write_text('def private_source(): pass')
+    assert inspect(root).returncode != 0
+
+
+def test_rejects_secret_in_notice_at_approved_path(tmp_path):
+    root = candidate(tmp_path)
+    (root / 'licenses' / 'python.txt').write_text('MQTT_PASS=hidden-secret')
     assert inspect(root).returncode != 0
