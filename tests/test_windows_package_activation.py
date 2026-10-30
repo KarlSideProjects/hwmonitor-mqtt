@@ -322,3 +322,23 @@ try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE; exit 0 
     assert "unrecognized" in result.stdout.lower()
     assert (old / "sender.exe").read_text() == "old"
     assert (stage / "sender.exe").read_text() == "new"
+
+
+def test_secret_acl_rejects_unmapped_generic_read(tmp_path):
+    source = (Path(__file__).resolve().parents[1] / "bootstrap.ps1").read_text()
+    functions = source[source.index("function Assert-TrustedItem"):source.index("# End trusted path checks")]
+    shell = r'''
+$trustedSids = @('S-1-5-18', 'S-1-5-32-544')
+function Get-Item { param($LiteralPath, [switch]$Force) [pscustomobject]@{Attributes=[IO.FileAttributes]::Normal} }
+function Get-Acl { param($LiteralPath)
+    $acl = [pscustomobject]@{}
+    $acl | Add-Member ScriptMethod GetOwner { param($type) [pscustomobject]@{Value='S-1-5-18'} }
+    $acl | Add-Member ScriptMethod GetAccessRules { param($a,$b,$type) @([pscustomobject]@{IdentityReference=[pscustomobject]@{Value='S-1-1-0'}; AccessControlType='Allow'; FileSystemRights=[int]::MinValue}) }
+    return $acl
+}
+''' + functions + r'''
+Assert-TrustedItem $env:ITEM $false $true
+'''
+    result = run_pwsh(shell, env={"ITEM": str(tmp_path)})
+    assert result.returncode != 0
+    assert "untrusted" in result.stderr.lower()

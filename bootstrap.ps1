@@ -11,9 +11,9 @@ function Assert-TrustedItem([string]$Path, [bool]$Ancestor, [bool]$Secret = $fal
     if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Untrusted reparse path: $Path" }
     $acl = Get-Acl -LiteralPath $Path
     if ($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -notin $trustedSids) { throw "Untrusted owner: $Path" }
-    $mask = [int][Security.AccessControl.FileSystemRights]::Delete -bor [int][Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor [int][Security.AccessControl.FileSystemRights]::ChangePermissions -bor [int][Security.AccessControl.FileSystemRights]::TakeOwnership
-    if (-not $Ancestor) { $mask = $mask -bor [int][Security.AccessControl.FileSystemRights]::Write }
-    if ($Secret) { $mask = $mask -bor [int][Security.AccessControl.FileSystemRights]::ReadData }
+    $mask = [int][Security.AccessControl.FileSystemRights]::Delete -bor [int][Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor [int][Security.AccessControl.FileSystemRights]::ChangePermissions -bor [int][Security.AccessControl.FileSystemRights]::TakeOwnership -bor 0x10000000
+    if (-not $Ancestor) { $mask = $mask -bor [int][Security.AccessControl.FileSystemRights]::Write -bor 0x40000000 }
+    if ($Secret) { $mask = $mask -bor [int][Security.AccessControl.FileSystemRights]::ReadData -bor [int]::MinValue }
     foreach ($rule in $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
         if ($Ancestor -and (($rule.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly) -ne 0)) { continue }
         if ($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin $trustedSids -and (([int]$rule.FileSystemRights -band $mask) -ne 0)) { throw "Untrusted write access: $Path" }
