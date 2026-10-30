@@ -22,6 +22,22 @@ try {
         & .venv/Scripts/python.exe tests/windows_mqtt_observer.py --profile $profile --port 18883
         if ($LASTEXITCODE -ne 0) { throw "No compiled sender $profile payload." }
         if ($sender.HasExited) { throw "Compiled sender exited during $profile test." }
+        if ($profile -eq 'full') {
+            $processes = @(Get-CimInstance -ClassName Win32_Process)
+            $ids = [Collections.Generic.HashSet[uint32]]::new()
+            [void]$ids.Add([uint32]$sender.Id)
+            do {
+                $added = $false
+                foreach ($process in $processes) {
+                    if ($ids.Contains([uint32]$process.ParentProcessId) -and $ids.Add([uint32]$process.ProcessId)) { $added = $true }
+                }
+            } while ($added)
+            $tree = @($processes | Where-Object { $ids.Contains([uint32]$_.ProcessId) } | ForEach-Object {
+                [pscustomobject]@{ProcessId=$_.ProcessId; ParentProcessId=$_.ParentProcessId; Name=$_.Name; CreationDate=$_.CreationDate.ToString('o')}
+            })
+            if (-not $tree.Count) { throw 'Could not observe the compiled sender process tree.' }
+            $tree | ConvertTo-Json -Depth 5 | Set-Content -Path 'test-evidence/compiled-process-tree.json' -Encoding UTF8
+        }
         & taskkill.exe /PID $sender.Id /T /F | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "Could not stop isolated $profile sender." }
         $sender = $null

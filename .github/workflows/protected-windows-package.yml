@@ -121,5 +121,6 @@ jobs:
             test-evidence/process-tree-ps*.json
             test-evidence/direct-*.log
             test-evidence/wmi-baseline.json
+            test-evidence/compiled-process-tree.json
           if-no-files-found: warn
           retention-days: 3
