@@ -94,3 +94,18 @@ def test_incorrect_archive_hash_is_rejected_before_extraction(tmp_path):
     assert result.returncode != 0
     assert "sha-256 mismatch" in (result.stdout + result.stderr).lower()
     assert not destination.exists()
+
+
+def test_link_entry_is_rejected_before_extraction(tmp_path):
+    archive = tmp_path / "package.zip"
+    entry = zipfile.ZipInfo("licenses/link.txt")
+    entry.create_system = 3
+    entry.external_attr = 0o120777 << 16
+    with zipfile.ZipFile(archive, "w") as package:
+        package.writestr(entry, "../outside")
+    destination = tmp_path / "out"
+    script = Path(__file__).resolve().parents[1] / "scripts/windows/validate_sender_package.ps1"
+    result = run_pwsh('& $env:VALIDATOR -Archive $env:ARCHIVE -Sha256 $env:SHA -Destination $env:DEST', env={"VALIDATOR": str(script), "ARCHIVE": str(archive), "SHA": hashlib.sha256(archive.read_bytes()).hexdigest(), "DEST": str(destination)})
+    assert result.returncode != 0
+    assert "links" in (result.stdout + result.stderr).lower()
+    assert not destination.exists()
