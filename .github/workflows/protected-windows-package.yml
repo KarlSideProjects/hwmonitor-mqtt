@@ -114,5 +114,6 @@ jobs:
             notice-inventory.json
             build/windows/nuitka-report.xml
             test-evidence/process-tree-ps*.json
+            test-evidence/direct-*.log
           if-no-files-found: warn
           retention-days: 3

@@ -5,6 +5,7 @@ $testRoot = Join-Path $env:RUNNER_TEMP ('sender-mqtt-' + [guid]::NewGuid().ToStr
 New-Item -ItemType Directory -Path $testRoot | Out-Null
 $broker = $null
 $sender = $null
+New-Item -ItemType Directory -Path 'test-evidence' -Force | Out-Null
 try {
     $config = Join-Path $testRoot 'mosquitto.conf'
     [IO.File]::WriteAllText($config, "listener 18883 127.0.0.1`nallow_anonymous true`n", [Text.UTF8Encoding]::new($false))
@@ -15,7 +16,9 @@ try {
     foreach ($profile in @('full', 'esp')) {
         $content = "BROKER_HOST=127.0.0.1`nBROKER_PORT=18883`nSENDER_PROFILE=$profile`nSMART_POLL_INTERVAL_SEC=2`n"
         [IO.File]::WriteAllText((Join-Path $testRoot '.env'), $content, [Text.UTF8Encoding]::new($false))
-        $sender = Start-Process -FilePath $SenderExe -WorkingDirectory $testRoot -PassThru
+        $stdout = Join-Path $PWD "test-evidence/direct-$profile.stdout.log"
+        $stderr = Join-Path $PWD "test-evidence/direct-$profile.stderr.log"
+        $sender = Start-Process -FilePath $SenderExe -WorkingDirectory $testRoot -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
         & .venv/Scripts/python.exe tests/windows_mqtt_observer.py --profile $profile --port 18883
         if ($LASTEXITCODE -ne 0) { throw "No compiled sender $profile payload." }
         if ($sender.HasExited) { throw "Compiled sender exited during $profile test." }
