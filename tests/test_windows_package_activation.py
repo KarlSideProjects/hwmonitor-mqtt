@@ -16,9 +16,10 @@ def test_start_failure_restores_previous_package_and_settings(tmp_path):
     (scripts / "install_windows_sender_task.ps1").write_text('param($ProjectRoot, $SenderExe, [switch]$AtStartup)\n')
     script = Path(__file__).resolve().parents[1] / "scripts/windows/activate_sender_package.ps1"
     shell = r'''
-function Get-ScheduledTask { param($TaskName, $ErrorAction) [pscustomobject]@{State='Running'} }
+$global:state = 'Running'
+function Get-ScheduledTask { param($TaskName, $ErrorAction) [pscustomobject]@{State=$global:state} }
 function Export-ScheduledTask { param($TaskName) '<Task />' }
-function Stop-ScheduledTask { param($TaskName) }
+function Stop-ScheduledTask { param($TaskName) $global:state = 'Ready' }
 function Register-ScheduledTask { param($TaskName, $Xml, [switch]$Force) }
 $global:attempts = 0
 function Start-ScheduledTask { param($TaskName) $global:attempts++; if ($global:attempts -eq 1) { throw 'injected start failure' } }
@@ -50,18 +51,20 @@ def test_sender_that_exits_after_initial_running_rolls_back(tmp_path):
     (scripts / "install_windows_sender_task.ps1").write_text('param($ProjectRoot, $SenderExe, [switch]$AtStartup)\n')
     script = Path(__file__).resolve().parents[1] / "scripts/windows/activate_sender_package.ps1"
     shell = r'''
-$global:checks = 0
-function Get-ScheduledTask { param($TaskName, $ErrorAction) $global:checks++; [pscustomobject]@{State= $(if ($global:checks -lt 3) {'Running'} else {'Ready'})} }
+$global:state = 'Running'
+$global:newChecks = 0
+function Get-ScheduledTask { param($TaskName, $ErrorAction) if ($global:state -eq 'New') { $global:newChecks++; return [pscustomobject]@{State= $(if ($global:newChecks -eq 1) {'Running'} else {'Ready'})} }; [pscustomobject]@{State=$global:state} }
 function Export-ScheduledTask { param($TaskName) '<Task />' }
-function Stop-ScheduledTask { param($TaskName) }
+function Stop-ScheduledTask { param($TaskName) $global:state = 'Ready' }
 function Register-ScheduledTask { param($TaskName, $Xml, [switch]$Force) }
-function Start-ScheduledTask { param($TaskName) }
+function Start-ScheduledTask { param($TaskName) $global:state = 'New' }
 function Start-Sleep { param($Milliseconds) }
 function powershell.exe { $global:LASTEXITCODE = 0 }
 try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE; exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
 '''
     result = run_pwsh(shell, env={"ACTIVATOR": str(script), "ROOT": str(root), "STAGE": str(stage)})
     assert result.returncode != 0
+    assert "stopped during startup" in result.stdout
     assert (old / "sender.exe").read_text() == "old"
 
 
@@ -182,3 +185,31 @@ Assert-TrustedItem $env:ITEM $false
     result = run_pwsh(shell, env={"ITEM": str(tmp_path)})
     assert result.returncode != 0
     assert "reparse" in result.stderr.lower()
+
+
+def test_running_task_that_does_not_stop_keeps_old_package(tmp_path):
+    root = tmp_path / "installed"
+    old = root / "package"
+    old.mkdir(parents=True)
+    (old / "sender.exe").write_text("old")
+    stage = tmp_path / "stage"
+    scripts = stage / "scripts/windows"
+    scripts.mkdir(parents=True)
+    (stage / "sender.exe").write_text("new")
+    (scripts / "install_windows_sender_task.ps1").write_text('param($ProjectRoot, $SenderExe, [switch]$AtStartup)\n')
+    script = Path(__file__).resolve().parents[1] / "scripts/windows/activate_sender_package.ps1"
+    shell = r'''
+function Get-ScheduledTask { param($TaskName, $ErrorAction) [pscustomobject]@{State='Running'} }
+function Export-ScheduledTask { param($TaskName) '<Task />' }
+function Stop-ScheduledTask { param($TaskName) }
+function Register-ScheduledTask { param($TaskName, $Xml, [switch]$Force) }
+function Start-ScheduledTask { param($TaskName) throw 'should not start' }
+function Start-Sleep { param($Milliseconds) }
+function powershell.exe { $global:LASTEXITCODE = 0 }
+try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE; exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
+'''
+    result = run_pwsh(shell, env={"ACTIVATOR": str(script), "ROOT": str(root), "STAGE": str(stage)})
+    assert result.returncode != 0
+    assert "did not stop" in result.stdout
+    assert (old / "sender.exe").read_text() == "old"
+    assert (stage / "sender.exe").read_text() == "new"

@@ -14,8 +14,16 @@ $wasRunning = $previousTask -and $previousTask.State -eq 'Running'
 $stopped = $false
 $movedOld = $false
 $movedNew = $false
+function Stop-TaskAndWait {
+    Stop-ScheduledTask -TaskName $taskName
+    for ($attempt = 0; $attempt -lt 20; $attempt++) {
+        if ((Get-ScheduledTask -TaskName $taskName).State -ne 'Running') { return }
+        Start-Sleep -Milliseconds 500
+    }
+    throw 'Scheduled task did not stop.'
+}
 try {
-    if ($wasRunning) { Stop-ScheduledTask -TaskName $taskName; $stopped = $true }
+    if ($wasRunning) { Stop-TaskAndWait; $stopped = $true }
     if (Test-Path -LiteralPath $package) { Move-Item -LiteralPath $package -Destination $backup; $movedOld = $true }
     Move-Item -LiteralPath $StagedPackage -Destination $package
     $movedNew = $true
@@ -40,14 +48,15 @@ catch {
     try {
         if ($movedNew) {
             $current = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-            if ($current -and $current.State -eq 'Running') { Stop-ScheduledTask -TaskName $taskName }
+            if ($current -and $current.State -eq 'Running') { Stop-TaskAndWait }
             Remove-Item -LiteralPath $package -Recurse -Force
         }
         if ($movedOld) { Move-Item -LiteralPath $backup -Destination $package }
-        if ($previousXml) {
+        if ($previousXml -and ($movedOld -or $movedNew)) {
             Register-ScheduledTask -TaskName $taskName -Xml $previousXml -Force | Out-Null
             if ($wasRunning -and $stopped) { Start-ScheduledTask -TaskName $taskName }
         }
+        elseif ($previousXml -and $wasRunning -and $stopped) { Start-ScheduledTask -TaskName $taskName }
         elseif ($movedNew) { Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue }
     }
     catch {
