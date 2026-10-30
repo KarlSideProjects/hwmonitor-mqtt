@@ -35,10 +35,10 @@ def source_snapshot(repo, destination, source="HEAD"):
 
 def write_entrypoint(path, version, source):
     path.write_text(
-        "import runpy, sys\n"
+        "import sys\n"
         + "if sys.argv[1:] == [\"--version\"]:\n"
         + f"    print({version!r}, {source!r})\n"
-        + "else:\n    runpy.run_module(\"hwmonitor_mqtt.agents.agent_sender_async\", run_name=\"__main__\")\n",
+        + "else:\n    from hwmonitor_mqtt.agents.agent_sender_async import run\n    run()\n",
         encoding="utf-8",
     )
 
