@@ -156,3 +156,15 @@ def test_notice_collection_uses_reported_distributions_and_checks_versions(tmp_p
     result = subprocess.run(command, capture_output=True, text=True)
     assert result.returncode != 0
     assert "version" in result.stderr.lower()
+
+
+def test_exact_cpython_binary_license_adds_versioned_native_notices(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    inputs = root / 'release-notices/windows-x64-cpython-3.13.17'
+    out = tmp_path / 'notices'
+    inventory = tmp_path / 'inventory.json'
+    result = subprocess.run([sys.executable, str(root / 'scripts/windows/collect_notices.py'), '--output', str(out), '--inventory', str(inventory), '--python-license', str(inputs / 'LICENSE.cpython-binary.txt'), 'psutil'], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    for name in ('openssl-3.5.9-LICENSE.txt', 'xz-5.2.5-COPYING', 'cpython-3.13.17-expat-COPYING'):
+        assert (out / name).read_bytes() == (inputs / name).read_bytes()
+        assert json.loads(inventory.read_text())['native_notices'][name] == hashlib.sha256((out / name).read_bytes()).hexdigest()

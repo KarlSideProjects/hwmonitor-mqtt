@@ -27,6 +27,12 @@ SUPPLEMENTS = {
         "b00f9a4b112b44f91276ad8388ed470ad36668ff80f56f15e1e6981c85e6d23d",
     ),
 }
+NATIVE_INPUTS = {
+    "openssl-3.5.9-LICENSE.txt": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+    "xz-5.2.5-COPYING": "bcb02973ef6e87ea73d331b3a80df7748407f17efdb784b61b47e0e610d3bb5c",
+    "cpython-3.13.17-expat-COPYING": "31b15de82aa19a845156169a17a5488bf597e561b2c318d159ed583139b25e87",
+}
+CPYTHON_BINARY_LICENSE = "62bec384df47b0328307db41455ff6ea2559e5546b394ac69148561b21703120"
 MIT_URL = "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/MIT.txt"
 MIT_SHA256 = "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
 PAHO_URL = "https://files.pythonhosted.org/packages/39/15/0a6214e76d4d32e7f663b109cf71fb22561c2be0f701d67f93950cd40542/paho_mqtt-2.1.0.tar.gz"
@@ -113,6 +119,15 @@ def main():
     if not python_notice.stat().st_size:
         parser.error("Python license is empty")
     inventory = {"python_license_sha256": hashlib.sha256(python_notice.read_bytes()).hexdigest(), "distributions": {}}
+    if inventory["python_license_sha256"] == CPYTHON_BINARY_LICENSE:
+        native_dir = Path(__file__).resolve().parents[2] / "release-notices/windows-x64-cpython-3.13.17"
+        inventory["native_notices"] = {}
+        for name, expected_hash in NATIVE_INPUTS.items():
+            content = (native_dir / name).read_bytes()
+            if hashlib.sha256(content).hexdigest() != expected_hash:
+                raise ValueError(f"native notice SHA-256 mismatch: {name}")
+            (args.output / name).write_bytes(content)
+            inventory["native_notices"][name] = expected_hash
     for name, expected_version in expected.items():
         dist = importlib.metadata.distribution(name)
         if expected_version is not None and dist.version != expected_version:
