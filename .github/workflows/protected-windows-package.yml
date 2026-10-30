@@ -39,6 +39,8 @@ jobs:
           uv pip install --python .venv/Scripts/python.exe --no-deps --require-hashes -r scripts/windows/requirements-build-backend.txt
           uv pip install --python .venv/Scripts/python.exe --no-build-isolation --no-deps --require-hashes -r scripts/windows/requirements-build.txt
           .venv/Scripts/python.exe -c "import sys; print(sys.version); assert sys.version_info[:3] == (3, 13, 17)"
+          .venv/Scripts/python.exe -c "import hashlib,sys; from pathlib import Path; sys.path.insert(0, 'scripts'); from inspect_sender_candidate import windows_runtime_architecture; import pythonnet; p=Path(pythonnet.__file__).parent / 'runtime/Python.Runtime.dll'; b=p.read_bytes(); assert hashlib.sha256(b).hexdigest() == 'd204ad74dc18cd07320c8e665bd32ec6549b555ce97e61e4d3cf88437a64988e'; assert windows_runtime_architecture(b)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Pin the build-only Dependency Walker archive
         shell: pwsh
         run: |
@@ -53,7 +55,7 @@ jobs:
         shell: pwsh
         run: |
           .venv/Scripts/python.exe -m nuitka --version
-          .venv/Scripts/python.exe -m nuitka --onefile --msvc=latest --output-dir=build/windows --report=build/windows/nuitka-report.xml --output-filename=sender.exe --include-package=pythonnet --include-package=clr_loader --include-module=clr --nofollow-import-to=win32com.test --nofollow-import-to=win32com.demos hwmonitor_mqtt/agents/agent_sender_windows.py
+          .venv/Scripts/python.exe scripts/capture_sender_build.py --source . --build-dir build/windows --evidence-dir capture-evidence
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .venv/Scripts/python.exe -c "import xml.etree.ElementTree as E; r=E.parse('build/windows/nuitka-report.xml').getroot(); names={m.get('name') for m in r.findall('module')}; bad=[n for n in names if n and n.startswith(('win32com.test', 'win32com.demos'))]; required={'wmi','pythoncom','win32com.client','clr','pythonnet','clr_loader'}; assert not bad, bad; assert required <= names, required-names; print('Required COM/CLR modules present; test/demo modules excluded')"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -100,7 +102,7 @@ jobs:
           if ((Get-FileHash python-license.txt -Algorithm SHA256).Hash -ne '62BEC384DF47B0328307DB41455FF6EA2559E5546B394AC69148561B21703120') { throw 'Python license SHA-256 mismatch' }
           .venv/Scripts/python.exe scripts/windows/collect_notices.py --output notices --inventory notice-inventory.json --python-license python-license.txt --report build/windows/nuitka-report.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .venv/Scripts/python.exe scripts/windows/inventory_sender_dist.py --dist build/windows/agent_sender_windows.dist --output dist-inventory.json
+          Copy-Item capture-evidence/inventory.json dist-inventory.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .venv/Scripts/python.exe scripts/windows/package_sender.py --executable build/windows/sender.exe --notices notices --output candidate --source $source --version 0.0.1 --compiler 'Nuitka 2.8.9' --python-version '3.13.17' --report build/windows/nuitka-report.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -113,7 +115,7 @@ jobs:
             $assetHash = (Get-FileHash -LiteralPath (Join-Path 'record-assets' $name) -Algorithm SHA256).Hash.ToLowerInvariant()
             [IO.File]::WriteAllText((Join-Path $PWD "record-assets/$name.sha256"), "$assetHash  $name`n", [Text.Encoding]::ASCII)
           }
-          .venv/Scripts/python.exe scripts/create_sender_build_record.py --source-root . --platform windows-x64 --archive candidate/sender-windows-x64.zip --executable build/windows/sender.exe --report build/windows/nuitka-report.xml --inventory dist-inventory.json --runtime-dir build/windows/agent_sender_windows.dist --assets record-assets --version 0.0.1 --python-version 3.13.17 --output build-record.json
+          .venv/Scripts/python.exe scripts/create_sender_build_record.py --source-root . --platform windows-x64 --archive candidate/sender-windows-x64.zip --executable build/windows/sender.exe --report capture-evidence/report.xml --provenance capture-evidence/provenance.json --inventory dist-inventory.json --runtime-dir capture-evidence/runtime --assets record-assets --version 0.0.1 --python-version 3.13.17 --output build-record.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if ((Get-FileHash old-binary/build/windows/sender.exe -Algorithm SHA256).Hash -ne $env:OLD_SENDER_SHA256) { throw 'Prior native executable SHA-256 mismatch' }
           New-Item -ItemType Directory -Path old-source | Out-Null
@@ -149,6 +151,7 @@ jobs:
             dist-inventory.json
             build-record.json
             record-assets/
+            capture-evidence/
             build/windows/agent_sender_windows.dist/
             build/windows/nuitka-report.xml
             test-evidence/process-tree-ps*.json
