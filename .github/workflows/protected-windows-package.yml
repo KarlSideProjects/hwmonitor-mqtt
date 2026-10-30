@@ -91,8 +91,13 @@ jobs:
         run: |
           $source = (git rev-parse HEAD).Trim()
           if ($source -cne $env:GITHUB_SHA -or (git status --porcelain --untracked-files=no)) { throw 'Source checkout is not the clean workflow commit' }
-          Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/python/cpython/v3.13.17/LICENSE' -OutFile python-license.txt
-          if ((Get-FileHash python-license.txt -Algorithm SHA256).Hash -ne '78B12C3A81360B357002334F0E70EA0E92EEBF7A9B358805C03C48484945F3BB') { throw 'Python license SHA-256 mismatch' }
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://www.python.org/ftp/python/3.13.17/python-3.13.17-embed-amd64.zip' -OutFile python-embed.zip
+          if ((Get-FileHash python-embed.zip -Algorithm SHA256).Hash -ne '9E35319BFFEDAB8B36AD44D8F377CB4F1733BCEC257A0B6D04D94F01486DDB38') { throw 'Python archive SHA-256 mismatch' }
+          Expand-Archive -LiteralPath python-embed.zip -DestinationPath python-embed
+          .venv/Scripts/python.exe -c "from pathlib import Path; import hashlib; dist=Path('build/windows/agent_sender_windows.dist'); embed=Path('python-embed'); required={'python313.dll','libssl-3.dll','libcrypto-3.dll','libffi-8.dll'}; assert all((dist / n).is_file() and (embed / n).is_file() for n in required); shared=[p for p in dist.iterdir() if p.is_file() and (embed / p.name).is_file()]; assert all(hashlib.sha256(p.read_bytes()).digest() == hashlib.sha256((embed / p.name).read_bytes()).digest() for p in shared); print('Verified matching CPython binary archive files:', len(shared))"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item -LiteralPath python-embed/LICENSE.txt -Destination python-license.txt
+          if ((Get-FileHash python-license.txt -Algorithm SHA256).Hash -ne '62BEC384DF47B0328307DB41455FF6EA2559E5546B394AC69148561B21703120') { throw 'Python license SHA-256 mismatch' }
           .venv/Scripts/python.exe scripts/windows/collect_notices.py --output notices --inventory notice-inventory.json --python-license python-license.txt --report build/windows/nuitka-report.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .venv/Scripts/python.exe scripts/windows/inventory_sender_dist.py --dist build/windows/agent_sender_windows.dist --output dist-inventory.json
