@@ -135,8 +135,7 @@ try {
         Remove-Variable password, securePassword
     }
 
-    & $activator -ProjectRoot $root -StagedPackage $staged
-    [IO.File]::WriteAllText((Join-Path $root '.hwmonitor-mqtt-bootstrap'), $version.source + "`n", [Text.UTF8Encoding]::new($false))
+    & $activator -ProjectRoot $root -StagedPackage $staged -Source $version.source
     Remove-Item -LiteralPath (Join-Path $root '.hwmonitor-mqtt-bootstrap-pending') -Force -ErrorAction SilentlyContinue
     Write-Output "Sender $($version.version) installed and started from $root."
 }

@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$ProjectRoot,
-    [Parameter(Mandatory = $true)][string]$StagedPackage
+    [Parameter(Mandatory = $true)][string]$StagedPackage,
+    [Parameter(Mandatory = $true)][ValidatePattern('^[a-f0-9]{40}$')][string]$Source
 )
 $ErrorActionPreference = 'Stop'
 $taskName = 'HWMonitorMQTTSender'
@@ -26,6 +27,11 @@ $wasRunning = $previousTask -and $previousTask.State -eq 'Running'
 $stopped = $false
 $movedOld = $false
 $movedNew = $false
+$marker = Join-Path $ProjectRoot '.hwmonitor-mqtt-bootstrap'
+$markerTemp = Join-Path $ProjectRoot ('.marker-' + [guid]::NewGuid().ToString('N'))
+$markerBackup = Join-Path $ProjectRoot ('.marker-backup-' + [guid]::NewGuid().ToString('N'))
+$markerCommitted = $false
+[IO.File]::WriteAllText($markerTemp, $Source + "`n", [Text.UTF8Encoding]::new($false))
 function Stop-TaskAndWait {
     Stop-ScheduledTask -TaskName $taskName
     for ($attempt = 0; $attempt -lt 20; $attempt++) {
@@ -53,7 +59,9 @@ try {
         Start-Sleep -Milliseconds 500
         if ((Get-ScheduledTask -TaskName $taskName).State -ne 'Running') { throw 'New sender stopped during startup.' }
     } while ([DateTime]::UtcNow -lt $stableUntil)
-    if ($movedOld) { Remove-Item -LiteralPath $backup -Recurse -Force }
+    if (Test-Path -LiteralPath $marker) { [IO.File]::Replace($markerTemp, $marker, $markerBackup) }
+    else { [IO.File]::Move($markerTemp, $marker) }
+    $markerCommitted = $true
 }
 catch {
     $failure = $_
@@ -94,4 +102,12 @@ catch {
         throw "Activation failed: $failure. Rollback failed: $rollbackFailure. Preserve $backup; task recovery: $recoveryPath."
     }
     throw $failure
+}
+finally {
+    Remove-Item -LiteralPath $markerTemp -Force -ErrorAction SilentlyContinue
+    if ($markerCommitted) { Remove-Item -LiteralPath $markerBackup -Force -ErrorAction SilentlyContinue }
+}
+if ($movedOld) {
+    try { Remove-Item -LiteralPath $backup -Recurse -Force }
+    catch { Write-Warning "New sender is running; prior package retained at $backup." }
 }

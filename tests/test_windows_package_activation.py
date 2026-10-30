@@ -24,7 +24,7 @@ function Register-ScheduledTask { param($TaskName, $Xml, [switch]$Force) }
 $global:attempts = 0
 function Start-ScheduledTask { param($TaskName) $global:attempts++; if ($global:attempts -eq 1) { throw 'injected start failure' } }
 function powershell.exe { $global:LASTEXITCODE = 0 }
-try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE; exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
+try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE -Source ('a' * 40); exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
 '''
     result = run_pwsh(shell, env={"ACTIVATOR": str(script), "ROOT": str(root), "STAGE": str(stage)})
     assert result.returncode != 0
@@ -60,7 +60,7 @@ function Register-ScheduledTask { param($TaskName, $Xml, [switch]$Force) }
 function Start-ScheduledTask { param($TaskName) $global:state = 'New' }
 function Start-Sleep { param($Milliseconds) }
 function powershell.exe { $global:LASTEXITCODE = 0 }
-try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE; exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
+try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE -Source ('a' * 40); exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
 '''
     result = run_pwsh(shell, env={"ACTIVATOR": str(script), "ROOT": str(root), "STAGE": str(stage)})
     assert result.returncode != 0
@@ -85,7 +85,7 @@ function Export-ScheduledTask { param($TaskName) '<Task />' }
 function Stop-ScheduledTask { param($TaskName) }
 function Register-ScheduledTask { param($TaskName, $Xml, [switch]$Force) }
 function powershell.exe { $global:LASTEXITCODE = 23 }
-try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE; exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
+try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE -Source ('a' * 40); exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
 '''
     result = run_pwsh(shell, env={"ACTIVATOR": str(script), "ROOT": str(root), "STAGE": str(stage)})
     assert result.returncode != 0
@@ -140,7 +140,7 @@ function Export-ScheduledTask { param($TaskName) '<Task />' }
 function Stop-ScheduledTask { param($TaskName) throw 'injected rollback stop failure' }
 function Start-ScheduledTask { param($TaskName) throw 'injected start failure' }
 function powershell.exe { $global:LASTEXITCODE = 0 }
-try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE; exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
+try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE -Source ('a' * 40); exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
 '''
     result = run_pwsh(shell, env={"ACTIVATOR": str(script), "ROOT": str(root), "STAGE": str(stage)})
     assert result.returncode != 0
@@ -206,7 +206,7 @@ function Register-ScheduledTask { param($TaskName, $Xml, [switch]$Force) }
 function Start-ScheduledTask { param($TaskName) throw 'should not start' }
 function Start-Sleep { param($Milliseconds) }
 function powershell.exe { $global:LASTEXITCODE = 0 }
-try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE; exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
+try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE -Source ('a' * 40); exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
 '''
     result = run_pwsh(shell, env={"ACTIVATOR": str(script), "ROOT": str(root), "STAGE": str(stage)})
     assert result.returncode != 0
@@ -247,7 +247,7 @@ function Start-ScheduledTask { param($TaskName) throw 'injected first start fail
 function Unregister-ScheduledTask { param($TaskName, [switch]$Confirm, $ErrorAction) }
 function powershell.exe { $global:LASTEXITCODE = 0 }
 function Assert-TrustedItem { param($Path, $Ancestor) }
-try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE } catch { }
+try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE -Source ('a' * 40) } catch { }
 $root = $env:ROOT
 ''' + guard + "\nWrite-Output 'retry recognized'\n"
     result = run_pwsh(shell, env={"ACTIVATOR": str(repo / "scripts/windows/activate_sender_package.ps1"), "ROOT": str(root), "STAGE": str(stage)})
@@ -315,7 +315,7 @@ def test_unrecognized_task_is_not_stopped_or_replaced(tmp_path):
     shell = r'''
 function Get-ScheduledTask { param($TaskName, $ErrorAction) [pscustomobject]@{State='Running';Actions=@([pscustomobject]@{Execute='other.exe';Arguments=''})} }
 function Stop-ScheduledTask { param($TaskName) throw 'unexpected stop' }
-try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE; exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
+try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE -Source ('a' * 40); exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
 '''
     result = run_pwsh(shell, env={"ACTIVATOR": str(script), "ROOT": str(root), "STAGE": str(stage)})
     assert result.returncode != 0
@@ -351,3 +351,30 @@ def test_bootstrap_stages_on_same_volume_as_installation(tmp_path):
     assert result.returncode == 0, result.stderr
     root, stage = result.stdout.splitlines()
     assert Path(root).parent == Path(stage).parent
+
+
+def test_successful_activation_commits_source_marker_with_new_package(tmp_path):
+    root = tmp_path / "installed"
+    old = root / "package"
+    old.mkdir(parents=True)
+    (old / "sender.exe").write_text("old")
+    (root / ".hwmonitor-mqtt-bootstrap").write_text("old-source\n")
+    stage = tmp_path / "stage"
+    scripts = stage / "scripts/windows"
+    scripts.mkdir(parents=True)
+    (stage / "sender.exe").write_text("new")
+    (scripts / "install_windows_sender_task.ps1").write_text('param($ProjectRoot, $SenderExe, [switch]$AtStartup)\n')
+    script = Path(__file__).resolve().parents[1] / "scripts/windows/activate_sender_package.ps1"
+    shell = r'''
+$global:state = 'Ready'
+function Get-ScheduledTask { param($TaskName, $ErrorAction) [pscustomobject]@{State=$global:state;Actions=@([pscustomobject]@{Execute='powershell.exe';Arguments=('-File "' + (Join-Path $env:ROOT 'package/scripts/windows/start_windows_sender.ps1') + '" -ProjectRoot "' + $env:ROOT + '"')})} }
+function Export-ScheduledTask { param($TaskName) '<Task />' }
+function Start-ScheduledTask { param($TaskName) $global:state = 'Running' }
+function Start-Sleep { param($Milliseconds) }
+function powershell.exe { $global:LASTEXITCODE = 0 }
+& $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE -Source ('a' * 40)
+'''
+    result = run_pwsh(shell, env={"ACTIVATOR": str(script), "ROOT": str(root), "STAGE": str(stage)})
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (root / ".hwmonitor-mqtt-bootstrap").read_text() == "a" * 40 + "\n"
+    assert (root / "package/sender.exe").read_text() == "new"
