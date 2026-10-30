@@ -73,6 +73,11 @@ def test_build_record_binds_committed_source_and_private_evidence(tmp_path):
     assert result.returncode != 0
     assert 'capture' in result.stderr
     assert not output.exists()
+    report.write_text(report.read_text() + '<!-- different build -->')
+    swapped = subprocess.run(result.args, capture_output=True, text=True)
+    assert swapped.returncode != 0
+    assert 'provenance mismatch' in swapped.stderr
+    assert not output.exists()
 
 
 def test_windows_asset_cannot_be_changed_after_committed_source(tmp_path):
