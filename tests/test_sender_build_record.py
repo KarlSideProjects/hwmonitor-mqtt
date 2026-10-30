@@ -36,7 +36,7 @@ def test_build_record_binds_committed_source_and_private_evidence(tmp_path):
     subprocess.run(['git', 'init', '-q', str(repo)], check=True)
     subprocess.run(['git', '-C', str(repo), 'config', 'user.email', 'test@example.invalid'], check=True)
     subprocess.run(['git', '-C', str(repo), 'config', 'user.name', 'Test'], check=True)
-    paths = {name for name in checker.LINUX_ARCHIVE_PATHS if not name.startswith('licenses/') and name not in ('manifest.json', 'sender')}
+    paths = {name for name in checker.LINUX_ARCHIVE_PATHS if not name.startswith('licenses/') and name not in ('manifest.json', 'sender', '.dockerignore')}
     for name in paths:
         path = repo / name
         path.parent.mkdir(parents=True, exist_ok=True)

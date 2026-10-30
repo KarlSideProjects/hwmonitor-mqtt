@@ -88,13 +88,15 @@ def main():
             or manifest.get('version') != args.version or manifest.get('executable_sha256') != digest(args.executable)
             or not isinstance(manifest.get('runtime'), dict) or manifest['runtime'].get('python') != args.python_version):
         parser.error('manifest does not match fixed-source build inputs')
-    source_paths = {name for name in paths if not name.startswith('licenses/') and name not in ('manifest.json', 'sender', 'sender.exe')}
+    source_paths = {name for name in paths if not name.startswith('licenses/') and name not in ('manifest.json', 'sender', 'sender.exe', '.dockerignore')}
     source_files = {}
     for name in sorted(source_paths):
         committed = subprocess.check_output(git + ['show', f'{source}:{name}'])
         if (args.source_root / name).read_bytes() != committed:
             parser.error(f'working source bytes differ from commit: {name}')
         source_files[name] = hashlib.sha256(committed).hexdigest()
+    if args.platform != 'windows-x64':
+        source_files['.dockerignore'] = hashlib.sha256(b'*\n!Dockerfile\n!sender\n').hexdigest()
     record = {key: manifest[key] for key in ('platform', 'source', 'version', 'executable_sha256', 'compiler', 'runtime')}
     record.update(archive_sha256=digest(args.archive), report_sha256=digest(args.report),
                   inventory_sha256=digest(args.inventory), source_files=source_files)

@@ -28,7 +28,7 @@ NOTICE_HASHES = {
     'wmi': 'df96d90111c405f2393770e6e9d115eed77f836cfc12b7c002132955d09f7b28',
 }
 COMMON = {'python', 'paho-mqtt', 'psutil', 'python-dotenv'}
-SECRET = re.compile(rb'(?i)(?:BROKER_HOST|MQTT_USER|MQTT_PASS|PVE_TOKEN_ID|PVE_TOKEN_SECRET|PASSWORD|API_KEY)["\']?\s*[:=]\s*["\']?[^\s"\']+|-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----')
+SECRET = re.compile(rb'(?i)(?:BROKER_HOST|MQTT_USER|MQTT_PASS|PVE_TOKEN_ID|PVE_TOKEN_SECRET|PASSWORD|API_KEY)["\']?\s*[:=]\s*["\']?[^\s\x00-\x1f\x7f"\']+|-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----')
 ARCHIVES = (b'PK\x03\x04', b'\x1f\x8b', b'BZh', b'\xfd7zXZ\x00', b'7z\xbc\xaf\x27\x1c', b'Rar!')
 
 
@@ -472,6 +472,17 @@ def windows_runtime_architecture(data):
         return False
 
 
+# Exact upstream strings: CPython getpass/SSL and Paho 2.1.0 docstrings.
+RUNTIME_SECRET_CONTEXTS = {
+    'sender.bin': (
+        b'\xfa\nPassword: c\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x03\x00\x00\x00\xf3\x08\x05',
+        b':param proxy_password: password for SOCKS5 proxy',
+        b':param str password: The password to authenticate with.',
+    ),
+    'libpython3.11.so.1.0': (b'load_cert_chain($self, /, certfile, keyfile=None, password=None)\n--\n\n',),
+}
+
+
 def inspect_runtime_files(root, entries, platform=None):
     if root.is_symlink() or not root.is_dir():
         raise ValueError('invalid runtime directory')
@@ -493,7 +504,10 @@ def inspect_runtime_files(root, entries, platform=None):
         content = path.read_bytes()
         if hashlib.sha256(content).hexdigest() != item['sha256']:
             raise ValueError(f'runtime inventory hash mismatch: {name}')
-        if SECRET.search(content):
+        scanned = content
+        for context in RUNTIME_SECRET_CONTEXTS.get(name, ()) if platform in ('linux-x64', 'linux-arm64') else ():
+            scanned = scanned.replace(context, b'\x00' * len(context))
+        if SECRET.search(scanned):
             raise ValueError(f'potential secret in runtime: {name}')
         if platform == 'windows-x64' and not windows_runtime_architecture(content):
             raise ValueError(f'wrong runtime architecture: {name}')

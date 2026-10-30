@@ -732,3 +732,20 @@ def test_image_diff_ids_follow_uncompressed_layer_order(tmp_path):
     write_image(ids[::-1])
     with pytest.raises(ValueError, match='diff ID'):
         checker.inspect_image_layers(image, hashlib.sha256(image.read_bytes()).hexdigest(), hashlib.sha256(b'sender').hexdigest())
+
+
+def test_runtime_secret_scan_allows_only_proven_literal_context(tmp_path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    elf = b'\x7fELF\x02\x01' + b'\0' * 12 + (62).to_bytes(2, 'little')
+    data = elf + b'PVE_TOKEN_ID=\0' + b':param proxy_password: password for SOCKS5 proxy\n'
+    path = tmp_path / 'sender.bin'
+    def scan(content):
+        path.write_bytes(content)
+        checker.inspect_runtime_files(tmp_path, [{'path': 'sender.bin', 'size': len(content), 'sha256': hashlib.sha256(content).hexdigest()}], 'linux-x64')
+    scan(data)
+    for secret in (b'MQTT_PASS=actual-secret', b'PVE_TOKEN_SECRET=actual-secret', b'password: private-value', b'-----BEGIN PRIVATE KEY-----'):
+        with pytest.raises(ValueError, match='secret'):
+            scan(data + secret)
