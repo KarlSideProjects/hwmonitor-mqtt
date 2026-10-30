@@ -499,7 +499,7 @@ def test_process_lhm_sensors_skips_tjmax_distance_and_prefers_gpu_core():
     assert [t["label"] for t in out["temperatures"]["storage"]["nvme1"]] == ["Composite Temperature"]
 
 
-def test_windows_gpu_nvidia_fallback_parses_csv():
+def test_windows_gpu_nvidia_fallback_parses_csv(monkeypatch):
     module = _import_agent_sender_windows()
 
     class DummyResult:
@@ -507,7 +507,7 @@ def test_windows_gpu_nvidia_fallback_parses_csv():
             self.returncode = 0
             self.stdout = "57, 68, 2048, 8192, 70\n"
 
-    module.subprocess.run = lambda *args, **kwargs: DummyResult()
+    monkeypatch.setattr(module.subprocess, "run", lambda *args, **kwargs: DummyResult())
     gpus = module.get_gpu_block_nvidia_fallback()
 
     assert len(gpus) == 1

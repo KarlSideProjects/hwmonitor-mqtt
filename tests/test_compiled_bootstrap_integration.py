@@ -7,6 +7,7 @@ import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
+import platform
 from pathlib import Path
 import subprocess
 import tarfile
@@ -26,18 +27,19 @@ def release(tmp_path):
     with tarfile.open(fileobj=__import__("io").BytesIO(blob), mode="r:gz") as archive:
         manifest = json.load(archive.extractfile("manifest.json"))
     checksum = hashlib.sha256(blob).hexdigest()
+    archive_name = f"sender-{manifest['platform']}.tar.gz"
     state = {"bad_checksum": False, "missing": False}
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             base = f"http://127.0.0.1:{self.server.server_port}"
             version = manifest["version"]
-            names = ["version.json", "sender-linux-x64.tar.gz", "sender-linux-x64.tar.gz.sha256"]
+            names = ["version.json", archive_name, archive_name + ".sha256"]
             if self.path == "/releases/latest":
                 data = json.dumps({"tag_name": "v" + version, "assets": [{"name": n, "browser_download_url": f"{base}/releases/download/v{version}/{n}"} for n in names]}).encode()
             elif self.path.endswith("/version.json"):
                 data = json.dumps({"version": version, "source": manifest["source"]}).encode()
             elif self.path.endswith(".tar.gz.sha256"):
-                data = (("0" * 64 if state["bad_checksum"] else checksum) + "  sender-linux-x64.tar.gz\n").encode()
+                data = (("0" * 64 if state["bad_checksum"] else checksum) + f"  {archive_name}\n").encode()
             elif self.path.endswith(".tar.gz") and not state["missing"]:
                 data = blob
             else:
@@ -172,6 +174,7 @@ def test_missing_archive_does_not_modify_existing_install(release, tmp_path):
     assert not (tmp_path / "docker-calls").exists()
 
 
+@pytest.mark.skipif(platform.machine() != "x86_64", reason="PVE native installation is x64-only")
 def test_pve_existing_container_blocks_before_token_changes(release, tmp_path):
     port, _, _ = release
     result, root = run_installer(tmp_path, port, target_pve=True)

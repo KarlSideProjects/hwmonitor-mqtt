@@ -6,6 +6,7 @@ import io
 import json
 import os
 from pathlib import Path
+import platform
 import re
 import shutil
 import tarfile
@@ -20,6 +21,9 @@ MAX_MEMBER = 128 * 1024 * 1024
 
 
 def stage(archive, destination, version, source, checksum):
+    architecture = {"x86_64": ("linux-x64", b"\x3e\x00"), "aarch64": ("linux-arm64", b"\xb7\x00")}.get(platform.machine())
+    if architecture is None:
+        raise ValueError("unsupported architecture")
     archive, destination = Path(archive), Path(destination)
     if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version) or not re.fullmatch(r"[0-9a-f]{40}", source) or not re.fullmatch(r"[0-9a-f]{64}", checksum):
         raise ValueError("invalid release metadata")
@@ -44,7 +48,7 @@ def stage(archive, destination, version, source, checksum):
                 raise ValueError("archive entry type or size is invalid")
             manifest_file = package.extractfile("manifest.json")
             manifest = json.load(manifest_file)
-            if not isinstance(manifest, dict) or manifest.get("platform") != "linux-x64" or manifest.get("version") != version or manifest.get("source") != source or not isinstance(manifest.get("executable_sha256"), str) or not re.fullmatch(r"[0-9a-f]{64}", manifest["executable_sha256"]):
+            if not isinstance(manifest, dict) or manifest.get("platform") != architecture[0] or manifest.get("version") != version or manifest.get("source") != source or not isinstance(manifest.get("executable_sha256"), str) or not re.fullmatch(r"[0-9a-f]{64}", manifest["executable_sha256"]):
                 raise ValueError("manifest mismatch")
             with tempfile.TemporaryDirectory(prefix="sender-stage-", dir=destination.parent) as temporary:
                 root = Path(temporary) / "content"
@@ -58,7 +62,7 @@ def stage(archive, destination, version, source, checksum):
                     header = file.read(20)
                     file.seek(0)
                     digest = hashlib.file_digest(file, "sha256").hexdigest()
-                if header[:6] != b"\x7fELF\x02\x01" or header[18:20] != b"\x3e\x00" or digest != manifest["executable_sha256"]:
+                if header[:6] != b"\x7fELF\x02\x01" or header[18:20] != architecture[1] or digest != manifest["executable_sha256"]:
                     raise ValueError("executable integrity or architecture mismatch")
                 sender.chmod(0o755)
                 os.replace(root, destination)

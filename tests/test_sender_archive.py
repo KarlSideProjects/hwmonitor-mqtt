@@ -13,6 +13,12 @@ VERSION = "1.2.3"
 ELF = b"\x7fELF\x02\x01" + bytes(12) + b"\x3e\x00" + b"test"
 
 
+@pytest.fixture(autouse=True)
+def x64_fixture_architecture(monkeypatch):
+    import platform
+    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+
+
 def archive(tmp_path, extra=(), omit_typing=False):
     path = tmp_path / "candidate.tar.gz"
     manifest = json.dumps({"platform": "linux-x64", "version": VERSION, "source": SOURCE, "executable_sha256": hashlib.sha256(ELF).hexdigest()}).encode()
@@ -116,5 +122,31 @@ def test_stage_uses_verified_bytes_if_archive_is_modified_in_place(tmp_path, mon
 def test_stage_requires_typing_extensions_notice(tmp_path):
     package = archive(tmp_path, omit_typing=True)
     with pytest.raises(ValueError):
+        stage(package, tmp_path / "install", VERSION, SOURCE, hashlib.sha256(package.read_bytes()).hexdigest())
+    assert not (tmp_path / "install").exists()
+
+
+def test_stage_accepts_arm64_manifest_and_elf(tmp_path, monkeypatch):
+    import platform
+    monkeypatch.setattr(platform, "machine", lambda: "aarch64")
+    package = archive(tmp_path)
+    with tarfile.open(package, "r:gz") as src:
+        contents = {m.name: src.extractfile(m).read() for m in src}
+    contents["sender"] = ELF[:18] + b"\xb7\x00" + ELF[20:]
+    contents["manifest.json"] = json.dumps({"platform": "linux-arm64", "version": VERSION, "source": SOURCE, "executable_sha256": hashlib.sha256(contents["sender"]).hexdigest()}).encode()
+    with tarfile.open(package, "w:gz") as out:
+        for name, body in contents.items():
+            info = tarfile.TarInfo(name)
+            info.size = len(body)
+            out.addfile(info, io.BytesIO(body))
+    stage(package, tmp_path / "install", VERSION, SOURCE, hashlib.sha256(package.read_bytes()).hexdigest())
+    assert (tmp_path / "install" / "sender").read_bytes() == contents["sender"]
+
+
+def test_stage_rejects_other_architecture_before_extraction(tmp_path, monkeypatch):
+    import platform
+    monkeypatch.setattr(platform, "machine", lambda: "aarch64")
+    package = archive(tmp_path)
+    with pytest.raises(ValueError, match="manifest mismatch"):
         stage(package, tmp_path / "install", VERSION, SOURCE, hashlib.sha256(package.read_bytes()).hexdigest())
     assert not (tmp_path / "install").exists()
