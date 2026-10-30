@@ -222,7 +222,7 @@
       },
       "runtime_bundle": {
         "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/runtime-bundle.txt",
-        "sha256": "26062f700c5c8b08fafab7d032442be67ec1580e27349d8bb8add0518800880b"
+        "sha256": "7b6e2eb4ebcd365049b2ee508c5dc9ecbdcad0c8ed6dc3d8772841dcea02a671"
       },
       "archive_path": "licenses/python.txt",
       "packages": [
@@ -359,7 +359,7 @@
       },
       "runtime_bundle": {
         "path": "release-notices/linux-arm64-cpython-3.11.15-pbs-20260728/runtime-bundle.txt",
-        "sha256": "e726de9184a830aa9db01a116bfcdf120392dab857bb48b76bc853c4214de934"
+        "sha256": "c83e087151c1b7ce752e06144d8f747a239746af59d6b6bc2960734c58f64dad"
       },
       "archive_path": "licenses/python.txt",
       "packages": [
@@ -474,7 +474,7 @@
       },
       "runtime_bundle": {
         "path": "release-notices/windows-x64-cpython-3.13.17/runtime-bundle.txt",
-        "sha256": "c9bb9c2d8f24e824da9b3b13c356e3cb3c5b76ea05c82674d97e4b5cdb77cf10"
+        "sha256": "359d4441518f0522a43adb96b48856ccba3fedef355fd9fd7d4f571c57367bda"
       },
       "archive_path": "licenses/python.txt",
       "packages": [
@@ -957,5 +957,107 @@
     "Confirm any native build modifications and corresponding change notices.",
     "Establish Microsoft entitlement or validate the DLL-exclusion acquisition path on a clean host.",
     "Update producer and inspector to ship the corrected bundles and validate final archive bytes."
-  ]
+  ],
+  "embedded_compiler_inputs": {
+    "nuitka_onefile_zstd": {
+      "version": "1.4.7",
+      "license": {
+        "path": "release-notices/embedded-nuitka/zstd-1.4.7-LICENSE.txt",
+        "sha256": "2c1a7fa704df8f3a606f6fc010b8b5aaebf403f3aeec339a12048f1ba7331a0b"
+      },
+      "source_archives": {
+        "linux_Nuitka_2.7.16": {
+          "sha256": "768909faf365b21ae4777727fc4ae88efc29239c664bd177061fc907e263e0fa"
+        },
+        "windows_Nuitka_2.8.9": {
+          "sha256": "b178cd437f2110c46943b368db51d20d57d586a13f8f6323ab1be4e51e2fabf8"
+        }
+      },
+      "source_header_sha256": {
+        "common/bitstream.h": "ef9a523bdf423fbd43c3fe6b4650daff191255a16f992a4dd18a938b949a0c58",
+        "common/compiler.h": "24a567e73dadcca73b8183a41deb5063e8dce13697209abd153a23154e46e54e",
+        "common/cpu.h": "b88e98ad90fcf7c1fb6812e11e34572390dd76ca47d7f816c284a65e24f57fe9",
+        "common/entropy_common.c": "3ade9e678ee92df618bc9315d893c877769f55380e607f9ea162e684361a0c48",
+        "common/fse_decompress.c": "f919d16108002dac71c17f22fb5deac696d31fdffd09d3877a0f3d5bced1d8ba",
+        "common/xxhash.c": "e348f1426d3e9c7fe4cdff8e97c790ba6b2911512efa5c943263c63f6c69f74e",
+        "common/xxhash.h": "0913671a82a8cc4a636dd28c044b9ef108f704871604ca790e83db1368dac1fc",
+        "decompress/huf_decompress.c": "8966d774bc753d59a3f90d3e9ac489458c4f4fa077655f458f86026f45eb2cdf",
+        "decompress/zstd_decompress.c": "72e72338416447c7a29d4c6320b61e694aa43a5b61d6bafa090768615d22736f",
+        "zstd.h": "1a7c9f0beaa1b2fc7ec2c4d01e007209d2260db281057f70b34030d5c2e84d25",
+        "common/error_private.c": "115410a6bf3b9675b7c12c1b7428ad9b074a123f557af59e814b7227c88ecfab",
+        "common/zstd_common.c": "1b6bb4a97feb9b5873d0912e6506d43f240267ba14a75e5d419dfbbc04d30a58",
+        "decompress/zstd_ddict.c": "c0e68a07a88d66e3ff1a60858f3980202c8b183100cfade2849470de739a0ae1",
+        "decompress/zstd_decompress_block.c": "1933cd8bbbf69ae40059de0ba92e7eab2beeea7f2a8fbdc9e7dcba0adc703953",
+        "common/zstd_deps.h": "d8bc76f6ad1e685f72987aee5914c39e2046bd4c9791efa235ffd6f3d41af376"
+      },
+      "source_attributions": [
+        {
+          "files": "common/xxhash.c, common/xxhash.h",
+          "copyright": "Copyright (c) 2012-2020, Yann Collet, Facebook, Inc."
+        },
+        {
+          "files": "common/bitstream.h, common/fse_decompress.c, decompress/huf_decompress.c",
+          "copyright": "Copyright (c) 2013-2020, Yann Collet, Facebook, Inc."
+        },
+        {
+          "files": "common/compiler.h, common/entropy_common.c, common/error_private.c, common/zstd_common.c, decompress/zstd_ddict.c, decompress/zstd_decompress.c, decompress/zstd_decompress_block.c, zstd.h",
+          "copyright": "Copyright (c) 2016-2020, Yann Collet, Facebook, Inc."
+        },
+        {
+          "files": "common/cpu.h",
+          "copyright": "Copyright (c) 2018-2020, Facebook, Inc."
+        },
+        {
+          "files": "common/zstd_deps.h",
+          "copyright": "Copyright (c) 2016-2020, Facebook, Inc."
+        }
+      ],
+      "evidence": "Linux 76a onefile build log records compression and pinned Nuitka source directly includes zstd and xxhash. Windows 1b9 compression remains to be verified in its completed build log. Listed zstd source files were compared byte-for-byte across the pinned 2.7.16 and 2.8.9 sdists.",
+      "condition": "When bundled compression code is included, retain its copyright, conditions and disclaimer."
+    },
+    "gcc_runtime_conditional": {
+      "package": "Debian gcc-10-base and libgcc-10-dev 10.2.1-6 amd64",
+      "package_hashes": {
+        "gcc-10-base_10.2.1-6_amd64.deb": "be65535e94f95fbf04b104e8ab36790476f063374430f7dfc6c516cbe2d2cd1e",
+        "libgcc-10-dev_10.2.1-6_amd64.deb": "3b711374092b84e732c4e73cf33e02cff02e34a5f105eb6467de8d9038e4cd9d"
+      },
+      "reference": "https://snapshot.debian.org/archive/debian/20250721T000000Z/pool/main/g/gcc-10/",
+      "membership": "Static GCC runtime member inclusion in the observed stripped binaries is not established; determine it from an actual candidate link map or equivalent provenance.",
+      "terms": "For named runtime files under GPL-3.0-or-later with GCC Runtime Library Exception 3.1, apply the exact file-specific license and exception; do not generalize to unrelated GCC files.",
+      "notices": [
+        {
+          "path": "release-notices/embedded-nuitka/gcc-10.2.0-COPYING3",
+          "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+        },
+        {
+          "path": "release-notices/embedded-nuitka/gcc-10.2.0-COPYING.RUNTIME",
+          "sha256": "9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74"
+        },
+        {
+          "path": "release-notices/embedded-nuitka/debian-gcc-10-base-10.2.1-6-copyright",
+          "sha256": "719dd73912334e65a64c63fb1f7ccdacf70c27258570de0fb123b33d490eddf5"
+        }
+      ],
+      "file_terms": {
+        "paths": [
+          "libgcc/",
+          "gcc/libgcc2.[ch]",
+          "gcc/unwind*",
+          "gcc/gthr*",
+          "gcc/coretypes.h",
+          "gcc/crtstuff.c",
+          "gcc/defaults.h",
+          "gcc/dwarf2.h",
+          "gcc/emults.c",
+          "gcc/gbl-ctors.h",
+          "gcc/gcov-io.h",
+          "gcc/libgcov.c",
+          "gcc/tsystem.h",
+          "gcc/typeclass.h"
+        ],
+        "license": "GPL-3.0-or-later WITH GCC-exception-3.1",
+        "evidence": "Debian gcc-10-base 10.2.1-6 copyright, lines 102-108; these terms apply to the named runtime files if included, not all GCC files."
+      }
+    }
+  }
 }

@@ -119,7 +119,7 @@ def main():
     if args.python_bundle:
         if hashlib.sha256(args.python_license.read_bytes()).hexdigest() != CPYTHON_BINARY_LICENSE:
             parser.error('Python binary license differs from pinned upstream bytes')
-        if hashlib.sha256(args.python_bundle.read_bytes()).hexdigest() != 'c9bb9c2d8f24e824da9b3b13c356e3cb3c5b76ea05c82674d97e4b5cdb77cf10':
+        if hashlib.sha256(args.python_bundle.read_bytes()).hexdigest() != '359d4441518f0522a43adb96b48856ccba3fedef355fd9fd7d4f571c57367bda':
             parser.error('Python notice bundle differs from pinned bytes')
     shutil.copyfile(args.python_bundle or args.python_license, python_notice)
     if not python_notice.stat().st_size:

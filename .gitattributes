@@ -3,3 +3,5 @@ tests/fixtures/release-notices/** -text
 scripts/windows/*.ps1 text eol=lf
 release-public/LICENSE-NOTICE.md text eol=lf
 release-notices/windows-x64-cpython-3.13.17/runtime-bundle.txt whitespace=cr-at-eol,-blank-at-eol
+release-notices/embedded-nuitka/debian-gcc-10-base-10.2.1-6-copyright whitespace=-blank-at-eol
+release-notices/embedded-nuitka/gcc-10.2.0-COPYING.RUNTIME whitespace=-blank-at-eof

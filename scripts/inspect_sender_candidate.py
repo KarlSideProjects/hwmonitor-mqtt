@@ -113,7 +113,7 @@ ARCHIVE_NOTICE_HASHES = {'linux-x64': {'licenses/paho-mqtt.txt': '3c3ce20f2f04eb
                'licenses/project.md': 'ffa814dce11f3be832bacb7dc2511c36c935b77845c4f16a7c9d8cfd3ae8ce36',
                'licenses/psutil.txt': 'b89c063b3786e28e0c0a38f1931db61fed35e69dd2a2966fbecffee0f46c8d10',
                'licenses/python-dotenv.txt': '80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9',
-               'licenses/python.txt': '26062f700c5c8b08fafab7d032442be67ec1580e27349d8bb8add0518800880b',
+               'licenses/python.txt': '7b6e2eb4ebcd365049b2ee508c5dc9ecbdcad0c8ed6dc3d8772841dcea02a671',
                'licenses/typing-extensions.txt': '3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf'},
  'windows-x64': {'licenses/WMI-0.txt': 'bf90809237a8ce1dac86bed7e34e4e76692d87ffd21aed16541105cd63ea533a',
                  'licenses/WMI-1.txt': 'b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5',
@@ -129,7 +129,7 @@ ARCHIVE_NOTICE_HASHES = {'linux-x64': {'licenses/paho-mqtt.txt': '3c3ce20f2f04eb
                  'licenses/psutil-0.txt': 'c7adc4d5d1337a548b967421f1fbe258b93033a0417708fd6f4e38f8ecbceb80',
                  'licenses/pycparser-0.txt': '0c846399369ea76ddd7b5c44fe6d16497415fcf015f5cbb508c24bf98b81c5b1',
                  'licenses/python-dotenv-0.txt': '80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9',
-                 'licenses/python.txt': 'c9bb9c2d8f24e824da9b3b13c356e3cb3c5b76ea05c82674d97e4b5cdb77cf10',
+                 'licenses/python.txt': '359d4441518f0522a43adb96b48856ccba3fedef355fd9fd7d4f571c57367bda',
                  'licenses/pythonnet-0.txt': 'e1dc3a6ff017a6800dc27a7220500f512b95fbcd996d38ebbbff85c693245369',
                  'licenses/pywin32-0.txt': '5ea2f23c7f00c3006bacf267183e816d8d4b6dc95ea57a4ddb0ff81de6d8719e',
                  'licenses/pywin32-1.txt': '11d8462e134e8efe8f4bd52372292a72ff0b670753d2f49f71675eed0dbfd085',
@@ -139,7 +139,7 @@ ARCHIVE_NOTICE_HASHES = {'linux-x64': {'licenses/paho-mqtt.txt': '3c3ce20f2f04eb
                  'licenses/xz-5.2.5-COPYING': 'bcb02973ef6e87ea73d331b3a80df7748407f17efdb784b61b47e0e610d3bb5c'}}
 
 
-ARCHIVE_NOTICE_HASHES['linux-arm64'] = {**ARCHIVE_NOTICE_HASHES['linux-x64'], 'licenses/python.txt': 'e726de9184a830aa9db01a116bfcdf120392dab857bb48b76bc853c4214de934'}
+ARCHIVE_NOTICE_HASHES['linux-arm64'] = {**ARCHIVE_NOTICE_HASHES['linux-x64'], 'licenses/python.txt': 'c83e087151c1b7ce752e06144d8f747a239746af59d6b6bc2960734c58f64dad'}
 
 def check_archive_notices(platform, found):
     expected = ARCHIVE_NOTICE_HASHES.get(platform)
