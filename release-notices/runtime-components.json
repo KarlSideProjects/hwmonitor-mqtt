@@ -78,7 +78,9 @@
       "additional_exact_version_notice": {
         "path": "release-notices/windows-x64-cpython-3.13.17/mpdecimal-4.0.0-COPYRIGHT.txt",
         "sha256": "2713324211652ce4a60e6e21e54f9dc3004299e591b0933a352f1a89c5fb53c2"
-      }
+      },
+      "build_action_reference": "https://github.com/astral-sh/python-build-standalone/blob/20260728/cpython-unix/build.py",
+      "source_evidence": "Release build action selects mpdecimal, pinned downloads catalog supplies version 4.0.0 and source archive SHA-256, and full metadata maps _decimal to libmpdec.a. The exact source archive COPYRIGHT.txt hashes to the additional notice."
     },
     {
       "component": "expat",
@@ -113,8 +115,9 @@
         "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/LICENSE.openssl-3.txt",
         "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
       },
-      "condition": "Include Apache 2.0 license, preserve applicable notices and provide modification notices as required by section 4; determine whether a NOTICE file applies.",
-      "evidence": "PBS 20260728 metadata static library paths and observed extension initialization symbols; section comparison is bounded."
+      "condition": "Include Apache 2.0 license, preserve applicable notices and provide modification notices as required by section 4; the examined exact source archive has no NOTICE file.",
+      "evidence": "PBS 20260728 metadata static library paths and observed extension initialization symbols; section comparison is bounded.",
+      "source_archive_notice": "The complete openssl-3.5.7 release archive contains no file named NOTICE or NOTICES; LICENSE.txt SHA-256 7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a matches the retained text."
     },
     {
       "component": "xz",
@@ -329,7 +332,19 @@
           "size": 15417384,
           "sha256": "8412c1a2f9402ab54be4a44153be9e90c265495bf9b7daf4eeb7a92fa86deb2c"
         }
-      ]
+      ],
+      "compiler_runtime_evidence": {
+        "observed_source_revision": "8df389e5eeccface5ccbbaad8a78bcc47e2ee035",
+        "sender_bin_sha256": "8412c1a2f9402ab54be4a44153be9e90c265495bf9b7daf4eeb7a92fa86deb2c",
+        "outer_launcher_sha256": "12544d51ba1322eac72610eab516941d5820725792d336cd923acf2e31d51e9d",
+        "compiler_comment": "GCC: (Debian 10.2.1-6) 10.2.1 20210110",
+        "dynamic_dependencies": "sender.bin needs libdl, libm, libpython3.11, libpthread and libc; outer launcher needs libc. Neither lists libgcc as a dynamic dependency.",
+        "specific_unresolved_origin": "Both binaries are stripped. These observations cannot identify whether either includes static libgcc routines or which exact libgcc archive supplied them; require the actual candidate link map or equivalent object provenance and selected toolchain receipt.",
+        "conditional_terms": "If an included GCC runtime file carries GPL-3.0-or-later and the GCC Runtime Library Exception, apply that file-specific license and exception. The exception permits propagation of eligible target code under terms of choice, subject to its stated conditions; do not generalize it to unrelated code.",
+        "gcc_license_reference": "https://github.com/gcc-mirror/gcc/blob/releases/gcc-10.2.0/COPYING3",
+        "gcc_exception_reference": "https://github.com/gcc-mirror/gcc/blob/releases/gcc-10.2.0/COPYING.RUNTIME",
+        "reference_scope": "Upstream GCC 10.2.0 texts identify the license and exception; they do not prove exact Debian package file provenance or that any particular routine was included."
+      }
     },
     "linux-arm64": {
       "runtime": {
@@ -432,7 +447,19 @@
         "reference": "https://github.com/Nuitka/Nuitka/tree/2.7.16",
         "condition": "Apache 2.0 terms apply to included Nuitka runtime; retain license and applicable notices. Determine actual compiler runtime and any applicable additional terms from producer evidence."
       },
-      "candidate_evidence": "Prior ARM observed inventory is historical, not final candidate."
+      "candidate_evidence": "Prior ARM observed inventory is historical, not final candidate.",
+      "compiler_runtime_evidence": {
+        "observed_source_revision": "8df389e5eeccface5ccbbaad8a78bcc47e2ee035",
+        "sender_bin_sha256": "c160689b18940e15aa65e98a7ae6b1930ef8f2e62de69801ff324f6d7a198145",
+        "outer_launcher_sha256": "1499acdc922d3afe91e63f895f1f2265626a3c99a429e66bccb5bab85a05e34e",
+        "compiler_comment": "GCC: (Debian 10.2.1-6) 10.2.1 20210110",
+        "dynamic_dependencies": "sender.bin needs libdl, libm, libpython3.11, libpthread and libc; outer launcher needs libc. Neither lists libgcc as a dynamic dependency.",
+        "specific_unresolved_origin": "Both binaries are stripped. These observations cannot identify whether either includes static libgcc routines or which exact libgcc archive supplied them; require the actual candidate link map or equivalent object provenance and selected toolchain receipt.",
+        "conditional_terms": "If an included GCC runtime file carries GPL-3.0-or-later and the GCC Runtime Library Exception, apply that file-specific license and exception. The exception permits propagation of eligible target code under terms of choice, subject to its stated conditions; do not generalize it to unrelated code.",
+        "gcc_license_reference": "https://github.com/gcc-mirror/gcc/blob/releases/gcc-10.2.0/COPYING3",
+        "gcc_exception_reference": "https://github.com/gcc-mirror/gcc/blob/releases/gcc-10.2.0/COPYING.RUNTIME",
+        "reference_scope": "Upstream GCC 10.2.0 texts identify the license and exception; they do not prove exact Debian package file provenance or that any particular routine was included."
+      }
     },
     "windows-x64": {
       "runtime": {
@@ -674,8 +701,13 @@
             "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
           },
           "evidence": "libcrypto and libssl match embed; pinned CPython build inputs.",
-          "condition": "Include Apache 2.0 license and applicable notices, and give modification notices as required.",
-          "reference": "https://github.com/openssl/openssl/blob/openssl-3.5.9/LICENSE.txt"
+          "condition": "Include Apache 2.0 license, preserve applicable notices and provide modification notices as required by section 4; the examined exact source archive has no NOTICE file.",
+          "reference": "https://github.com/openssl/openssl/blob/openssl-3.5.9/LICENSE.txt",
+          "source_archive": {
+            "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz",
+            "sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a"
+          },
+          "source_archive_notice": "The complete release archive contains no file named NOTICE or NOTICES; LICENSE.txt SHA-256 7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a matches the retained text."
         },
         {
           "component": "liblzma",
@@ -904,15 +936,23 @@
         "reference": "https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution",
         "alternative": "Exclude all three; require recipient installation from https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist; preflight x64 version and loadability; validate MFC, WMI/COM, pythonnet, LHM and both profiles on a clean host. This alternative is untested."
       },
-      "candidate_evidence": "53e origin matches are historical, not evidence of the current native run."
+      "candidate_evidence": "53e origin matches are historical, not evidence of the current native run.",
+      "compiler_runtime_evidence": {
+        "observed_source_revision": "b5e41f6a937a61620585a1a4c12a99a5b5c166dd",
+        "outer_launcher_sha256": "274f990c1f5b1cc01a08bbf430bf3cdcb5098e246f67a71942e908d22830230d",
+        "sender_dll_sha256": "ad96bce69218df04bf75030bb94ac4de30681a5e9f7a14d2ecfdecaf71e5df16",
+        "observations": "Both PE files import VCRUNTIME140.dll and Windows UCRT API-set DLLs. The launcher also imports KERNEL32 and SHELL32; the generated DLL imports KERNEL32 and python313.dll.",
+        "specific_unresolved_origin": "Exact compiler and CRT build identity, and any statically linked runtime code, require the candidate compiler receipt and link provenance. The observed Microsoft VCRuntime DLL redistribution entitlement remains unresolved."
+      }
     }
   },
   "boundary": "Public assets contain application archives, scripts and notices; private Docker-save images are not shipped. Linux recipients fetch Debian packages from signed snapshots. Windows installer downloads LHM 0.9.6 and PawnIO 2.2.0 directly from vendors; neither is in the application archive allowlist.",
   "open_facts": [
     "Capture exact selected wheel archive filenames and SHA-256 for each platform, including compiler inputs.",
     "Bind a fresh native member inventory and compiler/toolchain identities to each actual candidate.",
-    "Establish applicable GCC or other compiler runtime code and notice/source conditions, and Windows Nuitka 2.8.9 runtime notice.",
-    "Confirm exact OpenSSL NOTICE applicability and any native build modifications.",
+    "Determine whether the stripped Linux sender.bin and onefile launchers contain static libgcc routines and identify their exact input archive; establish any associated conditions from the identified files.",
+    "Identify exact Windows compiler and CRT build inputs and any statically linked runtime code.",
+    "Confirm any native build modifications and corresponding change notices.",
     "Establish Microsoft entitlement or validate the DLL-exclusion acquisition path on a clean host.",
     "Update producer and inspector to ship the corrected bundles and validate final archive bytes."
   ]
