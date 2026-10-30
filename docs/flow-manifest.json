@@ -234,11 +234,47 @@
         },
         {
           "node": "G",
-          "path": "docs/release/sender-candidate.md"
+          "path": "scripts/inspect_sender_candidate.py"
         },
         {
           "node": "H",
+          "path": "scripts/inspect_sender_candidate.py"
+        },
+        {
+          "node": "I",
+          "path": "scripts/inspect_sender_candidate.py"
+        },
+        {
+          "node": "J",
+          "path": "scripts/inspect_sender_candidate.py"
+        },
+        {
+          "node": "K",
+          "path": "scripts/inspect_sender_candidate.py"
+        },
+        {
+          "node": "L",
+          "path": "scripts/inspect_sender_candidate.py"
+        },
+        {
+          "node": "M",
+          "path": "scripts/inspect_sender_candidate.py"
+        },
+        {
+          "node": "N",
+          "path": "scripts/inspect_sender_candidate.py"
+        },
+        {
+          "node": "O",
+          "path": "scripts/inspect_sender_candidate.py"
+        },
+        {
+          "node": "P",
           "path": "tests/test_release_candidate.py"
+        },
+        {
+          "node": "Q",
+          "path": "docs/release/sender-candidate.md"
         }
       ],
       "depends_on": []

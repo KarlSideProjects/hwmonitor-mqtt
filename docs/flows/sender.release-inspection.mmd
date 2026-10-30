@@ -1,16 +1,39 @@
 flowchart TD
-    A["Select supported platform and real directory"]
-    B["Choose fixed required executable and notice paths"]
-    C["Inspect entries and reject links, unexpected paths or nonregular files"]
-    D["Reject empty data, archive signatures, selected secrets and invalid executable prefix"]
-    E["Reject missing paths and notice bytes that do not match trusted hashes"]
-    F["Report layout result without release approval"]
-    G["Document real artifact and license review gates"]
-    H["Exercise sample layouts and rejection cases"]
+    A["Parse platform and candidate arguments"]
+    B{"Arguments accepted"}
+    C{"Candidate is a real directory"}
+    D["Select fixed platform paths and notice hashes"]
+    E{"Another entry"}
+    F{"Link or unapproved entry"}
+    G{"Entry is the allowed licenses directory"}
+    H["Read approved regular file"]
+    I{"Empty, archive, secret or wrong executable prefix"}
+    J{"Notice hash mismatches"}
+    K["Record approved file"]
+    L{"All required paths found"}
+    M["Report layout accepted, not release approval"]
+    N["Reject candidate or report file error"]
+    O["Exit with argument error"]
+    P["Tests exercise sample layouts and rejection cases"]
+    Q["Candidate guide records artifact and licensing gates"]
     A --> B
-    B --> C
-    C --> D
+    B -->|no| O
+    B -->|yes| C
+    C -->|no| N
+    C -->|yes| D
     D --> E
-    E --> F
-    F --> G
-    H --> C
+    E -->|yes| F
+    F -->|yes| N
+    F -->|no| G
+    G -->|yes| E
+    G -->|no| H
+    H -->|error| N
+    H -->|read| I
+    I -->|yes| N
+    I -->|no| J
+    J -->|yes| N
+    J -->|no| K
+    K --> E
+    E -->|no| L
+    L -->|no| N
+    L -->|yes| M
