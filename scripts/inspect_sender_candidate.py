@@ -376,6 +376,12 @@ DEBIAN_IMAGE_FILES = {
 }
 
 
+# The ARM libstdc++ package has an architecture-specific GDB loader path.
+DEBIAN_ARM_IMAGE_FILES = {
+    'usr/share/gdb/auto-load/usr/lib/aarch64-linux-gnu/libstdc++.so.6.0.30-gdb.py': '0759a8654f71c7b72ada1bf863ceeb7f23c794ef716c27196a2aec490cfce242',
+}
+
+
 # Exact Debian Bookworm package members; provenance is recorded in the candidate guide.
 DEBIAN_SECRET_PATTERN_FILES = {'usr/bin/gpasswd': 'f5ddf4ff327b07c2e1109645d35b0f75011d20877c9a0c2c1b0678dd1b8c3879',
  'usr/bin/newgrp': 'ced400910c4fe7ab0676ae07ee6489d677baa18e1425750a21b9688ab2e02fb6',
@@ -390,6 +396,12 @@ DEBIAN_SECRET_PATTERN_FILES = {'usr/bin/gpasswd': 'f5ddf4ff327b07c2e1109645d35b0
  'usr/sbin/pam-auth-update': 'b46dcfcd89682917c2840e0b42ad6cfd0bd18ec4930e58ac840a63356e3cae61',
  'usr/share/pam-configs/unix': '66528ec667294fd2eaa1418ad4372f51e0c9a8fbe628275242276ca070639276',
  'usr/share/perl5/Debconf/DbDriver/LDAP.pm': '633a36005440e5101b822a293751d63e0574787fe2b13157aacc2bc00fb0ef02'}
+
+
+# Debian libgnutls30 3.7.9-2+deb12u7 arm64; includes public self-test keys.
+DEBIAN_ARM_SECRET_PATTERN_FILES = {
+    'usr/lib/aarch64-linux-gnu/libgnutls.so.30.34.3': 'a28310df0a36465608473face05bf89b87759804bd0df83b161d564b9804b3fc',
+}
 
 
 def check_image_config(data, platform='linux-x64'):
@@ -623,7 +635,9 @@ def inspect_image_layers(image, expected, expected_sender, platform='linux-x64')
                         if not item.isfile() or item.size > 128 * 1024 * 1024 or hashlib.sha256(layer.extractfile(item).read()).hexdigest() != expected_sender:
                             raise ValueError('image sender differs from trusted executable')
                     if 'hwmonitor_mqtt' in lowered or lowered.endswith(('.py', '.pyc', '.map', '.o')) or path.name in ('.env', '.git'):
-                        expected_file = DEBIAN_IMAGE_FILES.get(str(path)) if platform == 'linux-x64' else None
+                        expected_file = DEBIAN_IMAGE_FILES.get(str(path)) if (platform == 'linux-x64' or (platform == 'linux-arm64' and str(path).startswith('usr/share/gcc/python/libstdcxx/'))) else None
+                        if platform == 'linux-arm64' and expected_file is None:
+                            expected_file = DEBIAN_ARM_IMAGE_FILES.get(str(path))
                         if (not expected_file or not item.isfile() or item.size > 1024 * 1024
                                 or hashlib.sha256(layer.extractfile(item).read()).hexdigest() != expected_file):
                             raise ValueError(f'forbidden image layer path: {item.name}')
@@ -631,8 +645,13 @@ def inspect_image_layers(image, expected, expected_sender, platform='linux-x64')
                         if item.size > 128 * 1024 * 1024:
                             raise ValueError(f'image layer file too large: {item.name}')
                         content = layer.extractfile(item).read()
-                        known_vendor = (platform == 'linux-x64' and hashlib.sha256(content).hexdigest()
-                                        == DEBIAN_SECRET_PATTERN_FILES.get(str(path)))
+                        vendor_files = DEBIAN_SECRET_PATTERN_FILES if platform == 'linux-x64' else DEBIAN_ARM_SECRET_PATTERN_FILES if platform == 'linux-arm64' else {}
+                        expected_vendor = vendor_files.get(str(path))
+                        if platform == 'linux-arm64' and str(path) in (
+                                'usr/sbin/adduser', 'usr/sbin/pam-auth-update',
+                                'usr/share/pam-configs/unix', 'usr/share/perl5/Debconf/DbDriver/LDAP.pm'):
+                            expected_vendor = DEBIAN_SECRET_PATTERN_FILES.get(str(path))
+                        known_vendor = hashlib.sha256(content).hexdigest() == expected_vendor
                         if SECRET.search(content) and not known_vendor:
                             raise ValueError(f'potential secret in image layer: {item.name}')
         if sender_count != 1:
