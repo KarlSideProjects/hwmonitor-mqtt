@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 from check_release_assets import check
-from release_backend import GitHub, drain_ready, prepare_candidate
+from release_backend import GitHub, drain_ready, parse, prepare_candidate, releases, remote_assets
 from release_version import version
 
 PLATFORMS = ('linux-x64', 'linux-arm64', 'windows-x64')
@@ -52,6 +52,24 @@ def prepare(api, repo, master, source, assets, evidence, inspector=inspect):
     return prepare_candidate(api, receipt, assets)
 
 
+def pending_sources(api, repo, master, start, limit):
+    if type(limit) is not int or not 1 <= limit <= 100:
+        raise ValueError('invalid recovery limit')
+    version(repo, master, start)
+    history = subprocess.check_output(['git', '-C', str(repo), 'rev-list', '--first-parent', '--reverse', master], text=True).splitlines()
+    confirmed = set()
+    for release in releases(api):
+        state, receipt, ordinal = parse(release)
+        source = receipt['source']
+        if source not in history or history.index(source) + 1 != ordinal:
+            raise ValueError('release identity conflicts with master history')
+        if state == 'READY':
+            if remote_assets(api, release, receipt) != set(receipt['assets']):
+                raise ValueError('ready release incomplete')
+            confirmed.add(source)
+    return [source for source in history[history.index(start):] if source not in confirmed][:limit]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -62,13 +80,20 @@ def main():
     stage.add_argument('--assets', type=Path, required=True)
     stage.add_argument('--evidence', type=Path, required=True)
     sub.add_parser('drain')
+    pending = sub.add_parser('pending')
+    pending.add_argument('--repo', type=Path, default=Path('.'))
+    pending.add_argument('--master', required=True)
+    pending.add_argument('--start', required=True)
+    pending.add_argument('--limit', type=int, default=20)
     args = parser.parse_args()
     try:
         api = GitHub(token=os.environ.get('SENDER_RELEASE_TOKEN'))
         if args.command == 'prepare':
             prepare(api, args.repo, args.master, args.source, args.assets, args.evidence)
-        else:
+        elif args.command == 'drain':
             drain_ready(api)
+        else:
+            print(json.dumps(pending_sources(api, args.repo, args.master, args.start, args.limit)))
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f'release controller rejected: {error}', file=sys.stderr)
         return 1

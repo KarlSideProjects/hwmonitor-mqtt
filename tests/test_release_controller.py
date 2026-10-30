@@ -80,3 +80,32 @@ def test_controller_requires_all_platform_records(service, tmp_path):
     with pytest.raises(OSError):
         prepare(api, repo, source, source, assets, evidence, lambda args: None)
     assert not state['writes']
+
+
+def test_pending_history_is_bounded_and_includes_staging(service, tmp_path):
+    from release_controller import pending_sources
+    api, state = service
+    repo, assets, evidence = (tmp_path / name for name in ('repo', 'assets', 'evidence'))
+    first = setup(repo, assets, evidence)
+    (repo / 'next').write_text('next')
+    subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True)
+    subprocess.run(['git', '-C', str(repo), '-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-qm', 'next'], check=True)
+    second = subprocess.check_output(['git', '-C', str(repo), 'rev-parse', 'HEAD'], text=True).strip()
+    assert pending_sources(api, repo, second, first, 1) == [first]
+    prepare(api, repo, second, first, assets, evidence, lambda args: None)
+    assert pending_sources(api, repo, second, first, 10) == [second]
+    release = state['releases'][0]
+    release['body'] = release['body'].replace('"READY"', '"STAGING"')
+    assert pending_sources(api, repo, second, first, 10) == [first, second]
+
+
+def test_pending_history_rejects_rewritten_release_identity(service, tmp_path):
+    from release_controller import pending_sources
+    api, state = service
+    repo, assets, evidence = (tmp_path / name for name in ('repo', 'assets', 'evidence'))
+    source = setup(repo, assets, evidence)
+    prepare(api, repo, source, source, assets, evidence, lambda args: None)
+    release = state['releases'][0]
+    release['body'] = release['body'].replace(source, 'f' * 40)
+    with pytest.raises(ValueError):
+        pending_sources(api, repo, source, source, 10)
