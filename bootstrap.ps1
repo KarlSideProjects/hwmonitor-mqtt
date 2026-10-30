@@ -5,7 +5,37 @@ $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = [Security.Principal.WindowsPrincipal]::new($identity)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run this bootstrap from an elevated PowerShell window.' }
 if ([Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne [Runtime.InteropServices.Architecture]::X64) { throw 'Only Windows x64 is supported.' }
+$trustedSids = @('S-1-5-18', 'S-1-5-32-544', 'S-1-3-0', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464', $identity.User.Value)
+function Assert-TrustedItem([string]$Path, [bool]$Ancestor) {
+    $item = Get-Item -LiteralPath $Path -Force
+    if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Untrusted reparse path: $Path" }
+    $acl = Get-Acl -LiteralPath $Path
+    if ($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -notin $trustedSids) { throw "Untrusted owner: $Path" }
+    $mask = [int][Security.AccessControl.FileSystemRights]::Delete -bor [int][Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor [int][Security.AccessControl.FileSystemRights]::ChangePermissions -bor [int][Security.AccessControl.FileSystemRights]::TakeOwnership
+    if (-not $Ancestor) { $mask = $mask -bor [int][Security.AccessControl.FileSystemRights]::Write }
+    foreach ($rule in $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
+        if ($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin $trustedSids -and (([int]$rule.FileSystemRights -band $mask) -ne 0)) { throw "Untrusted write access: $Path" }
+    }
+}
+# End trusted path checks
+$ancestor = Split-Path -Parent $root
+while ($ancestor) {
+    Assert-TrustedItem $ancestor $true
+    $next = Split-Path -Parent $ancestor
+    if ($next -eq $ancestor) { break }
+    $ancestor = $next
+}
 if (Test-Path $root) {
+    Assert-TrustedItem $root $false
+    foreach ($relative in @('.env', 'scripts/windows', 'package')) {
+        $path = Join-Path $root $relative
+        if (Test-Path -LiteralPath $path) {
+            Assert-TrustedItem $path $false
+            if ((Get-Item -LiteralPath $path -Force).PSIsContainer) {
+                Get-ChildItem -LiteralPath $path -Force -Recurse | ForEach-Object { Assert-TrustedItem $_.FullName $false }
+            }
+        }
+    }
     $oldInstall = (Test-Path (Join-Path $root 'install.sh')) -and (Test-Path (Join-Path $root 'scripts/windows/install_windows_sender_task.ps1'))
     $compiledInstall = Test-Path (Join-Path $root 'package/sender.exe') -PathType Leaf
     $pendingInstall = (Test-Path (Join-Path $root '.hwmonitor-mqtt-bootstrap-pending')) -and -not (Test-Path (Join-Path $root 'package'))
@@ -56,8 +86,16 @@ try {
     if ($manifest.version -cne $version.version -or $manifest.source -cne $version.source) { throw 'Package identity does not match release metadata.' }
     if (-not (Test-Path $root)) {
         New-Item -ItemType Directory -Path $root | Out-Null
+        $rootAcl = [Security.AccessControl.DirectorySecurity]::new()
+        $rootAcl.SetAccessRuleProtection($true, $false)
+        foreach ($sid in @('S-1-5-32-544', 'S-1-5-18')) {
+            $rule = [Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new($sid), 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
+            $rootAcl.AddAccessRule($rule)
+        }
+        Set-Acl -Path $root -AclObject $rootAcl
         New-Item -ItemType File -Path (Join-Path $root '.hwmonitor-mqtt-bootstrap-pending') | Out-Null
     }
+    Assert-TrustedItem $root $false
 
     $envFile = Join-Path $root '.env'
     if (-not (Test-Path $envFile)) {

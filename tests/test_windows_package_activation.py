@@ -147,3 +147,38 @@ try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE; exit 0 
     assert len(backups) == 1 and backups[0].read_text() == "old"
     recovery = list(root.glob("task-recovery-*.xml"))
     assert len(recovery) == 1 and recovery[0].read_text() == "<Task />"
+
+
+def test_privileged_install_rejects_untrusted_write_access(tmp_path):
+    source = (Path(__file__).resolve().parents[1] / "bootstrap.ps1").read_text()
+    assert "function Assert-TrustedItem" in source
+    functions = source[source.index("function Assert-TrustedItem"):source.index("# End trusted path checks")]
+    shell = r'''
+$trustedSids = @('S-1-5-18', 'S-1-5-32-544')
+function Get-Item { param($LiteralPath, [switch]$Force) [pscustomobject]@{Attributes=[IO.FileAttributes]::Directory} }
+function Get-Acl { param($LiteralPath)
+    $acl = [pscustomobject]@{}
+    $acl | Add-Member ScriptMethod GetOwner { param($type) [pscustomobject]@{Value='S-1-5-18'} }
+    $acl | Add-Member ScriptMethod GetAccessRules { param($a,$b,$type) @([pscustomobject]@{IdentityReference=[pscustomobject]@{Value='S-1-5-21-123'}; AccessControlType='Allow'; FileSystemRights=[Security.AccessControl.FileSystemRights]::WriteData}) }
+    return $acl
+}
+''' + functions + r'''
+Assert-TrustedItem $env:ITEM $false
+'''
+    result = run_pwsh(shell, env={"ITEM": str(tmp_path)})
+    assert result.returncode != 0
+    assert "untrusted" in result.stderr.lower()
+
+
+def test_privileged_install_rejects_reparse_path(tmp_path):
+    source = (Path(__file__).resolve().parents[1] / "bootstrap.ps1").read_text()
+    functions = source[source.index("function Assert-TrustedItem"):source.index("# End trusted path checks")]
+    shell = r'''
+$trustedSids = @('S-1-5-18', 'S-1-5-32-544')
+function Get-Item { param($LiteralPath, [switch]$Force) [pscustomobject]@{Attributes=[IO.FileAttributes]::ReparsePoint} }
+''' + functions + r'''
+Assert-TrustedItem $env:ITEM $false
+'''
+    result = run_pwsh(shell, env={"ITEM": str(tmp_path)})
+    assert result.returncode != 0
+    assert "reparse" in result.stderr.lower()
