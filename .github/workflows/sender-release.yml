@@ -54,7 +54,7 @@ jobs:
   linux-build:
     needs: version
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 120
+    timeout-minutes: 240
     strategy:
       fail-fast: false
       matrix:
@@ -71,6 +71,7 @@ jobs:
             python-sha: a6decd180099e6768269bd8e8968aeaa84bb01511f00f6921dc204fe648729aa
     env:
       SOURCE: ${{ needs.version.outputs.source }}
+      OLD_SOURCE: c40a66d16d23ba7fac7fba171d02e4959a9a91a9
       VERSION: ${{ needs.version.outputs.version }}
       TARGET: ${{ matrix.platform }}
       BUILD_IMAGE: ${{ matrix.image }}
@@ -86,11 +87,12 @@ jobs:
         run: |
           set -eu
           test "$(git rev-parse HEAD)" = "$SOURCE"
+          test "$SOURCE" != "$OLD_SOURCE"
           curl --fail --location --retry 3 "https://github.com/astral-sh/python-build-standalone/releases/download/20260728/$PYTHON_ARCHIVE" -o "$RUNNER_TEMP/python.tar.gz"
           printf '%s  %s\n' "$PYTHON_SHA" "$RUNNER_TEMP/python.tar.gz" | sha256sum -c -
           RUNNER_UID=$(id -u) RUNNER_GID=$(id -g)
           export RUNNER_UID RUNNER_GID
-          docker run --rm -v "$GITHUB_WORKSPACE:/src" -v "$RUNNER_TEMP:/work" -w /src -e VERSION -e RUNNER_UID -e RUNNER_GID "$BUILD_IMAGE" bash -ec '
+          docker run --rm -v "$GITHUB_WORKSPACE:/src" -v "$RUNNER_TEMP:/work" -w /src -e VERSION -e OLD_SOURCE -e RUNNER_UID -e RUNNER_GID "$BUILD_IMAGE" bash -ec '
             printf "deb http://archive.debian.org/debian bullseye main\ndeb http://archive.debian.org/debian-security bullseye-security main\n" > /etc/apt/sources.list
             apt-get -o Acquire::Check-Valid-Until=false update
             apt-get install -y --no-install-recommends git gcc=4:10.2.1-1 gcc-10=10.2.1-6 libc6-dev=2.31-13+deb11u14 patchelf=0.12-1
@@ -100,7 +102,12 @@ jobs:
             /opt/pbs/bin/python3.11 -m venv /tmp/build-venv
             /tmp/build-venv/bin/pip install --no-build-isolation --require-hashes --force-reinstall -r scripts/requirements-sender-build.txt
             /tmp/build-venv/bin/python scripts/build_sender_package.py --version "$VERSION" --output /work/result
-            chown -R "$RUNNER_UID:$RUNNER_GID" /work/result
+            git clone --quiet --no-checkout --shared /src /work/old-source
+            git -C /work/old-source checkout --quiet --detach "$OLD_SOURCE"
+            cd /work/old-source
+            /tmp/build-venv/bin/pip install --no-build-isolation --require-hashes --force-reinstall -r scripts/requirements-sender-build.txt
+            /tmp/build-venv/bin/python scripts/build_sender_package.py --version 0.0.1 --output /work/old-result
+            chown -R "$RUNNER_UID:$RUNNER_GID" /work/result /work/old-result
           '
       - name: Build image and independent build record
         run: |
@@ -117,6 +124,8 @@ jobs:
             --provenance "$RUNNER_TEMP/private/evidence/$TARGET/provenance.json" --runtime-dir "$RUNNER_TEMP/private/evidence/$TARGET/runtime" \
             --assets "$RUNNER_TEMP/private/assets" --image "$RUNNER_TEMP/private/evidence/$TARGET/image.tar" \
             --version "$VERSION" --python-version 3.11.15 --output "$RUNNER_TEMP/private/evidence/$TARGET/record.json"
+      - name: Verify distinct baseline archive checksum
+        run: (cd "$RUNNER_TEMP/old-result"; sha256sum -c "sender-$TARGET.tar.gz.sha256")
       # Native installer and MQTT acceptance must run here before upload; harness is in progress.
       - name: Block until native release acceptance is wired
         run: exit 1

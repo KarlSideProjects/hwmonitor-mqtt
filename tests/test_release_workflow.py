@@ -87,3 +87,10 @@ def test_bullseye_builder_uses_archived_security_repository():
     workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
     assert 'http://archive.debian.org/debian-security bullseye-security main' in workflow
     assert 'Acquire::Check-Valid-Until=false' in workflow
+
+
+def test_linux_upgrade_baseline_is_built_from_distinct_pinned_source():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    assert 'c40a66d16d23ba7fac7fba171d02e4959a9a91a9' in workflow
+    assert 'scripts/build_sender_package.py --version 0.0.1 --output /work/old-result' in workflow
+    assert 'test "$SOURCE" != "$OLD_SOURCE"' in workflow
