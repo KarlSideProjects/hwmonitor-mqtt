@@ -26,3 +26,13 @@ def test_reusable_windows_source_and_version_are_bound_to_first_parent(tmp_path)
     subprocess.run(['git', '-C', str(repo), 'commit', '--allow-empty', '-qm', 'side'], check=True)
     side = subprocess.check_output(['git', '-C', str(repo), 'rev-parse', 'HEAD'], text=True).strip()
     assert run_pwsh(script, {**env, 'BUILD_SOURCE': side, 'BUILD_VERSION': '0.1.2'}).returncode != 0
+
+
+def test_upgrade_baseline_is_built_from_pinned_source_and_shared_digest():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/protected-windows-package.yml').read_text()
+    assert 'actions/download-artifact@' not in workflow
+    assert "git archive --output old-source.tar $oldSource" in workflow
+    assert "46bcc40d232cc2720b188c795d87e33d0894ea73" in workflow
+    assert "uv sync --locked" in workflow
+    assert "OLD_SENDER_SHA256=$oldHash" in workflow
+    assert workflow.count('-OldSha256 $env:OLD_SENDER_SHA256') == 2
