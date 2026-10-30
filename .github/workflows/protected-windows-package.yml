@@ -104,6 +104,17 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .venv/Scripts/python.exe scripts/windows/package_sender.py --executable build/windows/sender.exe --notices notices --output candidate --source $source --version 0.0.1 --compiler 'Nuitka 2.8.9' --python-version '3.13.17' --report build/windows/nuitka-report.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Path record-assets | Out-Null
+          Copy-Item candidate/sender-windows-x64.zip record-assets/sender-windows-x64.zip
+          foreach ($name in @('validate_sender_package.ps1', 'activate_sender_package.ps1')) {
+            Copy-Item (Join-Path 'scripts/windows' $name) (Join-Path 'record-assets' $name)
+          }
+          foreach ($name in @('sender-windows-x64.zip', 'validate_sender_package.ps1', 'activate_sender_package.ps1')) {
+            $assetHash = (Get-FileHash -LiteralPath (Join-Path 'record-assets' $name) -Algorithm SHA256).Hash.ToLowerInvariant()
+            [IO.File]::WriteAllText((Join-Path $PWD "record-assets/$name.sha256"), "$assetHash  $name`n", [Text.Encoding]::ASCII)
+          }
+          .venv/Scripts/python.exe scripts/create_sender_build_record.py --source-root . --platform windows-x64 --archive candidate/sender-windows-x64.zip --executable build/windows/sender.exe --report build/windows/nuitka-report.xml --inventory dist-inventory.json --runtime-dir build/windows/agent_sender_windows.dist --assets record-assets --version 0.0.1 --python-version 3.13.17 --output build-record.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if ((Get-FileHash old-binary/build/windows/sender.exe -Algorithm SHA256).Hash -ne $env:OLD_SENDER_SHA256) { throw 'Prior native executable SHA-256 mismatch' }
           New-Item -ItemType Directory -Path old-source | Out-Null
           git archive --output old-source.tar 46bcc40d232cc2720b188c795d87e33d0894ea73 scripts/windows/install_windows_sender_task.ps1 scripts/windows/start_windows_sender.ps1 release-public/LICENSE-NOTICE.md
@@ -136,6 +147,9 @@ jobs:
             candidate/sender-windows-x64.zip.sha256
             notice-inventory.json
             dist-inventory.json
+            build-record.json
+            record-assets/
+            build/windows/agent_sender_windows.dist/
             build/windows/nuitka-report.xml
             test-evidence/process-tree-ps*.json
             test-evidence/direct-*.log

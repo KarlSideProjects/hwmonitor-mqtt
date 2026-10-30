@@ -318,8 +318,8 @@ def test_image_layer_rejects_deleted_first_party_source(tmp_path):
         tar.addfile(entry, io.BytesIO(b'x'))
     image = tmp_path / 'image.tar'
     with tarfile.open(image, 'w') as tar:
-        manifest = json.dumps([{'Layers': ['layer.tar']}]).encode()
-        for name, data in [('manifest.json', manifest), ('layer.tar', layer.getvalue())]:
+        manifest = json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()
+        for name, data in [('manifest.json', manifest), ('config.json', b'{"architecture":"amd64","os":"linux"}'), ('layer.tar', layer.getvalue())]:
             entry = tarfile.TarInfo(name)
             entry.size = len(data)
             tar.addfile(entry, io.BytesIO(data))
@@ -342,9 +342,271 @@ def test_image_layer_requires_trusted_sender_bytes(tmp_path):
         tar.addfile(entry, io.BytesIO(b'bad'))
     image = tmp_path / 'image.tar'
     with tarfile.open(image, 'w') as tar:
-        for name, data in [('manifest.json', json.dumps([{'Layers': ['layer.tar']}]).encode()), ('layer.tar', layer.getvalue())]:
+        for name, data in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', b'{"architecture":"amd64","os":"linux"}'), ('layer.tar', layer.getvalue())]:
             entry = tarfile.TarInfo(name)
             entry.size = len(data)
             tar.addfile(entry, io.BytesIO(data))
     with pytest.raises(ValueError, match='sender'):
         checker.inspect_image_layers(image, hashlib.sha256(image.read_bytes()).hexdigest(), 'a' * 64)
+
+
+def test_image_layer_only_allows_exact_known_debian_python_file(tmp_path):
+    import importlib.util
+    import io
+    import tarfile
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    layer = io.BytesIO()
+    with tarfile.open(fileobj=layer, mode='w') as tar:
+        for name, data in [('usr/share/gcc/python/libstdcxx/__init__.py', b'\n'), ('app/sender', b'sender')]:
+            entry = tarfile.TarInfo(name)
+            entry.size = len(data)
+            tar.addfile(entry, io.BytesIO(data))
+    image = tmp_path / 'image.tar'
+    with tarfile.open(image, 'w') as tar:
+        for name, data in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', b'{"architecture":"amd64","os":"linux"}'), ('layer.tar', layer.getvalue())]:
+            entry = tarfile.TarInfo(name)
+            entry.size = len(data)
+            tar.addfile(entry, io.BytesIO(data))
+    checker.inspect_image_layers(image, hashlib.sha256(image.read_bytes()).hexdigest(), hashlib.sha256(b'sender').hexdigest())
+
+
+def test_image_layer_rejects_unapproved_app_files_even_without_env_extension(tmp_path):
+    import importlib.util
+    import io
+    import tarfile
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    layer = io.BytesIO()
+    with tarfile.open(fileobj=layer, mode='w') as tar:
+        entry = tarfile.TarInfo('app/settings.ini')
+        entry.size = 1
+        tar.addfile(entry, io.BytesIO(b'x'))
+    image = tmp_path / 'image.tar'
+    with tarfile.open(image, 'w') as tar:
+        for name, data in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', b'{"architecture":"amd64","os":"linux"}'), ('layer.tar', layer.getvalue())]:
+            entry = tarfile.TarInfo(name)
+            entry.size = len(data)
+            tar.addfile(entry, io.BytesIO(data))
+    with pytest.raises(ValueError, match='app'):
+        checker.inspect_image_layers(image, hashlib.sha256(image.read_bytes()).hexdigest(), 'a' * 64)
+
+
+def test_image_configuration_rejects_embedded_credentials():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    with pytest.raises(ValueError, match='configuration'):
+        checker.check_image_config(b'{"config":{"Env":["MQTT_PASS=private-value"]}}')
+
+
+def test_unknown_runtime_notice_set_cannot_pass_release_gate():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    with pytest.raises(ValueError, match='not established'):
+        checker.check_release_notice_readiness('linux-x64', {'compiler': 'Nuitka unknown', 'runtime': {'python': '0.0.0'}})
+
+
+def test_image_scans_non_app_layer_file_for_private_settings(tmp_path):
+    import importlib.util
+    import io
+    import tarfile
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    layer = io.BytesIO()
+    with tarfile.open(fileobj=layer, mode='w') as tar:
+        for name, data in [('etc/other.conf', b'MQTT_PASS=private-value\n'), ('app/sender', b'sender')]:
+            entry = tarfile.TarInfo(name)
+            entry.size = len(data)
+            tar.addfile(entry, io.BytesIO(data))
+    image = tmp_path / 'image.tar'
+    with tarfile.open(image, 'w') as tar:
+        for name, data in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', b'{"architecture":"amd64","os":"linux"}'), ('layer.tar', layer.getvalue())]:
+            entry = tarfile.TarInfo(name)
+            entry.size = len(data)
+            tar.addfile(entry, io.BytesIO(data))
+    with pytest.raises(ValueError, match='secret'):
+        checker.inspect_image_layers(image, hashlib.sha256(image.read_bytes()).hexdigest(), hashlib.sha256(b'sender').hexdigest())
+
+
+def test_image_configuration_requires_linux_x64():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    with pytest.raises(ValueError, match='configuration'):
+        checker.check_image_config(b'{"architecture":"arm64","os":"linux"}')
+
+
+def test_runtime_inventory_rejects_changed_payload_bytes(tmp_path):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    payload = tmp_path / 'sender.bin'
+    payload.write_bytes(b'changed')
+    inventory = [{'path': 'sender.bin', 'size': 7, 'sha256': hashlib.sha256(b'correct').hexdigest()}]
+    with pytest.raises(ValueError, match='inventory'):
+        checker.inspect_runtime_files(tmp_path, inventory)
+
+
+def test_archive_rejects_record_inside_release_assets(tmp_path):
+    assets = tmp_path / 'assets'
+    assets.mkdir()
+    approval = assets / 'record.json'
+    approval.write_text('{}')
+    result = subprocess.run([sys.executable, str(CHECKER), '--archive', '--assets', str(assets), 'linux-x64', str(assets / 'sender-linux-x64.tar.gz'), str(approval)], capture_output=True, text=True)
+    assert result.returncode != 0
+    assert 'independent' in result.stderr
+
+
+def test_build_report_rejects_unexpected_entrypoint(tmp_path):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    report = tmp_path / 'report.xml'
+    report.write_text('<nuitka-compilation-report completion="yes"><module name="__main__" kind="PythonMainModule" source_path="other.py"/><module name="hwmonitor_mqtt" kind="CompiledPythonPackage"/></nuitka-compilation-report>')
+    inventory = tmp_path / 'inventory.json'
+    inventory.write_text('[]')
+    record = {'report_sha256': hashlib.sha256(report.read_bytes()).hexdigest(), 'inventory_sha256': hashlib.sha256(inventory.read_bytes()).hexdigest()}
+    with pytest.raises(ValueError, match='entrypoint'):
+        checker.inspect_build_evidence('windows-x64', report, inventory, record)
+
+
+def test_arm_runtime_bundle_preserves_its_versioned_license_inputs():
+    root = Path(__file__).resolve().parents[1]
+    inputs = root / 'release-notices/linux-arm64-cpython-3.11.15-pbs-20260728'
+    bundle = (inputs / 'runtime-bundle.txt').read_bytes()
+    assert (REPO_NOTICES / 'python.txt').read_bytes() in bundle
+    licenses = list((root / 'release-notices/linux-x64-cpython-3.11.15-pbs-20260728').glob('LICENSE.*.txt'))
+    assert licenses
+    for license_file in licenses:
+        assert license_file.read_bytes() in bundle
+
+
+def test_image_configuration_checks_selected_arm_architecture():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    checker.check_image_config(b'{"architecture":"arm64","os":"linux"}', 'linux-arm64')
+    with pytest.raises(ValueError, match='configuration'):
+        checker.check_image_config(b'{"architecture":"amd64","os":"linux"}', 'linux-arm64')
+
+
+def test_image_rejects_excessive_expanded_layer_size(tmp_path, monkeypatch):
+    import importlib.util
+    import io
+    import tarfile
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    monkeypatch.setattr(checker, 'MAX_IMAGE_EXPANDED', 2)
+    layer = io.BytesIO()
+    with tarfile.open(fileobj=layer, mode='w') as tar:
+        entry = tarfile.TarInfo('app/sender')
+        entry.size = 3
+        tar.addfile(entry, io.BytesIO(b'bad'))
+    image = tmp_path / 'image.tar'
+    with tarfile.open(image, 'w') as tar:
+        for name, data in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', b'{"architecture":"amd64","os":"linux"}'), ('layer.tar', layer.getvalue())]:
+            entry = tarfile.TarInfo(name)
+            entry.size = len(data)
+            tar.addfile(entry, io.BytesIO(data))
+    with pytest.raises(ValueError, match='expanded'):
+        checker.inspect_image_layers(image, hashlib.sha256(image.read_bytes()).hexdigest(), hashlib.sha256(b'bad').hexdigest())
+
+
+def test_rejects_duplicate_json_keys_in_candidate_metadata():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    with pytest.raises(ValueError, match='duplicate'):
+        checker.strict_json(b'{"platform":"linux-x64","platform":"windows-x64"}')
+
+
+def test_image_secret_exception_is_bound_to_exact_vendor_path_and_bytes(tmp_path, monkeypatch):
+    import importlib.util
+    import io
+    import tarfile
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    name = 'usr/bin/vendor'
+    safe = b'PASSWORD=example\n'
+    monkeypatch.setitem(checker.DEBIAN_SECRET_PATTERN_FILES, name, hashlib.sha256(safe).hexdigest())
+
+    def image_with(data):
+        layer = io.BytesIO()
+        with tarfile.open(fileobj=layer, mode='w') as tar:
+            for path, content in [(name, data), ('app/sender', b'sender')]:
+                entry = tarfile.TarInfo(path)
+                entry.size = len(content)
+                tar.addfile(entry, io.BytesIO(content))
+        image = tmp_path / 'image.tar'
+        with tarfile.open(image, 'w') as tar:
+            for path, content in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', b'{"architecture":"amd64","os":"linux"}'), ('layer.tar', layer.getvalue())]:
+                entry = tarfile.TarInfo(path)
+                entry.size = len(content)
+                tar.addfile(entry, io.BytesIO(content))
+        return image
+
+    image = image_with(safe)
+    checker.inspect_image_layers(image, hashlib.sha256(image.read_bytes()).hexdigest(), hashlib.sha256(b'sender').hexdigest())
+    image = image_with(safe + b'changed')
+    with pytest.raises(ValueError, match='secret'):
+        checker.inspect_image_layers(image, hashlib.sha256(image.read_bytes()).hexdigest(), hashlib.sha256(b'sender').hexdigest())
+
+
+def test_build_report_rejects_xml_doctype(tmp_path):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    report = tmp_path / 'report.xml'
+    report.write_text('<!DOCTYPE x [<!ENTITY a "x">]><nuitka-compilation-report completion="yes"/>')
+    inventory = tmp_path / 'inventory.json'
+    inventory.write_text('[]')
+    record = {'report_sha256': hashlib.sha256(report.read_bytes()).hexdigest(), 'inventory_sha256': hashlib.sha256(inventory.read_bytes()).hexdigest()}
+    with pytest.raises(ValueError, match='DOCTYPE'):
+        checker.inspect_build_evidence('windows-x64', report, inventory, record)
+
+
+def test_archive_rejects_excessive_member_count(tmp_path, monkeypatch):
+    import importlib.util
+    import io
+    import tarfile
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    monkeypatch.setattr(checker, 'MAX_ARCHIVE_MEMBERS', 1)
+    archive = tmp_path / 'sender-linux-x64.tar.gz'
+    with tarfile.open(archive, 'w:gz') as package:
+        for name in ('sender', 'manifest.json'):
+            item = tarfile.TarInfo(name)
+            item.size = 1
+            package.addfile(item, io.BytesIO(b'x'))
+    with pytest.raises(ValueError, match='too many'):
+        checker.inspect_archive('linux-x64', archive, {'archive_sha256': hashlib.sha256(archive.read_bytes()).hexdigest()})
