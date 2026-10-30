@@ -12,11 +12,11 @@ def test_notice_inventory_records_installed_distribution_license(tmp_path):
     python_license.write_text("test Python license")
     out = tmp_path / "notices"
     inventory = tmp_path / "inventory.json"
-    result = subprocess.run([sys.executable, str(root / "scripts/windows/collect_notices.py"), "--output", str(out), "--inventory", str(inventory), "--python-license", str(python_license), "paho-mqtt"], capture_output=True, text=True)
+    result = subprocess.run([sys.executable, str(root / "scripts/windows/collect_notices.py"), "--output", str(out), "--inventory", str(inventory), "--python-license", str(python_license), "psutil"], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     records = json.loads(inventory.read_text())
-    assert records["distributions"]["paho-mqtt"]["version"] == importlib.metadata.version("paho-mqtt")
-    notice = records["distributions"]["paho-mqtt"]["notices"][0]
+    assert records["distributions"]["psutil"]["version"] == importlib.metadata.version("psutil")
+    notice = records["distributions"]["psutil"]["notices"][0]
     assert notice["sha256"] == hashlib.sha256((out / notice["file"]).read_bytes()).hexdigest()
     assert (out / notice["file"]).stat().st_size > 0
 
@@ -72,3 +72,27 @@ def test_wmi_notice_rejects_unverified_metadata(monkeypatch):
         assert "metadata" in str(error).lower()
     else:
         raise AssertionError("unverified metadata was accepted")
+
+
+def test_paho_supplement_includes_both_upstream_license_texts(monkeypatch):
+    import importlib.util
+    import io
+    import tarfile
+    from types import SimpleNamespace
+
+    path = Path(__file__).resolve().parents[1] / "scripts/windows/collect_notices.py"
+    spec = importlib.util.spec_from_file_location("collect_notices_paho_test", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    content = {"paho/edl-v10": b"edl terms", "paho/epl-v20": b"epl terms"}
+    archive = io.BytesIO()
+    with tarfile.open(fileobj=archive, mode="w:gz") as tar:
+        for name, data in content.items():
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    terms = tuple((name, hashlib.sha256(data).hexdigest()) for name, data in content.items())
+    monkeypatch.setattr(module, "PAHO_TERMS", terms)
+    monkeypatch.setattr(module, "fetch_verified", lambda *args: archive.getvalue())
+    notices = module.supplemental_notices("paho-mqtt", SimpleNamespace(version="2.1.0"))
+    assert [notice[0] for notice in notices] == list(content.values())

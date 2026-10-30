@@ -28,6 +28,12 @@ SUPPLEMENTS = {
 }
 MIT_URL = "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/MIT.txt"
 MIT_SHA256 = "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+PAHO_URL = "https://files.pythonhosted.org/packages/39/15/0a6214e76d4d32e7f663b109cf71fb22561c2be0f701d67f93950cd40542/paho_mqtt-2.1.0.tar.gz"
+PAHO_SHA256 = "12d6e7511d4137555a3f6ea167ae846af2c7357b10bc6fa4f7c3968fc1723834"
+PAHO_TERMS = (
+    ("paho_mqtt-2.1.0/edl-v10", "e8cf7d54ea46c19aba793983889b7f7425e1ebfcaaccec764a7db091646e203c"),
+    ("paho_mqtt-2.1.0/epl-v20", "8c349f80764d0648e645f41ef23772a70c995a0924b5235f735f4a3d09df127c"),
+)
 
 
 def fetch_verified(url, expected):
@@ -39,6 +45,19 @@ def fetch_verified(url, expected):
 
 
 def supplemental_notices(name, dist):
+    if name.lower() == "paho-mqtt" and dist.version == "2.1.0":
+        data = fetch_verified(PAHO_URL, PAHO_SHA256)
+        notices = []
+        with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
+            for member, expected in PAHO_TERMS:
+                entry = archive.getmember(member)
+                if not entry.isfile() or entry.size > 2 * 1024 * 1024:
+                    raise ValueError("invalid Paho license entry")
+                content = archive.extractfile(entry).read()
+                if hashlib.sha256(content).hexdigest() != expected:
+                    raise ValueError("Paho notice SHA-256 mismatch")
+                notices.append((content, f"{PAHO_URL}#{member}", PAHO_SHA256))
+        return notices
     info = SUPPLEMENTS.get((name.lower(), dist.version))
     if info:
         url, archive_hash, member, notice_hash = info
@@ -75,6 +94,8 @@ def main():
     inventory = {"python_license_sha256": hashlib.sha256(python_notice.read_bytes()).hexdigest(), "distributions": {}}
     for name in args.packages:
         dist = importlib.metadata.distribution(name)
+        if name.lower() == "paho-mqtt" and dist.version != "2.1.0":
+            parser.error(f"Paho notice sources are not pinned for {dist.version}")
         files = [item for item in (dist.files or []) if ("license" in str(item).lower() or "copying" in str(item).lower()) and dist.locate_file(item).is_file()]
         entries = []
         for index, item in enumerate(files):
@@ -84,9 +105,9 @@ def main():
                 parser.error(f"empty license file for {name} {dist.version}")
             (args.output / target).write_bytes(content)
             entries.append({"file": target, "source": str(item), "sha256": hashlib.sha256(content).hexdigest()})
-        if not entries:
-            for index, (content, source, source_hash) in enumerate(supplemental_notices(name, dist)):
-                target = re.sub(r"[^a-zA-Z0-9_-]", "-", name) + f"-{index}.txt"
+        if not entries or name.lower() == "paho-mqtt":
+            for content, source, source_hash in supplemental_notices(name, dist):
+                target = re.sub(r"[^a-zA-Z0-9_-]", "-", name) + f"-{len(entries)}.txt"
                 (args.output / target).write_bytes(content)
                 entries.append({"file": target, "source": source, "source_sha256": source_hash, "sha256": hashlib.sha256(content).hexdigest()})
         if not entries:

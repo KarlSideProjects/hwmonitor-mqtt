@@ -2,6 +2,7 @@ param(
     [Parameter(Mandatory = $true)][string]$Candidate,
     [Parameter(Mandatory = $true)][string]$UpgradeCandidate,
     [Parameter(Mandatory = $true)][string]$BrokerExe,
+    [Parameter(Mandatory = $true)][string]$OldSource,
     [Parameter(Mandatory = $true)][string]$Source
 )
 $ErrorActionPreference = 'Stop'
@@ -57,7 +58,7 @@ function Assert-OldState($expectedExe, $expectedEnv, $expectedAcl) {
 try {
     if (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue) { throw 'Refusing to replace an existing task in the smoke environment.' }
     $ownsTask = $true
-    foreach ($item in @(@('0.0.0', $Candidate), @('0.0.1', $UpgradeCandidate))) {
+    foreach ($item in @(@('0.0.0', $Candidate, $OldSource), @('0.0.1', $UpgradeCandidate, $Source))) {
         $version = $item[0]
         $dir = Join-Path $assets $version
         New-Item -ItemType Directory -Path $dir | Out-Null
@@ -69,7 +70,7 @@ try {
             $hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
             [IO.File]::WriteAllText(($path + '.sha256'), "$hash  $name`n", [Text.Encoding]::ASCII)
         }
-        [IO.File]::WriteAllText((Join-Path $dir 'version.json'), (@{version=$version;source=$Source} | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
+        [IO.File]::WriteAllText((Join-Path $dir 'version.json'), (@{version=$version;source=$item[2]} | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
     }
     $passwordFile = Join-Path $testRoot 'mosquitto.passwd'
     & (Join-Path (Split-Path -Parent $BrokerExe) 'mosquitto_passwd.exe') -b -c $passwordFile 'ci-user' 'ci-test-password'
@@ -94,6 +95,7 @@ try {
 
     [IO.File]::AppendAllText((Join-Path $root '.env'), "SENDER_PROFILE=esp`n", [Text.UTF8Encoding]::new($false))
     $oldExe = (Get-FileHash (Join-Path $root 'package/sender.exe') -Algorithm SHA256).Hash
+    if ($oldExe -ne 'B64D67E5D004ED31C69C733ACB0867AD008E8288CB3A263DDFAC220F61FCFFB8') { throw 'The prior compiled sender is not the expected artifact.' }
     $oldEnv = (Get-FileHash (Join-Path $root '.env') -Algorithm SHA256).Hash
     $oldAcl = (Get-Acl (Join-Path $root '.env')).Sddl
     $global:SmokeRelease = '0.0.1'
@@ -113,9 +115,11 @@ try {
     if ((Get-FileHash (Join-Path $root '.env') -Algorithm SHA256).Hash -ne $oldEnv -or (Get-Acl (Join-Path $root '.env')).Sddl -ne $oldAcl) { throw 'Upgrade changed settings or ACL.' }
     $manifest = [IO.File]::ReadAllText((Join-Path $root 'package/manifest.json')) | ConvertFrom-Json
     if ($manifest.version -ne '0.0.1') { throw 'Upgrade did not activate candidate manifest.' }
+    $newExe = (Get-FileHash (Join-Path $root 'package/sender.exe') -Algorithm SHA256).Hash
+    if ($newExe -eq $oldExe -or $manifest.source -ne $Source) { throw 'Upgrade did not activate distinct compiled bytes from the selected source.' }
     & .venv/Scripts/python.exe tests/windows_mqtt_observer.py --profile esp --port 18884
     if ($LASTEXITCODE -ne 0) { throw 'No installed esp payload.' }
-    Write-Output 'Official bootstrap rehearsal passed; both candidate archives use the same compiled binary.'
+    Write-Output "Official bootstrap activated distinct compiled bytes: old=$oldExe new=$newExe"
 }
 finally {
     if ($ownsTask -and (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue)) {
