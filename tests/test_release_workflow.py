@@ -81,3 +81,9 @@ def test_publisher_trigger_cases():
     assert allowed('workflow_dispatch', 'success', 'a' * 40)
     assert not allowed('workflow_dispatch', 'failure', 'a' * 40)
     assert not allowed('schedule', 'skipped', ref='refs/heads/other')
+
+
+def test_bullseye_builder_uses_archived_security_repository():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    assert 'http://archive.debian.org/debian-security bullseye-security main' in workflow
+    assert 'Acquire::Check-Valid-Until=false' in workflow

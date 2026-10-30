@@ -91,7 +91,8 @@ jobs:
           RUNNER_UID=$(id -u) RUNNER_GID=$(id -g)
           export RUNNER_UID RUNNER_GID
           docker run --rm -v "$GITHUB_WORKSPACE:/src" -v "$RUNNER_TEMP:/work" -w /src -e VERSION -e RUNNER_UID -e RUNNER_GID "$BUILD_IMAGE" bash -ec '
-            apt-get update
+            printf "deb http://archive.debian.org/debian bullseye main\ndeb http://archive.debian.org/debian-security bullseye-security main\n" > /etc/apt/sources.list
+            apt-get -o Acquire::Check-Valid-Until=false update
             apt-get install -y --no-install-recommends git gcc=4:10.2.1-1 gcc-10=10.2.1-6 libc6-dev=2.31-13+deb11u14 patchelf=0.12-1
             git config --global --add safe.directory /src
             mkdir -p /opt/pbs /work/result
