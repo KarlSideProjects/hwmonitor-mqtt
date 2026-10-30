@@ -109,3 +109,14 @@ def test_pending_history_rejects_rewritten_release_identity(service, tmp_path):
     release['body'] = release['body'].replace(source, 'f' * 40)
     with pytest.raises(ValueError):
         pending_sources(api, repo, source, source, 10)
+
+
+def test_pending_history_rejects_corrupt_ready_assets(service, tmp_path):
+    from release_controller import pending_sources
+    api, state = service
+    repo, assets, evidence = (tmp_path / name for name in ('repo', 'assets', 'evidence'))
+    source = setup(repo, assets, evidence)
+    release = prepare(api, repo, source, source, assets, evidence, lambda args: None)
+    state['assets'][release['id']].pop()
+    with pytest.raises(ValueError):
+        pending_sources(api, repo, source, source, 10)
