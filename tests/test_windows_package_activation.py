@@ -162,7 +162,7 @@ function Get-Item { param($LiteralPath, [switch]$Force) [pscustomobject]@{Attrib
 function Get-Acl { param($LiteralPath)
     $acl = [pscustomobject]@{}
     $acl | Add-Member ScriptMethod GetOwner { param($type) [pscustomobject]@{Value='S-1-5-18'} }
-    $acl | Add-Member ScriptMethod GetAccessRules { param($a,$b,$type) @([pscustomobject]@{IdentityReference=[pscustomobject]@{Value='S-1-5-21-123'}; AccessControlType='Allow'; FileSystemRights=[Security.AccessControl.FileSystemRights]::WriteData}) }
+    $acl | Add-Member ScriptMethod GetAccessRules { param($a,$b,$type) @([pscustomobject]@{IdentityReference=[pscustomobject]@{Value='S-1-5-21-123'}; AccessControlType='Allow'; FileSystemRights=[Security.AccessControl.FileSystemRights]::WriteData; IsInherited=$true; PropagationFlags=[Security.AccessControl.PropagationFlags]::None}) }
     return $acl
 }
 ''' + functions + r'''
