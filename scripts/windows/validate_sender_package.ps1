@@ -5,18 +5,25 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 if (Test-Path -LiteralPath $Destination) { throw 'Destination already exists.' }
-if ($Sha256 -notmatch '^[a-fA-F0-9]{64}$' -or (Get-FileHash -LiteralPath $Archive -Algorithm SHA256).Hash -ne $Sha256) { throw 'Package SHA-256 mismatch.' }
+if ($Sha256 -notmatch '^[a-fA-F0-9]{64}$') { throw 'Package SHA-256 mismatch.' }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-$zip = [IO.Compression.ZipFile]::OpenRead($Archive)
+$file = [IO.File]::Open($Archive, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
 try {
+    $hash = [Security.Cryptography.SHA256]::Create()
+    try { $archiveHash = ([BitConverter]::ToString($hash.ComputeHash($file))).Replace('-', '') } finally { $hash.Dispose() }
+    if ($archiveHash -ne $Sha256) { throw 'Package SHA-256 mismatch.' }
+    $file.Position = 0
+    $zip = [IO.Compression.ZipArchive]::new($file, [IO.Compression.ZipArchiveMode]::Read, $true)
+    try {
     $names = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     if ($zip.Entries.Count -gt 128) { throw 'Too many package entries.' }
     $totalSize = 0L
     foreach ($entry in $zip.Entries) {
-        if ($entry.FullName -notmatch '^(sender\.exe|manifest\.json|licenses/([a-zA-Z0-9_-][a-zA-Z0-9._-]*)?)$' -or -not $names.Add($entry.FullName)) { throw 'Unsafe or unexpected package entry.' }
+        if ($entry.FullName -notmatch '^(sender\.exe|manifest\.json|licenses/([a-zA-Z0-9_-][a-zA-Z0-9._-]*)?|scripts/|scripts/windows/|scripts/windows/(install_windows_sender_task|start_windows_sender)\.ps1)$' -or -not $names.Add($entry.FullName)) { throw 'Unsafe or unexpected package entry.' }
         $mode = ($entry.ExternalAttributes -shr 16) -band 0xF000
         if ($mode -eq 0xA000) { throw 'Package links are not allowed.' }
         if ($entry.FullName -like 'licenses/*' -and $entry.Length -gt 2097152) { throw 'Oversized notice.' }
+        if ($entry.FullName -like 'scripts/*' -and $entry.Length -gt 1048576) { throw 'Oversized installer script.' }
         $totalSize += $entry.Length
         if ($totalSize -gt 629145600) { throw 'Oversized package.' }
     }
@@ -47,5 +54,6 @@ try {
             if ($reader.ReadUInt32() -ne 0x4550 -or $reader.ReadUInt16() -ne 0x8664) { throw 'Invalid executable architecture.' }
         } finally { $reader.Dispose() }
     } finally { $stream.Dispose(); $memory.Dispose() }
-} finally { $zip.Dispose() }
-Expand-Archive -LiteralPath $Archive -DestinationPath $Destination
+        [IO.Compression.ZipFileExtensions]::ExtractToDirectory($zip, $Destination)
+    } finally { $zip.Dispose() }
+} finally { $file.Dispose() }

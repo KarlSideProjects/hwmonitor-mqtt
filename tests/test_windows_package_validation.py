@@ -39,6 +39,7 @@ def test_matching_x64_package_extracts_after_validation(tmp_path):
         package.writestr("manifest.json", json.dumps(manifest))
         package.writestr("licenses/", "")
         package.writestr("licenses/example.txt", "license")
+        package.writestr("scripts/windows/start_windows_sender.ps1", "# launcher")
     destination = tmp_path / "out"
     script = Path(__file__).resolve().parents[1] / "scripts/windows/validate_sender_package.ps1"
     result = run_pwsh('& $env:VALIDATOR -Archive $env:ARCHIVE -Sha256 $env:SHA -Destination $env:DEST', env={"VALIDATOR": str(script), "ARCHIVE": str(archive), "SHA": hashlib.sha256(archive.read_bytes()).hexdigest(), "DEST": str(destination)})
@@ -80,4 +81,16 @@ def test_oversized_notice_is_rejected_before_extraction(tmp_path):
     result = run_pwsh('& $env:VALIDATOR -Archive $env:ARCHIVE -Sha256 $env:SHA -Destination $env:DEST', env={"VALIDATOR": str(script), "ARCHIVE": str(archive), "SHA": hashlib.sha256(archive.read_bytes()).hexdigest(), "DEST": str(destination)})
     assert result.returncode != 0
     assert "oversized notice" in (result.stdout + result.stderr).lower()
+    assert not destination.exists()
+
+
+def test_incorrect_archive_hash_is_rejected_before_extraction(tmp_path):
+    archive = tmp_path / "package.zip"
+    with zipfile.ZipFile(archive, "w") as package:
+        package.writestr("sender.exe", b"payload")
+    destination = tmp_path / "out"
+    script = Path(__file__).resolve().parents[1] / "scripts/windows/validate_sender_package.ps1"
+    result = run_pwsh('& $env:VALIDATOR -Archive $env:ARCHIVE -Sha256 $env:SHA -Destination $env:DEST', env={"VALIDATOR": str(script), "ARCHIVE": str(archive), "SHA": "0" * 64, "DEST": str(destination)})
+    assert result.returncode != 0
+    assert "sha-256 mismatch" in (result.stdout + result.stderr).lower()
     assert not destination.exists()
