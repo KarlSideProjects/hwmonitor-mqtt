@@ -84,4 +84,3 @@ def test_powershell_kept_install_marker_reads_empty_and_commit(tmp_path, content
     result = run_pwsh(snippet + "; Write-Output $installed", env={"MARKER_PATH": str(marker)})
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == expected
-
