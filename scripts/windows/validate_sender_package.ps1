@@ -10,10 +10,15 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [IO.Compression.ZipFile]::OpenRead($Archive)
 try {
     $names = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    if ($zip.Entries.Count -gt 128) { throw 'Too many package entries.' }
+    $totalSize = 0L
     foreach ($entry in $zip.Entries) {
-        if ($entry.FullName -notmatch '^(sender\.exe|manifest\.json|licenses/[a-zA-Z0-9_-][a-zA-Z0-9._-]*)$' -or -not $names.Add($entry.FullName)) { throw 'Unsafe or unexpected package entry.' }
+        if ($entry.FullName -notmatch '^(sender\.exe|manifest\.json|licenses/([a-zA-Z0-9_-][a-zA-Z0-9._-]*)?)$' -or -not $names.Add($entry.FullName)) { throw 'Unsafe or unexpected package entry.' }
         $mode = ($entry.ExternalAttributes -shr 16) -band 0xF000
         if ($mode -eq 0xA000) { throw 'Package links are not allowed.' }
+        if ($entry.FullName -like 'licenses/*' -and $entry.Length -gt 2097152) { throw 'Oversized notice.' }
+        $totalSize += $entry.Length
+        if ($totalSize -gt 629145600) { throw 'Oversized package.' }
     }
     $exe = $zip.GetEntry('sender.exe')
     $manifestEntry = $zip.GetEntry('manifest.json')
