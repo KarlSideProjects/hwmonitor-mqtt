@@ -126,3 +126,10 @@ def test_rejects_invalid_approval_context(tmp_path):
     record['source'] = 'branch-name'
     (tmp_path / 'trusted.json').write_text(json.dumps(record))
     assert inspect(root).returncode != 0
+
+
+def test_rejects_json_quoted_private_settings_in_trusted_executable(tmp_path):
+    root = candidate(tmp_path)
+    (root / 'sender').write_bytes(b'\x7fELF {"BROKER_HOST":"internal.example","MQTT_USER":"alice"}')
+    approve(root)
+    assert inspect(root).returncode != 0

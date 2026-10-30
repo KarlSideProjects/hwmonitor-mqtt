@@ -19,7 +19,7 @@ NOTICE_HASHES = {
     'wmi': 'df96d90111c405f2393770e6e9d115eed77f836cfc12b7c002132955d09f7b28',
 }
 COMMON = {'python', 'paho-mqtt', 'psutil', 'python-dotenv'}
-SECRET = re.compile(rb'(?i)(?:BROKER_HOST|MQTT_USER|MQTT_PASS|PVE_TOKEN_ID|PVE_TOKEN_SECRET|PASSWORD|API_KEY)\s*[:=]\s*["\']?[^\s"\']+|-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----')
+SECRET = re.compile(rb'(?i)(?:BROKER_HOST|MQTT_USER|MQTT_PASS|PVE_TOKEN_ID|PVE_TOKEN_SECRET|PASSWORD|API_KEY)["\']?\s*[:=]\s*["\']?[^\s"\']+|-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----')
 ARCHIVES = (b'PK\x03\x04', b'\x1f\x8b', b'BZh', b'\xfd7zXZ\x00', b'7z\xbc\xaf\x27\x1c', b'Rar!')
 
 

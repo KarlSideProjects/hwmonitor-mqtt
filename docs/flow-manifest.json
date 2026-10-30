@@ -60,12 +60,12 @@
     {
       "path": "scripts/inspect_sender_candidate.py",
       "kind": "file",
-      "md5": "0f9ca8672cfff64582192d4732f94832"
+      "md5": "2910d3f1f707875f91e9a0eb8f45b99d"
     },
     {
       "path": "tests/test_release_candidate.py",
       "kind": "file",
-      "md5": "a49ac93df97481c20518b5ffcc6a2edf"
+      "md5": "d0a43b11fd5eadbdc077d3d67c2dec0b"
     },
     {
       "path": "docs/release/sender-candidate.md",
