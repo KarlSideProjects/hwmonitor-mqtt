@@ -131,3 +131,74 @@ def test_build_host_libc_is_compatible_with_supported_linux_baseline():
     assert compatible_libc("glibc", "2.31")
     assert not compatible_libc("glibc", "2.38")
     assert not compatible_libc("unknown", "")
+
+
+def test_arm64_archive_uses_official_asset_name(tmp_path):
+    from scripts.build_sender_package import create_archive
+
+    candidate = tmp_path / "candidate"
+    candidate.mkdir()
+    (candidate / "sender").write_bytes(b"binary")
+    create_archive(candidate, tmp_path, "linux-arm64")
+    assert (tmp_path / "sender-linux-arm64.tar.gz").is_file()
+    assert (tmp_path / "sender-linux-arm64.tar.gz.sha256").read_text().endswith("  sender-linux-arm64.tar.gz\n")
+
+
+def test_builder_main_packages_both_platforms(tmp_path, monkeypatch):
+    import json
+    import tarfile
+    from types import SimpleNamespace
+    from scripts import build_sender_package as builder
+
+    monkeypatch.setattr(builder.sys, "version_info", (3, 11, 15))
+    monkeypatch.setattr(builder.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(builder.platform, "libc_ver", lambda: ("glibc", "2.31"))
+    monkeypatch.setattr(builder.importlib.metadata, "version", lambda name: builder.DEPENDENCIES[name])
+    monkeypatch.setattr(builder.importlib.metadata, "distribution", lambda name: SimpleNamespace(read_text=lambda _: "license"))
+    monkeypatch.setattr(builder.subprocess, "check_output", lambda *args, **kwargs: "a" * 40)
+    def snapshot(repo, destination, source):
+        for name in ("tests/fixtures/release-notices", "release-public", "docs/configuration"):
+            shutil.copytree(repo / name, destination / name)
+        for name in ("Dockerfile", "docker-compose.linux.yml", "docker-compose.pve.yml"):
+            shutil.copyfile(repo / name, destination / name)
+    monkeypatch.setattr(builder, "source_snapshot", snapshot)
+    def run(command, **kwargs):
+        if command[0] == "git":
+            return SimpleNamespace(stdout="")
+        build_dir = Path(next(item.split("=", 1)[1] for item in command if item.startswith("--output-dir=")))
+        build_dir.mkdir(parents=True)
+        (build_dir / "sender").write_bytes(b"compiled executable")
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(builder.subprocess, "run", run)
+    for machine, target in (("x86_64", "linux-x64"), ("aarch64", "linux-arm64")):
+        monkeypatch.setattr(builder.platform, "machine", lambda: machine)
+        output = tmp_path / target
+        monkeypatch.setattr(builder.sys, "argv", ["builder", "--output", str(output), "--version", "1.2.3"])
+        builder.main()
+        with tarfile.open(output / f"sender-{target}.tar.gz") as package:
+            manifest = json.load(package.extractfile("manifest.json"))
+        assert manifest["platform"] == target
+        assert manifest["source"] == "a" * 40
+
+
+def test_dockerfile_installs_intel_tools_only_on_amd64(tmp_path):
+    import os
+
+    dockerfile = (BUILDER.parents[1] / "Dockerfile").read_text()
+    instruction = dockerfile.split("RUN ", 1)[1].split("\n\n", 1)[0].replace("\\\n", " ")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for name, body in {
+        "dpkg": 'printf "%s\\n" "$TEST_ARCH"',
+        "apt-get": 'printf "%s\\n" "$*" >> "$TEST_CALLS"',
+        "rm": ":",
+    }.items():
+        script = bin_dir / name
+        script.write_text("#!/bin/sh\n" + body + "\n")
+        script.chmod(0o755)
+    for arch in ("amd64", "arm64"):
+        calls = tmp_path / arch
+        env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "TEST_ARCH": arch, "TEST_CALLS": str(calls)}
+        subprocess.run(["sh", "-c", instruction], env=env, check=True)
+        assert ("intel-gpu-tools" in calls.read_text()) == (arch == "amd64")
+        assert "smartmontools" in calls.read_text()
