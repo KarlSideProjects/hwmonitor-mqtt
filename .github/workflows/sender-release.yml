@@ -4,6 +4,8 @@ on:
   push:
     branches: [master]
   workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
 
 permissions:
   contents: read
@@ -39,13 +41,19 @@ jobs:
     steps:
       - run: exit 1
 
-  # READY drafts are durable; a later drain must recover queue overflow.
+  # A scheduled or manual drain can recover READY drafts after interrupted runs.
   publisher:
-    if: ${{ false }}
-    needs: prepare
+    if: github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    environment: sender-release-publisher
     concurrency:
       group: sender-publisher
       queue: max
     steps:
-      - run: exit 1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Reconcile validated READY drafts
+        env:
+          SENDER_RELEASE_TOKEN: ${{ secrets.SENDER_RELEASE_TOKEN }}
+        run: python3 scripts/release_controller.py drain
