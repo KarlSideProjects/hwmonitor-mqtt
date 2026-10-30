@@ -38,7 +38,7 @@ def capture(command, dist, output, timeout=30):
         listener.listen(1)
         env = {key: os.environ[key] for key in ('PATH', 'SYSTEMROOT', 'WINDIR', 'COMSPEC', 'PATHEXT') if key in os.environ}
         env.update(TMPDIR=str(root), TMP=str(root), TEMP=str(root), HOME=str(root), USERPROFILE=str(root),
-                   PYTHONIOENCODING='utf-8', BROKER_HOST='127.0.0.1', BROKER_PORT=str(listener.getsockname()[1]))
+                   PYTHONIOENCODING='utf-8', BROKER_HOST='127.0.0.1', BROKER_PORT=str(listener.getsockname()[1]), LHM_AUTOSTART='0')
         kwargs = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == 'nt' else {'start_new_session': True}
         process = subprocess.Popen(command, cwd=root, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **kwargs)
         try:
