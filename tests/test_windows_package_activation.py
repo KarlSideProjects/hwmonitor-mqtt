@@ -213,3 +213,45 @@ try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE; exit 0 
     assert "did not stop" in result.stdout
     assert (old / "sender.exe").read_text() == "old"
     assert (stage / "sender.exe").read_text() == "new"
+
+
+def test_bootstrap_requires_confirmed_version_and_source_identity():
+    source = (Path(__file__).resolve().parents[1] / "bootstrap.ps1").read_text()
+    check = next(line.strip() for line in source.splitlines() if line.strip().startswith("if ($version.version -isnot"))
+    script = "$tag = $env:TAG; $version = @{ version = $env:VERSION; source = $env:SOURCE }; " + check
+    valid = run_pwsh(script, env={"TAG": "v1.2.3", "VERSION": "1.2.3", "SOURCE": "a" * 40})
+    assert valid.returncode == 0, valid.stderr
+    mismatch = run_pwsh(script, env={"TAG": "v1.2.3", "VERSION": "1.2.4", "SOURCE": "a" * 40})
+    assert mismatch.returncode != 0
+    invalid_source = run_pwsh(script, env={"TAG": "v1.2.3", "VERSION": "1.2.3", "SOURCE": "A" * 40})
+    assert invalid_source.returncode != 0
+
+
+def test_failed_first_activation_leaves_settings_and_is_recognized_for_retry(tmp_path):
+    root = tmp_path / "installed"
+    root.mkdir()
+    (root / ".hwmonitor-mqtt-bootstrap-pending").write_text("")
+    (root / ".env").write_text("BROKER_HOST=preserved\n")
+    stage = tmp_path / "stage"
+    scripts = stage / "scripts/windows"
+    scripts.mkdir(parents=True)
+    (stage / "sender.exe").write_text("new")
+    (scripts / "install_windows_sender_task.ps1").write_text('param($ProjectRoot, $SenderExe, [switch]$AtStartup)\n')
+    repo = Path(__file__).resolve().parents[1]
+    source = (repo / "bootstrap.ps1").read_text()
+    guard = source[source.index("if (Test-Path $root) {"):source.index("New-Item -ItemType Directory -Path $temp")]
+    shell = r'''
+function Get-ScheduledTask { param($TaskName, $ErrorAction) $null }
+function Stop-ScheduledTask { param($TaskName) }
+function Start-ScheduledTask { param($TaskName) throw 'injected first start failure' }
+function Unregister-ScheduledTask { param($TaskName, [switch]$Confirm, $ErrorAction) }
+function powershell.exe { $global:LASTEXITCODE = 0 }
+function Assert-TrustedItem { param($Path, $Ancestor) }
+try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE } catch { }
+$root = $env:ROOT
+''' + guard + "\nWrite-Output 'retry recognized'\n"
+    result = run_pwsh(shell, env={"ACTIVATOR": str(repo / "scripts/windows/activate_sender_package.ps1"), "ROOT": str(root), "STAGE": str(stage)})
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "retry recognized" in result.stdout
+    assert (root / ".env").read_text() == "BROKER_HOST=preserved\n"
+    assert not (root / "package").exists()
