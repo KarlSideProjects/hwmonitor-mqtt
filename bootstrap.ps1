@@ -27,7 +27,7 @@ while ($ancestor) {
 }
 if (Test-Path $root) {
     Assert-TrustedItem $root $false
-    foreach ($relative in @('.env', 'scripts/windows', 'package')) {
+    foreach ($relative in @('.env', '.hwmonitor-mqtt-bootstrap', '.hwmonitor-mqtt-bootstrap-pending', 'scripts', 'package')) {
         $path = Join-Path $root $relative
         if (Test-Path -LiteralPath $path) {
             Assert-TrustedItem $path $false
