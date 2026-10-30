@@ -53,7 +53,7 @@ def release(tmp_path):
     server.shutdown(); server.server_close(); thread.join()
 
 
-def run_installer(tmp_path, port, *, existing=True, fail=False, input_text="", native_active=False, mutate_stage=False, target_pve=False, unstable=False, rollback_failure=False, reuse=False, stopped=False, race=False):
+def run_installer(tmp_path, port, *, existing=True, fail=False, input_text="", native_active=False, mutate_stage=False, target_pve=False, unstable=False, rollback_failure=False, reuse=False, stopped=False, race=False, pin_failure=False, pin_replaced=False, restore_failure=False):
     (tmp_path / "bin").mkdir(exist_ok=True)
     docker = tmp_path / "bin" / "docker"
     docker.write_text('''#!/bin/sh
@@ -63,12 +63,18 @@ case "$1 $2" in
  'inspect sys-agent') if [ "$FAKE_EXISTING" = 1 ]; then exit 0; else echo 'error: no such object' >&2; exit 1; fi;;
  'inspect --format') case "$3" in *State.Status*) if [ "$FAKE_STOPPED" = 1 ]; then echo exited; else echo running; fi;; *State.Running*) if [ "$FAKE_UNSTABLE" = 1 ]; then echo 'false 0 1'; else echo 'true 1234 0'; fi;; *Config.Image*) echo old:tag;; *) echo sha256:old;; esac; exit 0;;
  'compose -f') exit "$FAKE_EXIT";;
- 'tag '*) exit "$FAKE_TAG_EXIT";;
+ 'image inspect') if [ "$3" = --format ]; then case "$5" in hwmonitor-mqtt-rollback:*) if [ "$FAKE_PIN_REPLACED" = 1 ]; then echo sha256:other; exit 0; fi;; esac; echo sha256:old; exit 0; fi; exit 1;;
+ 'tag '*) case "$3" in old:tag) [ -f /work/image-pin ] || exit 1; exit "$FAKE_TAG_EXIT";; *) if [ "$FAKE_PIN_FAIL" = 1 ]; then exit 1; fi; touch /work/image-pin; exit 0;; esac;;
+ 'image rm') rm -f /work/image-pin; exit 0;;
  *) exit 0;;
 esac
 ''')
     docker.chmod(0o755)
     virt = tmp_path / "bin" / "systemd-detect-virt"; virt.write_text("#!/bin/sh\nexit 1\n"); virt.chmod(0o755)
+    if restore_failure:
+        cp = tmp_path / "bin" / "cp"
+        cp.write_text("#!/bin/sh\ncase \"$2\" in /work/root/.sender-rollback.*/sender) exit 1;; esac\nexec /bin/cp \"$@\"\n")
+        cp.chmod(0o755)
     if race:
         mkdir = tmp_path / "bin" / "mkdir"
         mkdir.write_text("#!/bin/sh\nif [ \"$1\" = /work/root ]; then /bin/mkdir /work/root; echo untouched >/work/root/sentinel; fi\nexec /bin/mkdir \"$@\"\n")
@@ -98,7 +104,7 @@ exit "$result"
         root.chmod(0o755)
         for n, data in {".hwmonitor-mqtt-bootstrap": "", "sender": "old binary", ".env": "private settings", "Dockerfile": "old Dockerfile", "docker-compose.linux.yml": "old compose", "docker-compose.override.yml": "custom override"}.items():
             (root / n).write_text(data)
-    command = ["docker", "run", "--rm", "-i", "--network", "host", "-v", f"{BOOTSTRAP}:/bootstrap.sh:ro", "-v", f"{tmp_path}:/work", "-e", "HWMONITOR_BOOTSTRAP_ROOT=/work/root", "-e", f"HWMONITOR_TEST_RELEASE_BASE=http://127.0.0.1:{port}", "-e", f"FAKE_EXISTING={int(existing)}", "-e", f"FAKE_EXIT={23 if fail else 0}", "-e", f"FAKE_UNSTABLE={int(unstable)}", "-e", f"FAKE_TAG_EXIT={int(rollback_failure)}", "-e", f"FAKE_STOPPED={int(stopped)}", "-e", "PATH=/work/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "protected21-bootstrap-test:local", "bash", "-c", "rm -f /.dockerenv; [ ! -d /work/root ] || chown root:root /work/root; exec bash /bootstrap.sh"]
+    command = ["docker", "run", "--rm", "-i", "--network", "host", "-v", f"{BOOTSTRAP}:/bootstrap.sh:ro", "-v", f"{tmp_path}:/work", "-e", "HWMONITOR_BOOTSTRAP_ROOT=/work/root", "-e", f"HWMONITOR_TEST_RELEASE_BASE=http://127.0.0.1:{port}", "-e", f"FAKE_EXISTING={int(existing)}", "-e", f"FAKE_EXIT={23 if fail else 0}", "-e", f"FAKE_UNSTABLE={int(unstable)}", "-e", f"FAKE_TAG_EXIT={int(rollback_failure)}", "-e", f"FAKE_STOPPED={int(stopped)}", "-e", f"FAKE_PIN_FAIL={int(pin_failure)}", "-e", f"FAKE_PIN_REPLACED={int(pin_replaced)}", "-e", "PATH=/work/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "protected21-bootstrap-test:local", "bash", "-c", "rm -f /.dockerenv; [ ! -d /work/root ] || chown root:root /work/root; exec bash /bootstrap.sh"]
     result = subprocess.run(command, input=input_text, text=True, capture_output=True, timeout=90)
     return result, root
 
@@ -119,7 +125,10 @@ def test_failed_activation_restores_previous_files_and_service_identity(release,
     for name, value in {"sender": "old binary", ".env": "private settings", "Dockerfile": "old Dockerfile", "docker-compose.linux.yml": "old compose", "docker-compose.override.yml": "custom override"}.items():
         assert (root / name).read_text() == value
     calls = (tmp_path / "docker-calls").read_text()
-    assert "tag sha256:old old:tag" in calls
+    assert "tag sha256:old hwmonitor-mqtt-rollback:" in calls
+    assert " old:tag" in calls
+    assert "image rm hwmonitor-mqtt-rollback:" in calls
+    assert not (tmp_path / "image-pin").exists()
     assert "--no-build" in calls and "docker-compose.override.yml" in calls
 
 
@@ -129,6 +138,7 @@ def test_successful_upgrade_preserves_existing_settings_and_override(release, tm
     assert result.returncode == 0, result.stderr
     assert (root / ".env").read_text() == "private settings"
     assert (root / "docker-compose.override.yml").read_text() == "custom override"
+    assert not (tmp_path / "image-pin").exists()
     result = subprocess.run([str(root / "sender"), "--version"], text=True, capture_output=True, check=True)
     assert result.stdout.strip() == manifest["version"] + " " + manifest["source"]
 
@@ -198,6 +208,7 @@ def test_failed_rollback_retains_recovery_backup(release, tmp_path):
     result, root = run_installer(tmp_path, port, fail=True, rollback_failure=True)
     assert result.returncode != 0
     assert "rollback failed" in result.stderr.lower()
+    assert (tmp_path / "image-pin").exists()
     backups = list(root.glob(".sender-rollback.*"))
     assert len(backups) == 1
     content = subprocess.check_output(["docker", "run", "--rm", "-v", f"{tmp_path}:/work:ro", "protected21-bootstrap-test:local", "cat", f"/work/root/{backups[0].name}/sender"], text=True)
@@ -249,3 +260,39 @@ def test_concurrent_install_root_creation_is_not_claimed(release, tmp_path):
     assert (root / "sentinel").read_text().strip() == "untouched"
     assert not (root / ".hwmonitor-mqtt-bootstrap").exists()
     assert not (tmp_path / "docker-calls").exists()
+
+
+def test_failed_image_pin_does_not_replace_installation(release, tmp_path):
+    port, _, _ = release
+    result, root = run_installer(tmp_path, port, pin_failure=True)
+    assert result.returncode != 0
+    assert (root / 'sender').read_text() == 'old binary'
+    assert (root / '.env').read_text() == 'private settings'
+    calls = (tmp_path / 'docker-calls').read_text()
+    assert 'tag sha256:old hwmonitor-mqtt-rollback:' in calls
+    assert '--profile agent up' not in calls
+
+
+def test_replaced_rollback_pin_is_not_retagged_or_deleted(release, tmp_path):
+    port, _, _ = release
+    result, root = run_installer(tmp_path, port, fail=True, pin_replaced=True)
+    assert result.returncode != 0
+    assert 'rollback failed' in result.stderr.lower()
+    assert (tmp_path / 'image-pin').exists()
+    assert list(root.glob('.sender-rollback.*'))
+    calls = (tmp_path / 'docker-calls').read_text()
+    assert ' old:tag' not in calls
+    assert 'image rm hwmonitor-mqtt-rollback:' not in calls
+
+
+def test_failed_file_restore_keeps_backup_and_image_without_restart(release, tmp_path):
+    port, _, _ = release
+    result, root = run_installer(tmp_path, port, fail=True, restore_failure=True)
+    assert result.returncode != 0
+    assert 'rollback failed' in result.stderr.lower()
+    assert list(root.glob('.sender-rollback.*'))
+    assert (tmp_path / 'image-pin').exists()
+    calls = (tmp_path / 'docker-calls').read_text()
+    assert ' old:tag' not in calls
+    assert 'up --no-build' not in calls
+    assert 'image rm hwmonitor-mqtt-rollback:' not in calls
