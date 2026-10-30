@@ -51,7 +51,7 @@ def release(tmp_path):
     server.shutdown(); server.server_close(); thread.join()
 
 
-def run_installer(tmp_path, port, *, existing=True, fail=False, input_text="", native_active=False, mutate_stage=False):
+def run_installer(tmp_path, port, *, existing=True, fail=False, input_text="", native_active=False, mutate_stage=False, target_pve=False, unstable=False, rollback_failure=False):
     (tmp_path / "bin").mkdir(exist_ok=True)
     docker = tmp_path / "bin" / "docker"
     docker.write_text('''#!/bin/sh
@@ -59,13 +59,17 @@ printf '%s\\n' "$*" >>/work/docker-calls
 case "$1 $2" in
  'compose version') exit 0;;
  'inspect sys-agent') if [ "$FAKE_EXISTING" = 1 ]; then exit 0; else echo 'No such object' >&2; exit 1; fi;;
- 'inspect --format') case "$3" in *State.Running*) echo 'true 1234 0';; *Config.Image*) echo old:tag;; *) echo sha256:old;; esac; exit 0;;
+ 'inspect --format') case "$3" in *State.Running*) if [ "$FAKE_UNSTABLE" = 1 ]; then echo 'false 0 1'; else echo 'true 1234 0'; fi;; *Config.Image*) echo old:tag;; *) echo sha256:old;; esac; exit 0;;
  'compose -f') exit "$FAKE_EXIT";;
+ 'tag '*) exit "$FAKE_TAG_EXIT";;
  *) exit 0;;
 esac
 ''')
     docker.chmod(0o755)
     virt = tmp_path / "bin" / "systemd-detect-virt"; virt.write_text("#!/bin/sh\nexit 1\n"); virt.chmod(0o755)
+    if target_pve:
+        for name, text in {"pveversion": "#!/bin/sh\necho pve-manager/9.2\n", "dpkg-query": "#!/bin/sh\necho install ok installed\n"}.items():
+            path = tmp_path / "bin" / name; path.write_text(text); path.chmod(0o755)
     if native_active:
         systemctl = tmp_path / "bin" / "systemctl"
         systemctl.write_text("#!/bin/sh\nprintf 'LoadState=loaded\\nActiveState=active\\nUnitFileState=enabled\\n'\n")
@@ -87,7 +91,7 @@ exit "$result"
         root.mkdir()
         for n, data in {".hwmonitor-mqtt-bootstrap": "", "sender": "old binary", ".env": "private settings", "Dockerfile": "old Dockerfile", "docker-compose.linux.yml": "old compose", "docker-compose.override.yml": "custom override"}.items():
             (root / n).write_text(data)
-    command = ["docker", "run", "--rm", "-i", "--network", "host", "-v", f"{BOOTSTRAP}:/bootstrap.sh:ro", "-v", f"{tmp_path}:/work", "-e", "HWMONITOR_BOOTSTRAP_ROOT=/work/root", "-e", f"HWMONITOR_TEST_RELEASE_BASE=http://127.0.0.1:{port}", "-e", f"FAKE_EXISTING={int(existing)}", "-e", f"FAKE_EXIT={23 if fail else 0}", "-e", "PATH=/work/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "protected21-bootstrap-test:local", "bash", "-c", "rm -f /.dockerenv; exec bash /bootstrap.sh"]
+    command = ["docker", "run", "--rm", "-i", "--network", "host", "-v", f"{BOOTSTRAP}:/bootstrap.sh:ro", "-v", f"{tmp_path}:/work", "-e", "HWMONITOR_BOOTSTRAP_ROOT=/work/root", "-e", f"HWMONITOR_TEST_RELEASE_BASE=http://127.0.0.1:{port}", "-e", f"FAKE_EXISTING={int(existing)}", "-e", f"FAKE_EXIT={23 if fail else 0}", "-e", f"FAKE_UNSTABLE={int(unstable)}", "-e", f"FAKE_TAG_EXIT={int(rollback_failure)}", "-e", "PATH=/work/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "protected21-bootstrap-test:local", "bash", "-c", "rm -f /.dockerenv; exec bash /bootstrap.sh"]
     result = subprocess.run(command, input=input_text, text=True, capture_output=True, timeout=90)
     return result, root
 
@@ -152,3 +156,41 @@ def test_unprivileged_staging_mutation_cannot_change_activated_files(release, tm
     assert result.returncode == 0, result.stderr
     assert (root / "Dockerfile").read_text() != "tampered"
     assert (root / "Dockerfile").read_text().startswith("# syntax=docker/dockerfile:")
+
+
+def test_missing_archive_does_not_modify_existing_install(release, tmp_path):
+    port, state, _ = release; state["missing"] = True
+    result, root = run_installer(tmp_path, port)
+    assert result.returncode != 0
+    assert (root / "sender").read_text() == "old binary"
+    assert (root / ".env").read_text() == "private settings"
+    assert not (tmp_path / "docker-calls").exists()
+
+
+def test_pve_existing_container_blocks_before_token_changes(release, tmp_path):
+    port, _, _ = release
+    result, root = run_installer(tmp_path, port, target_pve=True)
+    assert result.returncode != 0
+    assert (root / "sender").read_text() == "old binary"
+    assert (root / ".env").read_text() == "private settings"
+    assert "inspect sys-agent" in (tmp_path / "docker-calls").read_text()
+
+
+def test_container_that_exits_after_compose_success_is_rolled_back(release, tmp_path):
+    port, _, _ = release
+    result, root = run_installer(tmp_path, port, unstable=True)
+    assert result.returncode != 0
+    assert (root / "sender").read_text() == "old binary"
+    assert (root / ".env").read_text() == "private settings"
+    assert "--no-build" in (tmp_path / "docker-calls").read_text()
+
+
+def test_failed_rollback_retains_recovery_backup(release, tmp_path):
+    port, _, _ = release
+    result, root = run_installer(tmp_path, port, fail=True, rollback_failure=True)
+    assert result.returncode != 0
+    assert "rollback failed" in result.stderr.lower()
+    backups = list(root.glob(".sender-rollback.*"))
+    assert len(backups) == 1
+    content = subprocess.check_output(["docker", "run", "--rm", "-v", f"{tmp_path}:/work:ro", "protected21-bootstrap-test:local", "cat", f"/work/root/{backups[0].name}/sender"], text=True)
+    assert content == "old binary"
