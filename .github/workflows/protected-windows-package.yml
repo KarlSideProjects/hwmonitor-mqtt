@@ -18,25 +18,33 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
-          python-version: '3.11'
+          python-version: '3.11.15'
           architecture: x64
       - uses: astral-sh/setup-uv@22695119d769bdb6f7032ad67b9bca0ef8c4a174 # v5.4.0
       - name: Install locked application and pinned compiler dependencies
         run: |
-          uv sync --locked --python 3.11
+          uv sync --locked --python (Get-Command python).Source
           uv pip install --python .venv/Scripts/python.exe --no-deps Nuitka==2.8.9 ordered-set==4.1.0 zstandard==0.25.0
+          .venv/Scripts/python.exe -c "import sys; print(sys.version); assert sys.version_info[:3] == (3, 11, 15)"
       - name: Build Windows x64 executable
         shell: pwsh
         run: |
           .venv/Scripts/python.exe -m nuitka --version
-          .venv/Scripts/python.exe -m nuitka --onefile --msvc=latest --assume-yes-for-downloads --output-dir=build/windows --output-filename=sender.exe --include-package=hwmonitor_mqtt --include-package=pythonnet --include-package=clr_loader --include-module=clr --include-package=win32com hwmonitor_mqtt/agents/agent_sender_windows.py
+          .venv/Scripts/python.exe -m nuitka --onefile --msvc=latest --assume-yes-for-downloads --output-dir=build/windows --output-filename=sender.exe --include-package=pythonnet --include-package=clr_loader --include-module=clr --include-package=win32com hwmonitor_mqtt/agents/agent_sender_windows.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Get-FileHash build/windows/sender.exe -Algorithm SHA256
+      - name: Install pinned LibreHardwareMonitor in the disposable runner
+        shell: powershell
+        run: |
+          & scripts/windows/install_windows_sender_task.ps1 -ProjectRoot "$PWD" -UseUv:$false -EnsurePawnIo:$false -AtStartup
       - name: Test compiled executable sensor entrypoint
         shell: pwsh
         run: |
-          & build/windows/sender.exe --dump-sensors > sensors.json
+          $env:LHM_PATH = Join-Path $PWD 'third_party/librehardwaremonitor/LibreHardwareMonitor.exe'
+          & build/windows/sender.exe --dump-sensors > sensors.json 2> sensors.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-Content sensors.log
+          if (-not (Select-String -Path sensors.log -SimpleMatch 'available: True' -Quiet)) { throw 'LHM library did not load' }
           $sensors = Get-Content sensors.json -Raw | ConvertFrom-Json
           if ($null -eq $sensors.sensors) { throw 'Missing sensor array' }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
