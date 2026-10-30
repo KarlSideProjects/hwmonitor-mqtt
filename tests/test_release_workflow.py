@@ -72,11 +72,12 @@ def test_publisher_trigger_cases():
     expression = expression.replace('always()', 'True').replace('&&', ' and ').replace('||', ' or ')
     for key, replacement in {'github.ref': 'ref', 'github.event_name': 'event', 'needs.prepare.result': 'result', 'inputs.source': 'source'}.items():
         expression = expression.replace(key, replacement)
-    def allowed(event, result, source=''):
-        return eval(expression, {'__builtins__': {}}, {'ref': 'refs/heads/master', 'event': event, 'result': result, 'source': source})
+    def allowed(event, result, source='', ref='refs/heads/master'):
+        return eval(expression, {'__builtins__': {}}, {'ref': ref, 'event': event, 'result': result, 'source': source})
     assert allowed('push', 'success')
     assert not allowed('push', 'failure')
     assert allowed('schedule', 'skipped')
     assert allowed('workflow_dispatch', 'skipped')
     assert allowed('workflow_dispatch', 'success', 'a' * 40)
     assert not allowed('workflow_dispatch', 'failure', 'a' * 40)
+    assert not allowed('schedule', 'skipped', ref='refs/heads/other')
