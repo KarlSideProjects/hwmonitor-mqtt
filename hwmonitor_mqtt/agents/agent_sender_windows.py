@@ -1329,6 +1329,18 @@ def dump_sensors() -> None:
 
 
 if __name__ == "__main__":
+    if "--version" in sys.argv:
+        try:
+            manifest = json.loads((Path(sys.argv[0]).resolve().parent / "manifest.json").read_text(encoding="utf-8"))
+            version, source = manifest["version"], manifest["source"]
+            if not isinstance(version, str) or not re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", version):
+                raise ValueError("invalid version")
+            if not isinstance(source, str) or not re.fullmatch(r"[a-f0-9]{40}", source):
+                raise ValueError("invalid source")
+        except (OSError, ValueError, KeyError, TypeError):
+            raise SystemExit("Installed version metadata is unavailable or invalid.")
+        print(f"hwmonitor-mqtt sender {version} ({source})")
+        raise SystemExit(0)
     if "--dump-sensors" in sys.argv:
         dump_sensors()
         raise SystemExit(0)

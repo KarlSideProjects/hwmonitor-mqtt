@@ -105,3 +105,31 @@ def test_compiled_install_rejects_unverified_lhm_download_url(tmp_path):
     )
     assert result.returncode != 0
     assert "unverified" in (result.stdout + result.stderr).lower()
+
+
+def test_windows_version_reports_installed_manifest_identity(tmp_path):
+    import json
+    import subprocess
+    import sys
+
+    root = Path(__file__).resolve().parents[1]
+    entry = tmp_path / "agent_sender_windows.py"
+    entry.write_bytes((root / "hwmonitor_mqtt/agents/agent_sender_windows.py").read_bytes())
+    (tmp_path / "manifest.json").write_text(json.dumps({"version": "1.2.3", "source": "a" * 40}))
+    env = {**os.environ, "PYTHONPATH": str(root)}
+    result = subprocess.run([sys.executable, str(entry), "--version"], cwd=tmp_path, env=env, capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stderr
+    assert "1.2.3" in result.stdout and "a" * 40 in result.stdout
+
+
+def test_windows_version_rejects_invalid_manifest(tmp_path):
+    import subprocess
+    import sys
+
+    root = Path(__file__).resolve().parents[1]
+    entry = tmp_path / "agent_sender_windows.py"
+    entry.write_bytes((root / "hwmonitor_mqtt/agents/agent_sender_windows.py").read_bytes())
+    (tmp_path / "manifest.json").write_text('{"version":"not-a-version","source":"bad"}')
+    result = subprocess.run([sys.executable, str(entry), "--version"], cwd=tmp_path, env={**os.environ, "PYTHONPATH": str(root)}, capture_output=True, text=True, timeout=10)
+    assert result.returncode != 0
+    assert "invalid" in result.stderr.lower()

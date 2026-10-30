@@ -173,6 +173,8 @@ try {
     if ($manifest.version -ne '0.0.1') { throw 'Upgrade did not activate candidate manifest.' }
     $newExe = (Get-FileHash (Join-Path $root 'package/sender.exe') -Algorithm SHA256).Hash
     if ($newExe -eq $oldExe -or $manifest.source -ne $Source) { throw 'Upgrade did not activate distinct compiled bytes from the selected source.' }
+    $versionOutput = & (Join-Path $root 'package/sender.exe') --version
+    if ($LASTEXITCODE -ne 0 -or "$versionOutput" -notmatch [regex]::Escape($Source) -or "$versionOutput" -notmatch '0\.0\.1') { throw 'Installed executable version identity is incorrect.' }
     Assert-TreeExited $rollbackTree
     $observations.Add([pscustomobject]@{phase='upgrade-running'; processes=@(Get-SenderTree)})
     & .venv/Scripts/python.exe tests/windows_mqtt_observer.py --profile esp --port 18884
