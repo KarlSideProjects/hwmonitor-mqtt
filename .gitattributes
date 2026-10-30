@@ -2,3 +2,4 @@ release-notices/** -text
 tests/fixtures/release-notices/** -text
 scripts/windows/*.ps1 text eol=lf
 release-public/LICENSE-NOTICE.md text eol=lf
+release-notices/windows-x64-cpython-3.13.17/runtime-bundle.txt whitespace=cr-at-eol,-blank-at-eol

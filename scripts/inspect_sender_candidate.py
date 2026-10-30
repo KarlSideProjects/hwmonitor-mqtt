@@ -14,6 +14,14 @@ import tarfile
 import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path, PurePosixPath
+try:
+    from sender_build_inputs import validate_receipt
+except ModuleNotFoundError:
+    import importlib.util
+    _spec = importlib.util.spec_from_file_location('sender_build_inputs', Path(__file__).with_name('sender_build_inputs.py'))
+    _inputs = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_inputs)
+    validate_receipt = _inputs.validate_receipt
 import re
 import sys
 
@@ -105,7 +113,7 @@ ARCHIVE_NOTICE_HASHES = {'linux-x64': {'licenses/paho-mqtt.txt': '3c3ce20f2f04eb
                'licenses/project.md': 'ffa814dce11f3be832bacb7dc2511c36c935b77845c4f16a7c9d8cfd3ae8ce36',
                'licenses/psutil.txt': 'b89c063b3786e28e0c0a38f1931db61fed35e69dd2a2966fbecffee0f46c8d10',
                'licenses/python-dotenv.txt': '80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9',
-               'licenses/python.txt': 'e51453a463a8dfed1591cf1a9fe5c704a6c4ec864359f2174f8b7d9bd7e43ad6',
+               'licenses/python.txt': '26062f700c5c8b08fafab7d032442be67ec1580e27349d8bb8add0518800880b',
                'licenses/typing-extensions.txt': '3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf'},
  'windows-x64': {'licenses/WMI-0.txt': 'bf90809237a8ce1dac86bed7e34e4e76692d87ffd21aed16541105cd63ea533a',
                  'licenses/WMI-1.txt': 'b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5',
@@ -121,7 +129,7 @@ ARCHIVE_NOTICE_HASHES = {'linux-x64': {'licenses/paho-mqtt.txt': '3c3ce20f2f04eb
                  'licenses/psutil-0.txt': 'c7adc4d5d1337a548b967421f1fbe258b93033a0417708fd6f4e38f8ecbceb80',
                  'licenses/pycparser-0.txt': '0c846399369ea76ddd7b5c44fe6d16497415fcf015f5cbb508c24bf98b81c5b1',
                  'licenses/python-dotenv-0.txt': '80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9',
-                 'licenses/python.txt': '62bec384df47b0328307db41455ff6ea2559e5546b394ac69148561b21703120',
+                 'licenses/python.txt': 'c9bb9c2d8f24e824da9b3b13c356e3cb3c5b76ea05c82674d97e4b5cdb77cf10',
                  'licenses/pythonnet-0.txt': 'e1dc3a6ff017a6800dc27a7220500f512b95fbcd996d38ebbbff85c693245369',
                  'licenses/pywin32-0.txt': '5ea2f23c7f00c3006bacf267183e816d8d4b6dc95ea57a4ddb0ff81de6d8719e',
                  'licenses/pywin32-1.txt': '11d8462e134e8efe8f4bd52372292a72ff0b670753d2f49f71675eed0dbfd085',
@@ -131,7 +139,7 @@ ARCHIVE_NOTICE_HASHES = {'linux-x64': {'licenses/paho-mqtt.txt': '3c3ce20f2f04eb
                  'licenses/xz-5.2.5-COPYING': 'bcb02973ef6e87ea73d331b3a80df7748407f17efdb784b61b47e0e610d3bb5c'}}
 
 
-ARCHIVE_NOTICE_HASHES['linux-arm64'] = {**ARCHIVE_NOTICE_HASHES['linux-x64'], 'licenses/python.txt': '1593433169b6f4abf4f2d9eeb2b6fa3097f92c5e7f530215b6464599bf383c64'}
+ARCHIVE_NOTICE_HASHES['linux-arm64'] = {**ARCHIVE_NOTICE_HASHES['linux-x64'], 'licenses/python.txt': 'e726de9184a830aa9db01a116bfcdf120392dab857bb48b76bc853c4214de934'}
 
 def check_archive_notices(platform, found):
     expected = ARCHIVE_NOTICE_HASHES.get(platform)
@@ -638,9 +646,32 @@ def inspect_image_layers(image, expected, expected_sender, platform='linux-x64')
 APPROVED_NOTICE_SETS = frozenset()
 
 
+def receipt_inputs(platform, record):
+    runtime = record.get('runtime')
+    if not isinstance(runtime, dict):
+        raise ValueError('selected runtime inputs not established')
+    expected = {re.sub(r'[-_.]+', '-', name).lower(): version for name, version in runtime.items() if name != 'python'}
+    expected.update({'nuitka': '2.8.9', 'ordered-set': '4.1.0', 'zstandard': '0.25.0',
+                     'setuptools': '84.2.1', 'wheel': '0.48.0', 'packaging': '26.3'} if platform == 'windows-x64' else
+                    {'nuitka': '2.7.16', 'ordered-set': '4.1.0', 'zstandard': '0.23.0', 'setuptools': '79.0.1', 'pip': '24.0'})
+    receipt = record.get('selected_inputs')
+    result = validate_receipt(receipt, platform, record.get('source'), record.get('version'), record.get('inventory_sha256'), expected)
+    runtime_hash = {'linux-x64': '39dfd79560d9b0c22ce7d16bccc171ed93537331a8c26a8aebe960301621b65e',
+                    'linux-arm64': 'a6decd180099e6768269bd8e8968aeaa84bb01511f00f6921dc204fe648729aa',
+                    'windows-x64': '9e35319bffedab8b36ad44d8f377cb4f1733bcec257a0b6d04d94f01486ddb38'}
+    tools = result['toolchain']
+    required = {'compiler', 'compiler_sha256', 'python_sha256', 'python_version'} if platform == 'windows-x64' else {'packages', 'compiler_sha256', 'compiler_version', 'python_sha256', 'python_version'}
+    if set(tools) != required or any(not re.fullmatch(r'[a-f0-9]{64}', tools[key]) for key in ('compiler_sha256', 'python_sha256')):
+        raise ValueError('compiler or Python identity not established')
+    if result['runtime_archive']['sha256'] != runtime_hash.get(platform):
+        raise ValueError('runtime archive does not match pinned input')
+    return result
+
+
 def check_release_notice_readiness(platform, record):
     descriptor = {'platform': platform, 'compiler': record.get('compiler'),
-                  'runtime': record.get('runtime'), 'notices': ARCHIVE_NOTICE_HASHES.get(platform)}
+                  'runtime': record.get('runtime'), 'notices': ARCHIVE_NOTICE_HASHES.get(platform),
+                  'selected_inputs': receipt_inputs(platform, record)}
     if platform in ('linux-x64', 'linux-arm64'):
         source_files = record.get('source_files')
         if not isinstance(source_files, dict) or not isinstance(source_files.get('Dockerfile'), str) or not re.fullmatch(r'[a-f0-9]{64}', source_files['Dockerfile']):

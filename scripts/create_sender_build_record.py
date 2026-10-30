@@ -14,7 +14,7 @@ from pathlib import Path
 
 from capture_sender_build import capture
 from inspect_sender_candidate import (LINUX_ARCHIVE_PATHS, MAX_ARCHIVE_MEMBERS, PLATFORMS, WINDOWS_ARCHIVE_PATHS,
-                                      inspect_build_evidence, inspect_runtime_files, strict_json)
+                                      inspect_build_evidence, inspect_runtime_files, receipt_inputs, strict_json)
 
 
 def digest(path):
@@ -67,6 +67,7 @@ def main():
     parser.add_argument('--report', type=Path, required=True)
     parser.add_argument('--provenance', type=Path, required=True)
     parser.add_argument('--inventory', type=Path, required=True)
+    parser.add_argument('--input-receipt', type=Path)
     parser.add_argument('--runtime-dir', type=Path, required=True)
     parser.add_argument('--assets', type=Path, required=True)
     parser.add_argument('--image', type=Path)
@@ -120,6 +121,10 @@ def main():
         if captured != entries:
             parser.error('extracted runtime differs from inventory')
     inspect_runtime_files(args.runtime_dir, entries, args.platform)
+    if args.input_receipt is None or args.input_receipt.is_symlink() or not args.input_receipt.is_file() or args.input_receipt.stat().st_size > 1024 * 1024:
+        parser.error('selected input receipt is required')
+    record['selected_inputs'] = strict_json(args.input_receipt.read_bytes())
+    receipt_inputs(args.platform, record)
     args.output.write_text(json.dumps(record, indent=2, sort_keys=True) + '\n', encoding='utf-8')
 
 

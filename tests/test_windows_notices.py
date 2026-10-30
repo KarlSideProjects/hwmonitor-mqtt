@@ -183,3 +183,17 @@ def test_windows_checkout_preserves_native_notice_bytes(tmp_path):
     for name in names:
         expected = subprocess.check_output(['git', '-C', str(root), 'show', f'HEAD:{name}'])
         assert (checkout / name).read_bytes() == expected
+
+
+def test_python_bundle_requires_exact_binary_license(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    inputs = root / 'release-notices/windows-x64-cpython-3.13.17'
+    raw = tmp_path / 'license.txt'
+    raw.write_bytes((inputs / 'LICENSE.cpython-binary.txt').read_bytes())
+    command = [sys.executable, str(root / 'scripts/windows/collect_notices.py'), '--output', str(tmp_path / 'notices'), '--inventory', str(tmp_path / 'inventory.json'), '--python-license', str(raw), '--python-bundle', str(inputs / 'runtime-bundle.txt'), 'psutil']
+    result = subprocess.run(command, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert (tmp_path / 'notices/python.txt').read_bytes() == (inputs / 'runtime-bundle.txt').read_bytes()
+    raw.write_bytes(b'changed')
+    command[command.index(str(tmp_path / 'notices'))] = str(tmp_path / 'other')
+    assert subprocess.run(command, capture_output=True).returncode != 0

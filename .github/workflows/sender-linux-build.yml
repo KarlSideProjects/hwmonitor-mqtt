@@ -46,18 +46,24 @@ jobs:
           test "$SOURCE" != "$OLD_SOURCE"
           curl --fail --location --retry 3 "https://github.com/astral-sh/python-build-standalone/releases/download/20260728/$PYTHON_ARCHIVE" -o "$RUNNER_TEMP/python.tar.gz"
           printf '%s  %s\n' "$PYTHON_SHA" "$RUNNER_TEMP/python.tar.gz" | sha256sum -c -
+          PYTHON_FILE=${PYTHON_ARCHIVE//%2B/+}
+          mv "$RUNNER_TEMP/python.tar.gz" "$RUNNER_TEMP/$PYTHON_FILE"
+          export PYTHON_FILE
           RUNNER_UID=$(id -u) RUNNER_GID=$(id -g)
           export RUNNER_UID RUNNER_GID
-          docker run --rm -v "$GITHUB_WORKSPACE/source:/src" -v "$RUNNER_TEMP:/work" -w /src -e VERSION -e OLD_SOURCE -e RUNNER_UID -e RUNNER_GID "$BUILD_IMAGE" bash -ec '
+          docker run --rm -v "$GITHUB_WORKSPACE/source:/src" -v "$RUNNER_TEMP:/work" -w /src -e VERSION -e SOURCE -e TARGET -e PYTHON_FILE -e OLD_SOURCE -e RUNNER_UID -e RUNNER_GID "$BUILD_IMAGE" bash -ec '
             printf "deb http://archive.debian.org/debian bullseye main\ndeb http://archive.debian.org/debian-security bullseye-security main\n" > /etc/apt/sources.list
             apt-get -o Acquire::Check-Valid-Until=false update
             apt-get install -y --no-install-recommends git gcc=4:10.2.1-1 gcc-10=10.2.1-6 libc6-dev=2.31-13+deb11u14 patchelf=0.12-1
             git config --global --add safe.directory /src
             mkdir -p /opt/pbs /work/result
-            tar -xzf /work/python.tar.gz -C /opt/pbs --strip-components=1
+            tar -xzf "/work/$PYTHON_FILE" -C /opt/pbs --strip-components=1
             /opt/pbs/bin/python3.11 -m venv /tmp/build-venv
-            /tmp/build-venv/bin/pip install --no-build-isolation --require-hashes --force-reinstall -r scripts/requirements-sender-build.txt
+            mkdir /work/selected-packages
+            /tmp/build-venv/bin/pip download --no-cache-dir --no-deps --no-build-isolation --require-hashes -r scripts/requirements-sender-build.txt -d /work/selected-packages
+            /tmp/build-venv/bin/pip install --no-cache-dir --no-index --find-links /work/selected-packages --no-build-isolation --require-hashes --force-reinstall -r scripts/requirements-sender-build.txt
             /tmp/build-venv/bin/python scripts/build_sender_package.py --version "$VERSION" --output /work/result
+            /tmp/build-venv/bin/python scripts/sender_build_inputs.py --packages /work/selected-packages --runtime "/work/$PYTHON_FILE" --runtime-kind runtime-install --platform "$TARGET" --source "$SOURCE" --version "$VERSION" --inventory /work/result/evidence/inventory.json --output /work/result/evidence/input-receipt.json
             git clone --quiet --no-checkout --shared /src /work/old-source
             git -C /work/old-source checkout --quiet --detach "$OLD_SOURCE"
             cd /work/old-source
@@ -77,7 +83,7 @@ jobs:
           python3 scripts/create_sender_build_record.py --source-root source --platform "$TARGET" \
             --archive "$RUNNER_TEMP/private/assets/sender-$TARGET.tar.gz" --executable "$RUNNER_TEMP/candidate/sender" \
             --report "$RUNNER_TEMP/private/evidence/$TARGET/report.xml" --inventory "$RUNNER_TEMP/private/evidence/$TARGET/inventory.json" \
-            --provenance "$RUNNER_TEMP/private/evidence/$TARGET/provenance.json" --runtime-dir "$RUNNER_TEMP/private/evidence/$TARGET/runtime" \
+            --provenance "$RUNNER_TEMP/private/evidence/$TARGET/provenance.json" --input-receipt "$RUNNER_TEMP/private/evidence/$TARGET/input-receipt.json" --runtime-dir "$RUNNER_TEMP/private/evidence/$TARGET/runtime" \
             --assets "$RUNNER_TEMP/private/assets" --image "$RUNNER_TEMP/private/evidence/$TARGET/image.tar" \
             --version "$VERSION" --python-version 3.11.15 --output "$RUNNER_TEMP/private/evidence/$TARGET/record.json"
       - uses: astral-sh/setup-uv@22695119d769bdb6f7032ad67b9bca0ef8c4a174 # v5.4.0
@@ -158,4 +164,3 @@ jobs:
           path: ${{ runner.temp }}/private
           if-no-files-found: error
           retention-days: 3
-
