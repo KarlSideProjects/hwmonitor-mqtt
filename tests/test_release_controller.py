@@ -156,16 +156,43 @@ def test_recovery_dispatch_rejects_untrusted_endpoints_and_invalid_sources():
         dispatch_sources(['not-a-sha'], 'token', test_api='http://127.0.0.1:1')
 
 
-def test_recovery_rotates_past_failing_sources(service, tmp_path):
-    from release_controller import pending_sources
-    api, _ = service
-    repo, assets, evidence = (tmp_path / name for name in ('repo', 'assets', 'evidence'))
-    first = setup(repo, assets, evidence)
-    commits = [first]
-    for index in range(3):
-        (repo / 'next').write_text(str(index))
-        subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True)
-        subprocess.run(['git', '-C', str(repo), '-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-qm', 'next'], check=True)
-        commits.append(subprocess.check_output(['git', '-C', str(repo), 'rev-parse', 'HEAD'], text=True).strip())
-    assert pending_sources(api, repo, commits[-1], first, 2, offset=2) == commits[2:]
-    assert pending_sources(api, repo, commits[-1], first, 2, offset=3) == [commits[3], commits[0]]
+def test_failed_attempts_and_deleted_history_keep_recovery_fair():
+    from release_controller import recovery_order
+    sources = [f'{n:040x}' for n in range(1, 7)]
+    runs = []
+    for hour in range(3):
+        batch = recovery_order(sources, runs)[:2]
+        assert batch == sources[2 * hour:2 * hour + 2]
+        runs += [{'display_title': 'sender-recovery-' + source, 'event': 'workflow_dispatch', 'head_branch': 'master', 'updated_at': f'2026-01-01T0{hour}:00:00Z'} for source in batch]
+    assert recovery_order(sources, runs)[:2] == sources[:2]
+    assert recovery_order(sources, [])[:2] == sources[:2]
+    runs += [{'display_title': 'sender-recovery-' + sources[0], 'event': 'pull_request', 'head_branch': 'master', 'updated_at': '2026-01-02T00:00:00Z'}, {'display_title': 'sender-recovery-invalid', 'event': 'push', 'head_branch': 'master', 'updated_at': '2026-01-02T00:00:00Z'}]
+    assert recovery_order(sources, runs)[:2] == sources[:2]
+
+
+def test_workflow_run_history_paginates_and_rejects_bad_response():
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import threading
+    from release_controller import workflow_runs
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+        def do_GET(self):
+            page = int(self.path.split('page=')[-1])
+            rows = [{}] * (100 if page == 1 else 1)
+            data = json.dumps({'workflow_runs': rows}).encode()
+            self.send_response(200)
+            self.send_header('Content-Length', str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+    server = HTTPServer(('127.0.0.1', 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        assert len(workflow_runs('test', test_api=f'http://127.0.0.1:{server.server_port}')) == 101
+        with pytest.raises(ValueError):
+            workflow_runs('test', test_api='https://example.com')
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()

@@ -1,4 +1,5 @@
 name: Sender release WIP
+run-name: sender-recovery-${{ inputs.source || github.sha }}
 
 on:
   push:

@@ -8,7 +8,6 @@ import re
 from pathlib import Path
 import subprocess
 import sys
-import time
 from urllib.parse import urlsplit
 from urllib.request import Request, build_opener
 
@@ -56,7 +55,7 @@ def prepare(api, repo, master, source, assets, evidence, inspector=inspect):
     return prepare_candidate(api, receipt, assets)
 
 
-def pending_sources(api, repo, master, start, limit, offset=0):
+def pending_sources(api, repo, master, start, limit, runs=()):
     if type(limit) is not int or not 1 <= limit <= 100:
         raise ValueError('invalid recovery limit')
     version(repo, master, start)
@@ -72,10 +71,50 @@ def pending_sources(api, repo, master, start, limit, offset=0):
                 raise ValueError('ready release incomplete')
             confirmed.add(source)
     pending = [source for source in history[history.index(start):] if source not in confirmed]
-    if not pending:
-        return []
-    offset %= len(pending)
-    return (pending[offset:] + pending[:offset])[:limit]
+    return recovery_order(pending, runs)[:limit]
+
+
+def recovery_order(sources, runs):
+    attempts = {}
+    for run in runs:
+        title = run.get('display_title', '')
+        stamp = run.get('updated_at', '')
+        if (run.get('event') not in ('push', 'workflow_dispatch') or run.get('head_branch') != 'master'
+                or not isinstance(title, str) or not re.fullmatch(r'sender-recovery-[0-9a-f]{40}', title)
+                or not isinstance(stamp, str) or not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z', stamp)):
+            continue
+        source = title[len('sender-recovery-'):]
+        if run['event'] == 'push' and run.get('head_sha') != source:
+            continue
+        attempts[source] = max(stamp, attempts.get(source, ''))
+    return sorted(sources, key=lambda source: attempts.get(source, ''))
+
+
+def workflow_runs(token, test_api=None):
+    if not token:
+        raise ValueError('source workflow token required')
+    result = []
+    base = 'https://api.github.com'
+    if test_api is not None:
+        url = urlsplit(test_api)
+        if url.scheme != 'http' or url.hostname != '127.0.0.1' or url.username or url.path or url.query or url.fragment:
+            raise ValueError('test API must be loopback')
+        base = test_api
+    base += '/repos/KarlSideProjects/hwmonitor-mqtt/actions/workflows/sender-release.yml/runs'
+    for page in range(1, 101):
+        request = Request(f'{base}?per_page=100&page={page}', headers={'Authorization': 'Bearer ' + token,
+            'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'})
+        with build_opener(NoRedirect()).open(request, timeout=30) as response:
+            data = json.load(response)
+        if not isinstance(data, dict) or not isinstance(data.get('workflow_runs'), list):
+            raise ValueError('invalid workflow run history')
+        rows = data['workflow_runs']
+        if any(not isinstance(row, dict) for row in rows):
+            raise ValueError('invalid workflow run history')
+        result.extend(rows)
+        if len(rows) < 100:
+            return result
+    raise ValueError('workflow run history limit exceeded')
 
 
 def dispatch_sources(sources, token, test_api=None):
@@ -122,10 +161,11 @@ def main():
         elif args.command == 'drain':
             drain_ready(api)
         else:
-            offset = int(time.time() // 3600) if args.command == 'recover' else 0
-            sources = pending_sources(api, args.repo, args.master, args.start, args.limit, offset)
+            token = os.environ.get('SOURCE_WORKFLOW_TOKEN')
+            runs = workflow_runs(token) if args.command == 'recover' else ()
+            sources = pending_sources(api, args.repo, args.master, args.start, args.limit, runs)
             if args.command == 'recover':
-                dispatch_sources(sources, os.environ.get('SOURCE_WORKFLOW_TOKEN'))
+                dispatch_sources(sources, token)
             print(json.dumps(sources))
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f'release controller rejected: {error}', file=sys.stderr)
