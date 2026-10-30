@@ -55,7 +55,11 @@ function Assert-OldState($expectedExe, $expectedEnv, $expectedAcl) {
     if ((Get-FileHash (Join-Path $root 'package/sender.exe') -Algorithm SHA256).Hash -ne $expectedExe) { throw 'Previous executable was not restored.' }
     if ((Get-FileHash (Join-Path $root '.env') -Algorithm SHA256).Hash -ne $expectedEnv) { throw 'Settings changed.' }
     if ((Get-Acl (Join-Path $root '.env')).Sddl -ne $expectedAcl) { throw 'Settings ACL changed.' }
-    if ((Get-ScheduledTask -TaskName 'HWMonitorMQTTSender').State -ne 'Running') { throw 'Previous task is not running.' }
+    for ($attempt = 0; $attempt -lt 20; $attempt++) {
+        if ((Get-ScheduledTask -TaskName 'HWMonitorMQTTSender').State -eq 'Running') { return }
+        Start-Sleep -Milliseconds 500
+    }
+    throw 'Previous task is not running.'
 }
 function Get-SenderTree {
     $launcher = Join-Path $root 'package/scripts/windows/start_windows_sender.ps1'
@@ -141,6 +145,12 @@ try {
     $archivePath = Join-Path $upgradeDir 'sender-windows-x64.zip'
     $savedArchive = Join-Path $testRoot 'saved-upgrade.zip'
     Copy-Item -LiteralPath $archivePath -Destination $savedArchive
+    try {
+        [IO.File]::AppendAllText($archivePath, 'corruption', [Text.Encoding]::ASCII)
+        try { & $bootstrap; throw 'Expected corrupted package failure.' } catch { if ($_ -notmatch 'SHA-256 mismatch') { throw } }
+    }
+    finally { Copy-Item -LiteralPath $savedArchive -Destination $archivePath -Force }
+    Assert-OldState $oldExe $oldEnv $oldAcl
     try {
         Copy-Item -LiteralPath (Join-Path $WrongArchCandidate 'sender-windows-x64.zip') -Destination $archivePath -Force
         Copy-Item -LiteralPath (Join-Path $WrongArchCandidate 'sender-windows-x64.zip.sha256') -Destination $checksumPath -Force
