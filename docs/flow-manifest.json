@@ -181,7 +181,12 @@
     "tests/test_windows_sender_profile.py",
     "Makefile",
     ".github/workflows/ci.yml",
-    "uv.lock"
+    "uv.lock",
+    "hwmonitor_mqtt/platforms/detect.py",
+    "hwmonitor_mqtt/clients/pve.py",
+    "docs/configuration/pve.env.example",
+    "docs/deployment/installation.md",
+    "docker-compose.linux.yml"
   ],
   "limits": {
     "nodes": 25,
