@@ -13,6 +13,12 @@ VERSION = "1.2.3"
 ELF = b"\x7fELF\x02\x01" + bytes(12) + b"\x3e\x00" + b"test"
 
 
+@pytest.fixture(autouse=True)
+def x64_fixture_architecture(monkeypatch):
+    import platform
+    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+
+
 def archive(tmp_path, extra=(), omit_typing=False):
     path = tmp_path / "candidate.tar.gz"
     manifest = json.dumps({"platform": "linux-x64", "version": VERSION, "source": SOURCE, "executable_sha256": hashlib.sha256(ELF).hexdigest()}).encode()
