@@ -159,7 +159,22 @@
       "depends_on": []
     }
   ],
-  "reviews": [],
+  "reviews": [
+    {
+      "feature": "sender.distribution",
+      "fingerprint": "32e6e85857151e41fb3e247b406b83bdae3959b093c7f4cb2908086f148c4ec0",
+      "reviewer": "orca_session_id:5234f8cb-3a92-4a79-a515-0dbd3d21b24c / task_891af0aad40d / ctx_9fe77167a1b9",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.distribution/32e6e85857151e41fb3e247b406b83bdae3959b093c7f4cb2908086f148c4ec0.json"
+    },
+    {
+      "feature": "sender.license",
+      "fingerprint": "95e929368e32291190c97a12b2beee1b1aa2936874a59863dfd5e6a7e726f4a3",
+      "reviewer": "orca_session_id:5234f8cb-3a92-4a79-a515-0dbd3d21b24c / task_891af0aad40d / ctx_9fe77167a1b9",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.license/95e929368e32291190c97a12b2beee1b1aa2936874a59863dfd5e6a7e726f4a3.json"
+    }
+  ],
   "policy_inputs": [
     "AGENTS.md",
     "tools/flow-docs/flow_checker.py",

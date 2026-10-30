@@ -1,0 +1,15 @@
+{
+  "feature": "sender.license",
+  "fingerprint": "95e929368e32291190c97a12b2beee1b1aa2936874a59863dfd5e6a7e726f4a3",
+  "reviewer": "orca_session_id:5234f8cb-3a92-4a79-a515-0dbd3d21b24c / task_891af0aad40d / ctx_9fe77167a1b9",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "Candidate 0311722b3a98e9a4351e85d439b80eba47c949a3; authoritative base 86b074bc1aa6c38bbdb236f23546b1024ffc227a; mapped files unchanged and base has no flow baseline. Checker fingerprint reproduced the supplied value.",
+    "Candidate README.md:1-28, LICENSE:1-674, pyproject.toml:1-24, docs/flows/sender.license.mmd:1-7, contracts.md:1-5, index, manifest and adoption report. README identifies GPL v3, LICENSE contains GPL v3, and metadata lists dependencies without establishing their license obligations; the prior unsupported assertion was removed.",
+    "The recorded /tmp/sender20-evidence envelope binds clean candidate HEAD and tree, all 117 tracked digests verified against candidate, equal before/after input and environment records, and make check exit 0 with 196 passed; Python 3.11.15, uv 0.12.7, PowerShell 7.6.7 and Compose 2.40.3 are recorded."
+  ],
+  "limitations": [
+    "This bounded source/flow review is not a legal opinion, third-party license audit, artifact-content check or distribution compliance assessment; no visual rendering was inspected."
+  ]
+}
