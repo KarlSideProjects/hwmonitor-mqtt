@@ -69,7 +69,7 @@ def main():
             subprocess.run(['docker', 'save', image], stdout=saved, stderr=log, check=True, timeout=120)
         run(['docker', 'exec', name, 'docker', 'load', '-i', '/work/installer.tar'])
         run(['docker', 'exec', name, 'bash', '/work/inner.sh', image, args.sha256, args.source, args.version, args.platform, args.old_sha256, args.old_source, args.old_version], timeout=900)
-        for item in ('full-old.json', 'full.json', 'esp.json', 'esp-after-rollback.json', 'state.txt'):
+        for item in ('full-old.json', 'full.json', 'esp.json', 'full-after-rollback.json', 'state.txt'):
             shutil.copyfile(work / item, output / item)
     finally:
         original = sys.exc_info()[1]
@@ -77,7 +77,7 @@ def main():
         if created:
             try:
                 subprocess.run(['docker', 'exec', name, 'chown', '-R', f'{os.getuid()}:{os.getgid()}', '/work'], stdout=log, stderr=subprocess.STDOUT, check=True, timeout=60)
-                for item in ('runtime.log', 'broker.log', 'endpoint.log', 'full-old.json', 'full.json', 'esp.json', 'esp-after-rollback.json', 'state.txt'):
+                for item in ('runtime.log', 'broker.log', 'endpoint.log', 'full-old.json', 'full.json', 'esp.json', 'full-after-rollback.json', 'state.txt'):
                     if (work / item).is_file():
                         shutil.copyfile(work / item, output / item)
             except Exception as error:

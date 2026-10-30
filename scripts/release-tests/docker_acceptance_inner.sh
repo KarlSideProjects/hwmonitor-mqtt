@@ -74,8 +74,30 @@ install_sender
 check_sender "$old_version" "$old_source"
 old_sender=$(sha256sum root/sender | cut -d' ' -f1)
 capture full full-old
-sha256sum root/.env root/docker-compose.override.yml > before
+sha256sum root/.env root/docker-compose.override.yml root/sender > rollback-before
+old_image=$(docker inspect --format '{{.Image}}' sys-agent)
+docker inspect --format 'before rollback: image={{.Image}} tag={{.Config.Image}} state={{.State.Status}}' sys-agent
+docker image ls --no-trunc
 start_release /work/archive.tar.gz "$checksum" "$source" "$version"
+touch control/fail
+if install_sender; then echo 'expected real start failure' >&2; exit 1; fi
+[ ! -e control/fail ]
+docker image ls --no-trunc
+sha256sum -c rollback-before
+check_sender "$old_version" "$old_source"
+[ "$(docker inspect --format '{{.Image}}' sys-agent)" = "$old_image" ]
+capture full full-after-rollback
+docker stop sys-agent
+old_image=$(docker inspect --format '{{.Image}}' sys-agent)
+touch control/fail
+if install_sender; then echo 'expected real stopped-state start failure' >&2; exit 1; fi
+[ ! -e control/fail ]
+sha256sum -c rollback-before
+[ "$(docker inspect --format '{{.Image}} {{.State.Running}}' sys-agent)" = "$old_image false" ]
+[ "$(docker ps -a --filter name=^/sys-agent$ -q | wc -l)" -eq 1 ]
+SENDER_HOSTNAME=$(hostname) docker compose --project-directory /work/root -f /work/root/docker-compose.linux.yml -f /work/root/docker-compose.override.yml --profile agent up --no-build -d
+check_sender "$old_version" "$old_source"
+sha256sum root/.env root/docker-compose.override.yml > before
 install_sender
 sha256sum -c before
 check_sender "$version" "$source"
@@ -85,24 +107,4 @@ override esp
 install_sender
 check_sender "$version" "$source"
 capture esp esp
-sha256sum root/.env root/docker-compose.override.yml root/sender > rollback-before
-old_image=$(docker inspect --format '{{.Image}}' sys-agent)
-docker inspect --format 'before rollback: image={{.Image}} tag={{.Config.Image}} state={{.State.Status}}' sys-agent
-docker image ls --no-trunc
-touch control/fail
-if install_sender; then echo 'expected real start failure' >&2; exit 1; fi
-[ ! -e control/fail ]
-docker image ls --no-trunc
-sha256sum -c rollback-before
-check_sender "$version" "$source"
-[ "$(docker inspect --format '{{.Image}}' sys-agent)" = "$old_image" ]
-capture esp esp-after-rollback
-docker stop sys-agent
-old_image=$(docker inspect --format '{{.Image}}' sys-agent)
-touch control/fail
-if install_sender; then echo 'expected real stopped-state start failure' >&2; exit 1; fi
-[ ! -e control/fail ]
-sha256sum -c rollback-before
-[ "$(docker inspect --format '{{.Image}} {{.State.Running}}' sys-agent)" = "$old_image false" ]
-[ "$(docker ps -a --filter name=^/sys-agent$ -q | wc -l)" -eq 1 ]
 printf 'old_source=%s\nold_version=%s\nold_archive_sha256=%s\nold_sender_sha256=%s\nsource=%s\nversion=%s\nplatform=%s\narchive_sha256=%s\nbootstrap_sha256=%s\nrollback=passed\nstopped_rollback=passed\n' "$old_source" "$old_version" "$old_checksum" "$old_sender" "$source" "$version" "$platform" "$checksum" "$(sha256sum bootstrap.sh | cut -d' ' -f1)" > state.txt
