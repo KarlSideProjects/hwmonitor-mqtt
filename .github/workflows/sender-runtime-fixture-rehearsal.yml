@@ -1,0 +1,200 @@
+name: Sender runtime artifact-only rehearsal WIP
+
+on:
+  push:
+    branches: [jhihweijhan/sender20-runtime-fixture-rehearsal]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  rehearsal:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: validation
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: 927dab2c148f7c2cb0e4290e2297d470facd24f1
+          path: validation
+          persist-credentials: false
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: windows-sender-wip
+          run-id: 41139949009
+          github-token: ${{ github.token }}
+          path: candidate-artifact
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: windows-sender-wip
+          run-id: 41105755482
+          github-token: ${{ github.token }}
+          path: baseline-artifact
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.13.17'
+          architecture: x64
+      - uses: astral-sh/setup-uv@22695119d769bdb6f7032ad67b9bca0ef8c4a174 # v5.4.0
+        with:
+          version: '0.13.6'
+      - name: Verify exact historical input identities
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:RUNNER_OS -ne 'Windows' -or $env:RUNNER_ARCH -ne 'X64') { throw 'A disposable GitHub-hosted Windows x64 runner is required.' }
+          if ((git rev-parse HEAD).Trim() -cne '927dab2c148f7c2cb0e4290e2297d470facd24f1') { throw 'Validation helper source mismatch.' }
+          if ((Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue) -or (Test-Path -LiteralPath (Join-Path $env:ProgramData 'hwmonitor-mqtt'))) { throw 'Refusing an existing sender task or installation.' }
+          $candidate = Join-Path $env:GITHUB_WORKSPACE 'candidate-artifact/hwmonitor-mqtt/hwmonitor-mqtt'
+          $baseline = Join-Path $env:GITHUB_WORKSPACE 'baseline-artifact'
+          $files = @(
+            @((Join-Path $candidate 'candidate/sender-windows-x64.zip'), '4a6bf626ab71f6120ff408fca821b58a39053f4ac1ec5051c9882fd21d69b317'),
+            @((Join-Path $candidate 'build/windows/sender.exe'), '1aefaa9c52ad0e79b8cf1dd4216e775c142f5ff9be877df4c6ef337ee6a41593'),
+            @((Join-Path $candidate 'capture-evidence/inventory.json'), 'b35d2402102fcddd357645ef07cc3bcb204d416aa3b07876cbc393827bad4f2e'),
+            @((Join-Path $candidate 'capture-evidence/input-receipt.json'), 'd1743b13332e8f62faf3c934a1680f06b28cc381b66c0370c9828114af0559d6'),
+            @((Join-Path $baseline 'candidate/sender-windows-x64.zip'), 'a8e84fe15966afc3ec26b58615b9a427cf84e426dd0512e4f2830296cf067a35'),
+            @((Join-Path $baseline 'build/windows/sender.exe'), '50292a12cdaa2ae894d95168a49d1d8dab612f33be3418bca456dfdd996a20a6'),
+            @((Join-Path $candidate 'build-record.json'), '634580e684dbabca6f21f486d8adc2d479eec0b0cec36ac1c082a867bd5e5766'),
+            @((Join-Path $candidate 'capture-evidence/report.xml'), '0522140aa4acb58e2d638f8d1911ec000db7f8d9d35523ccf4d1c7ef378d785f'),
+            @((Join-Path $candidate 'capture-evidence/provenance.json'), 'b5f67104e67cb9425251dd8c732561fb11d393152defb0078dcfeadc8ac2ac4e'),
+            @((Join-Path $candidate 'capture-evidence/compiler.log'), '728cd340ed2db0d709e0278fb7a335b0232998fce13f771775b797cde3603b35')
+          )
+          foreach ($pair in $files) { if ((Get-FileHash -LiteralPath $pair[0] -Algorithm SHA256).Hash.ToLowerInvariant() -cne $pair[1]) { throw 'Historical input hash mismatch.' } }
+          $candidateRecord = Get-Content -LiteralPath (Join-Path $candidate 'build-record.json') -Raw | ConvertFrom-Json
+          if ($candidateRecord.source -cne '1b9ea2349623fb77eb8bbb242a111747686a1e75' -or $candidateRecord.version -cne '0.0.1' -or $candidateRecord.executable_sha256 -cne '1aefaa9c52ad0e79b8cf1dd4216e775c142f5ff9be877df4c6ef337ee6a41593') { throw 'Candidate identity mismatch.' }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          foreach ($item in @(@((Join-Path $candidate 'candidate/sender-windows-x64.zip'), '1b9ea2349623fb77eb8bbb242a111747686a1e75', '0.0.1', '1aefaa9c52ad0e79b8cf1dd4216e775c142f5ff9be877df4c6ef337ee6a41593'), @((Join-Path $baseline 'candidate/sender-windows-x64.zip'), '46bcc40d232cc2720b188c795d87e33d0894ea73', '0.0.0', '50292a12cdaa2ae894d95168a49d1d8dab612f33be3418bca456dfdd996a20a6'))) {
+            $zip = [IO.Compression.ZipFile]::OpenRead($item[0])
+            try { $reader = [IO.StreamReader]::new($zip.GetEntry('manifest.json').Open()); try { $manifest = $reader.ReadToEnd() | ConvertFrom-Json } finally { $reader.Dispose() } } finally { $zip.Dispose() }
+            if ($manifest.source -cne $item[1] -or $manifest.version -cne $item[2] -or $manifest.executable_sha256 -cne $item[3]) { throw 'Historical archive manifest mismatch.' }
+          }
+          $identity = [ordered]@{workflow_source=$env:GITHUB_SHA; helper_source='927dab2c148f7c2cb0e4290e2297d470facd24f1'; candidate_build_source='1b9ea2349623fb77eb8bbb242a111747686a1e75'; candidate_packager_source='1b9ea2349623fb77eb8bbb242a111747686a1e75'; candidate_run=41139949009; candidate_run_outcome='failure at runtime absence rehearsal'; candidate_notice_status='original archive lacks three supplemental native notices'; baseline_build_source='46bcc40d232cc2720b188c795d87e33d0894ea73'; baseline_run=41105755482; baseline_run_outcome='failure at historical PowerShell 5.1 rehearsal after assembly'; candidate_archive=$files[0][1]; candidate_executable=$files[1][1]; candidate_inventory=$files[2][1]; candidate_receipt=$files[3][1]; candidate_record=$files[6][1]; candidate_report=$files[7][1]; candidate_provenance=$files[8][1]; candidate_compiler_log=$files[9][1]; baseline_archive=$files[4][1]; baseline_executable=$files[5][1]; note='Historical test inputs; not a rebuilt candidate or release approval.'}
+          [IO.File]::WriteAllText((Join-Path $env:RUNNER_TEMP 'fixture-input-identities.json'), ($identity | ConvertTo-Json) + "`n", [Text.UTF8Encoding]::new($false))
+      - name: Install test-only Python dependencies and pinned test broker
+        run: |
+          uv sync --locked --python (Get-Command python).Source
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $setup = Join-Path $env:RUNNER_TEMP 'mosquitto-setup.exe'
+          $brokerDir = Join-Path $env:RUNNER_TEMP 'mosquitto-test'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://mosquitto.org/files/binary/win64/mosquitto-2.1.2-install-windows-x64.exe' -OutFile $setup
+          if ((Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash -ne '58008AD7A22ADA0B4073AFA415801746E027C5F583E4FA52D0F4E9193B98D6AA') { throw 'Test broker installer SHA-256 mismatch.' }
+          $process = Start-Process -FilePath $setup -ArgumentList '/S', "/D=$brokerDir" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Test broker installation failed.' }
+      - name: Install pinned LHM on disposable runner
+        shell: powershell
+        run: |
+          & scripts/windows/install_windows_sender_task.ps1 -ProjectRoot "$PWD" -UseUv:$false -EnsurePawnIo:$false -AtStartup
+          Unregister-ScheduledTask -TaskName 'HWMonitorMQTTSender' -Confirm:$false
+      - name: Prepare isolated negative fixture
+        run: |
+          $candidate = Join-Path $env:GITHUB_WORKSPACE 'candidate-artifact/hwmonitor-mqtt/hwmonitor-mqtt/candidate/sender-windows-x64.zip'
+          $stage = Join-Path $env:RUNNER_TEMP 'negative-contents'
+          $output = Join-Path $env:RUNNER_TEMP 'negative-fixture'
+          Expand-Archive -LiteralPath $candidate -DestinationPath $stage
+          Copy-Item -LiteralPath (Join-Path $env:WINDIR 'SysWOW64/cmd.exe') -Destination (Join-Path $stage 'sender.exe') -Force
+          $manifestPath = Join-Path $stage 'manifest.json'
+          $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+          $manifest.executable_sha256 = (Get-FileHash -LiteralPath (Join-Path $stage 'sender.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
+          [IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 8) + "`n", [Text.UTF8Encoding]::new($false))
+          New-Item -ItemType Directory -Path $output | Out-Null
+          $archive = Join-Path $output 'sender-windows-x64.zip'
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $archive
+          $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          [IO.File]::WriteAllText(($archive + '.sha256'), "$hash  sender-windows-x64.zip`n", [Text.Encoding]::ASCII)
+          $original = Join-Path $env:GITHUB_WORKSPACE 'candidate-artifact/hwmonitor-mqtt/hwmonitor-mqtt/candidate/sender-windows-x64.zip'
+          & scripts/windows/validate_sender_package.ps1 -Archive $original -Sha256 '4a6bf626ab71f6120ff408fca821b58a39053f4ac1ec5051c9882fd21d69b317' -Destination (Join-Path $env:RUNNER_TEMP 'candidate-staged')
+      - name: Exercise historical artifacts with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          & tests/windows_official_install_smoke.ps1 -Candidate (Join-Path $env:GITHUB_WORKSPACE 'baseline-artifact/candidate') -UpgradeCandidate (Join-Path $env:GITHUB_WORKSPACE 'candidate-artifact/hwmonitor-mqtt/hwmonitor-mqtt/candidate') -WrongArchCandidate (Join-Path $env:RUNNER_TEMP 'negative-fixture') -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource 46bcc40d232cc2720b188c795d87e33d0894ea73 -OldSha256 50292a12cdaa2ae894d95168a49d1d8dab612f33be3418bca456dfdd996a20a6 -Source 1b9ea2349623fb77eb8bbb242a111747686a1e75 -UpgradeVersion 0.0.1
+      - name: Exercise historical artifacts with PowerShell 7
+        run: |
+          & tests/windows_official_install_smoke.ps1 -Candidate (Join-Path $env:GITHUB_WORKSPACE 'baseline-artifact/candidate') -UpgradeCandidate (Join-Path $env:GITHUB_WORKSPACE 'candidate-artifact/hwmonitor-mqtt/hwmonitor-mqtt/candidate') -WrongArchCandidate (Join-Path $env:RUNNER_TEMP 'negative-fixture') -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource 46bcc40d232cc2720b188c795d87e33d0894ea73 -OldSha256 50292a12cdaa2ae894d95168a49d1d8dab612f33be3418bca456dfdd996a20a6 -Source 1b9ea2349623fb77eb8bbb242a111747686a1e75 -UpgradeVersion 0.0.1
+      - name: Rehearse exact signed installed runtime
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $output = Join-Path $env:RUNNER_TEMP 'fixture-runtime-absence.json'
+          $stage = Join-Path $env:RUNNER_TEMP 'candidate-staged'
+          $root = Join-Path $env:RUNNER_TEMP 'fixture-preflight-never-created'
+          $installer = Join-Path $env:RUNNER_TEMP 'fixture-vc_redist.x64.exe'
+          $evidence = [ordered]@{status='inconclusive'; uninstall_exit=$null; restore_exit=$null; negative_preflight=$false; positive_preflight=$false; failure=''; restore_failure=''; installer_sha256=''; product_version=''}
+          $attempted = $false
+          function Same-Version($value) {
+            if ([string]$value -notmatch '^v?([0-9]+)\.([0-9]+)\.([0-9]+)(?:\.([0-9]+))?$') { return $false }
+            return ([int]$Matches[1] -eq 14 -and [int]$Matches[2] -eq 51 -and [int]$Matches[3] -eq 36247 -and (-not $Matches[4] -or [int]$Matches[4] -eq 0))
+          }
+          try {
+            if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:RUNNER_OS -ne 'Windows' -or $env:RUNNER_ARCH -ne 'X64') { throw 'A disposable GitHub-hosted Windows x64 runner is required.' }
+            if (Test-Path -LiteralPath $root) { throw 'Preflight root already exists.' }
+            if (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue) { throw 'Unexpected existing sender task.' }
+            $stageHash = (Get-FileHash -LiteralPath (Join-Path $stage 'sender.exe') -Algorithm SHA256).Hash
+            if ($stageHash.ToLowerInvariant() -cne '1aefaa9c52ad0e79b8cf1dd4216e775c142f5ff9be877df4c6ef337ee6a41593') { throw 'Staged historical executable mismatch.' }
+            Invoke-WebRequest -UseBasicParsing -Uri 'https://aka.ms/vc14/vc_redist.x64.exe' -OutFile $installer
+            $signature = Get-AuthenticodeSignature -LiteralPath $installer
+            if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notlike 'CN=Microsoft Corporation,*') { throw 'Official runtime installer signature is invalid.' }
+            $evidence.installer_sha256 = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($evidence.installer_sha256 -cne '843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c') { throw 'Official installer differs from the independently examined x64 bundle.' }
+            $file = Get-Item -LiteralPath $installer
+            $evidence.product_version = [string]$file.VersionInfo.ProductVersion
+            if (-not (Same-Version $evidence.product_version) -or $file.VersionInfo.ProductName -cne 'Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247') { throw 'Official installer product identity mismatch.' }
+            $runtime = Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64' -ErrorAction Stop
+            if ($runtime.Installed -ne 1 -or -not (Same-Version $runtime.Version)) { throw 'Installed x64 runtime version differs from the signed installer.' }
+            $bundle = Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{0e3bb569-69d6-4c34-bff9-c2f81db5e5f0}' -ErrorAction Stop
+            if ($bundle.DisplayName -cne 'Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247' -or $bundle.Publisher -cne 'Microsoft Corporation' -or -not (Same-Version $bundle.DisplayVersion)) { throw 'Installed x64 bundle identity mismatch.' }
+            $minimum = Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{931A2CF0-2404-45EA-82F5-345735AE6A90}' -ErrorAction Stop
+            $additional = Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{6FA797CF-6B76-4B6D-87EE-768F92008720}' -ErrorAction Stop
+            foreach ($item in @($minimum, $additional)) { if ($item.Publisher -cne 'Microsoft Corporation' -or -not (Same-Version $item.DisplayVersion)) { throw 'Installed x64 MSI identity mismatch.' } }
+            if ($minimum.DisplayName -cne 'Microsoft Visual C++ 2022 X64 Minimum Runtime - 14.51.36247' -or $additional.DisplayName -cne 'Microsoft Visual C++ 2022 X64 Additional Runtime - 14.51.36247') { throw 'Installed x64 MSI product name mismatch.' }
+            $attempted = $true
+            $process = Start-Process -FilePath $installer -ArgumentList '/uninstall', '/quiet', '/norestart' -Wait -PassThru
+            $evidence.uninstall_exit = $process.ExitCode
+            if ($process.ExitCode -ne 0) { throw "Inconclusive: uninstall exit $($process.ExitCode)." }
+            $registryPresent = Test-Path -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64' -ErrorAction Stop
+            $present = @('mfc140u.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') | Where-Object { Test-Path -LiteralPath (Join-Path (Join-Path $env:WINDIR 'System32') $_) -ErrorAction Stop }
+            if ($registryPresent -or @($present).Count -ne 0) { throw 'Inconclusive: x64 runtime registration or DLLs remain.' }
+            $negative = $false
+            try { & scripts/windows/activate_sender_package.ps1 -ProjectRoot $root -StagedPackage $stage -Source '1b9ea2349623fb77eb8bbb242a111747686a1e75' -CheckPrerequisitesOnly }
+            catch { if ($_.Exception.Message -match 'Visual C\+\+') { $negative = $true } else { throw } }
+            if (-not $negative -or (Test-Path -LiteralPath $root) -or (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue) -or (Get-FileHash -LiteralPath (Join-Path $stage 'sender.exe') -Algorithm SHA256).Hash -ne $stageHash) { throw 'Inconclusive: missing-runtime preflight or preservation failed.' }
+            $evidence.negative_preflight = $true
+          }
+          catch { $evidence.failure = $_.Exception.Message }
+          finally {
+            if ($attempted) {
+              try {
+                $restore = Start-Process -FilePath $installer -ArgumentList '/install', '/quiet', '/norestart' -Wait -PassThru
+                $evidence.restore_exit = $restore.ExitCode
+                if ($restore.ExitCode -ne 0) { throw "Recovery installer exit $($restore.ExitCode)." }
+                & scripts/windows/activate_sender_package.ps1 -ProjectRoot $root -StagedPackage $stage -Source '1b9ea2349623fb77eb8bbb242a111747686a1e75' -CheckPrerequisitesOnly
+                if ((Test-Path -LiteralPath $root) -or (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue) -or (Get-FileHash -LiteralPath (Join-Path $stage 'sender.exe') -Algorithm SHA256).Hash -ne $stageHash) { throw 'Preflight changed the staged sender or task.' }
+                $evidence.positive_preflight = $true
+              }
+              catch { $evidence.restore_failure = $_.Exception.Message }
+            }
+            if (-not $evidence.failure -and -not $evidence.restore_failure -and $evidence.negative_preflight -and $evidence.positive_preflight) { $evidence.status = 'verified' }
+            [IO.File]::WriteAllText($output, ($evidence | ConvertTo-Json -Depth 5) + "`n", [Text.UTF8Encoding]::new($false))
+          }
+          if ($evidence.status -ne 'verified') { throw "Runtime absence rehearsal inconclusive: $($evidence.failure); restoration: $($evidence.restore_failure)" }
+      - name: Exercise compiled sender after restoration
+        run: |
+          $candidate = Join-Path $env:GITHUB_WORKSPACE 'candidate-artifact/hwmonitor-mqtt/hwmonitor-mqtt/build/windows/sender.exe'
+          $env:LHM_PATH = Join-Path $PWD 'third_party/librehardwaremonitor/LibreHardwareMonitor.exe'
+          & $candidate --dump-sensors > sensors-restored.json 2> sensors-restored.log
+          if ($LASTEXITCODE -ne 0 -or -not (Select-String -Path sensors-restored.log -SimpleMatch 'available: True' -Quiet)) { throw 'Restored runtime sensor smoke failed.' }
+          $sensors = Get-Content sensors-restored.json -Raw | ConvertFrom-Json
+          if ($null -eq $sensors.sensors) { throw 'Missing restored sensor array.' }
+          & tests/windows_compiled_mqtt_smoke.ps1 -SenderExe $candidate -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -RequireWmiFallback
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: sender-runtime-artifact-rehearsal
+          path: |
+            ${{ runner.temp }}/fixture-input-identities.json
+            ${{ runner.temp }}/fixture-runtime-absence.json
+            validation/test-evidence/
+            validation/sensors-restored.json
+            validation/sensors-restored.log
+          if-no-files-found: warn
+          retention-days: 3
