@@ -45,3 +45,20 @@ def test_arm_vendor_exception_is_exact_and_scans_other_content(tmp_path, monkeyp
         image_scan(tmp_path, public, vendor_path=path + '.other')
     with pytest.raises(ValueError, match='potential secret'):
         image_scan(tmp_path, public, platform='linux-x64')
+
+
+@pytest.mark.parametrize('path', [
+    'usr/sbin/adduser',
+    'usr/sbin/pam-auth-update',
+    'usr/share/pam-configs/unix',
+    'usr/share/perl5/Debconf/DbDriver/LDAP.pm',
+])
+def test_arm_arch_independent_debian_members_are_exact(tmp_path, monkeypatch, path):
+    public = b'password => $public_setting'
+    monkeypatch.setitem(checker.DEBIAN_SECRET_PATTERN_FILES, path, hashlib.sha256(public).hexdigest())
+    image_scan(tmp_path, public, vendor_path=path)
+    for secret in (b'MQTT_PASS=private', b'PVE_TOKEN_SECRET=private', b'-----BEGIN PRIVATE KEY-----'):
+        with pytest.raises(ValueError, match='potential secret'):
+            image_scan(tmp_path, public + secret, vendor_path=path)
+        with pytest.raises(ValueError, match='potential secret'):
+            image_scan(tmp_path, public, sender=b'sender' + secret, vendor_path=path)

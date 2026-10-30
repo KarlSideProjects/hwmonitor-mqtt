@@ -638,7 +638,12 @@ def inspect_image_layers(image, expected, expected_sender, platform='linux-x64')
                             raise ValueError(f'image layer file too large: {item.name}')
                         content = layer.extractfile(item).read()
                         vendor_files = DEBIAN_SECRET_PATTERN_FILES if platform == 'linux-x64' else DEBIAN_ARM_SECRET_PATTERN_FILES if platform == 'linux-arm64' else {}
-                        known_vendor = hashlib.sha256(content).hexdigest() == vendor_files.get(str(path))
+                        expected_vendor = vendor_files.get(str(path))
+                        if platform == 'linux-arm64' and str(path) in (
+                                'usr/sbin/adduser', 'usr/sbin/pam-auth-update',
+                                'usr/share/pam-configs/unix', 'usr/share/perl5/Debconf/DbDriver/LDAP.pm'):
+                            expected_vendor = DEBIAN_SECRET_PATTERN_FILES.get(str(path))
+                        known_vendor = hashlib.sha256(content).hexdigest() == expected_vendor
                         if SECRET.search(content) and not known_vendor:
                             raise ValueError(f'potential secret in image layer: {item.name}')
         if sender_count != 1:
