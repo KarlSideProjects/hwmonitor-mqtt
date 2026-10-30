@@ -114,7 +114,7 @@ def workflow_runs(token, test_api=None):
         result.extend(rows)
         if len(rows) < 100:
             return result
-    raise ValueError('workflow run history limit exceeded')
+    return result
 
 
 def dispatch_sources(sources, token, test_api=None):

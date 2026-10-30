@@ -196,3 +196,27 @@ def test_workflow_run_history_paginates_and_rejects_bad_response():
         server.shutdown()
         thread.join()
         server.server_close()
+
+
+def test_full_workflow_history_window_keeps_recent_attempts():
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import threading
+    from release_controller import workflow_runs
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+        def do_GET(self):
+            data = json.dumps({'workflow_runs': [{}] * 100}).encode()
+            self.send_response(200)
+            self.send_header('Content-Length', str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+    server = HTTPServer(('127.0.0.1', 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        assert len(workflow_runs('test', test_api=f'http://127.0.0.1:{server.server_port}')) == 10000
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
