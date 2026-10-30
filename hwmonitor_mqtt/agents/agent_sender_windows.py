@@ -44,7 +44,11 @@ try:
 except ImportError:
     pythoncom = None
 
-load_dotenv()
+PROJECT_ROOT = Path.cwd() if "__compiled__" in globals() else Path(__file__).resolve().parents[2]
+if "__compiled__" in globals():
+    load_dotenv(PROJECT_ROOT / ".env")
+else:
+    load_dotenv()
 
 
 # ===== Helpers =====
@@ -141,7 +145,7 @@ class LHMProcessManager:
         if local_appdata:
             candidates.append(Path(local_appdata) / "LibreHardwareMonitor" / "LibreHardwareMonitor.exe")
 
-        project_root = Path(__file__).resolve().parents[2]
+        project_root = PROJECT_ROOT
         candidates.append(project_root / "third_party" / "librehardwaremonitor" / "LibreHardwareMonitor.exe")
 
         return candidates
@@ -281,7 +285,7 @@ class LHMInProcessCollector:
                 candidates.append(lhm_path_obj)
             candidates.append(lhm_path_obj.parent / "LibreHardwareMonitorLib.dll")
 
-        project_root = Path(__file__).resolve().parents[2]
+        project_root = PROJECT_ROOT
         candidates.append(project_root / "third_party" / "librehardwaremonitor" / "LibreHardwareMonitorLib.dll")
 
         for p in candidates:
@@ -1265,7 +1269,7 @@ async def main():
         return
 
     print(f"Async Agent for Windows started on {HOSTNAME}")
-    marker = Path(__file__).resolve().parents[2] / ".hwmonitor-mqtt-bootstrap"
+    marker = PROJECT_ROOT / ".hwmonitor-mqtt-bootstrap"
     print(f"Installed commit: {(marker.read_text().strip() or 'unknown') if marker.exists() else 'unknown (not installed by bootstrap.ps1)'}")
     print(f"Sender profile: {SENDER_PROFILE}")
 

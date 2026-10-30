@@ -48,3 +48,48 @@ try { & $env:INSTALL_SCRIPT -ProjectRoot $env:PROJECT_ROOT -SenderExe $env:SENDE
     assert result.returncode != 0
     assert "pinned LHM download attempted" in result.stdout
     assert old_lhm.read_bytes() == b"unverified"
+
+
+def test_compiled_sender_reads_settings_from_task_working_directory(tmp_path):
+    import subprocess
+    import sys
+
+    (tmp_path / ".env").write_text("BROKER_HOST=compiled-test.example\n")
+    agent = Path(__file__).resolve().parents[1] / "hwmonitor_mqtt/agents/agent_sender_windows.py"
+    runner = tmp_path / "runner.py"
+    runner.write_text(
+        "import importlib.util, sys\n"
+        "spec = importlib.util.spec_from_file_location('sender_test', sys.argv[1])\n"
+        "module = importlib.util.module_from_spec(spec)\n"
+        "module.__compiled__ = True\n"
+        "sys.modules[spec.name] = module\n"
+        "spec.loader.exec_module(module)\n"
+        "print(module.BROKER_HOST)\n"
+    )
+    env = {**os.environ, "PYTHONPATH": str(agent.parents[2])}
+    env.pop("BROKER_HOST", None)
+    result = subprocess.run([sys.executable, str(runner), str(agent)], cwd=tmp_path, env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "compiled-test.example"
+
+
+def test_compiled_sender_uses_installation_directory_for_lhm_fallback(tmp_path):
+    import subprocess
+    import sys
+
+    agent = Path(__file__).resolve().parents[1] / "hwmonitor_mqtt/agents/agent_sender_windows.py"
+    runner = tmp_path / "runner.py"
+    runner.write_text(
+        "import importlib.util, sys\n"
+        "spec = importlib.util.spec_from_file_location('sender_test', sys.argv[1])\n"
+        "module = importlib.util.module_from_spec(spec)\n"
+        "module.__compiled__ = True\n"
+        "sys.modules[spec.name] = module\n"
+        "spec.loader.exec_module(module)\n"
+        "print(module.LHMProcessManager._candidate_paths()[-1])\n"
+    )
+    env = {**os.environ, "PYTHONPATH": str(agent.parents[2])}
+    env.pop("LHM_PATH", None)
+    result = subprocess.run([sys.executable, str(runner), str(agent)], cwd=tmp_path, env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == str(tmp_path / "third_party/librehardwaremonitor/LibreHardwareMonitor.exe")
