@@ -60,17 +60,17 @@
     {
       "path": "scripts/inspect_sender_candidate.py",
       "kind": "file",
-      "md5": "ba93019faa4a99e93c68a8ffd7408c88"
+      "md5": "0f9ca8672cfff64582192d4732f94832"
     },
     {
       "path": "tests/test_release_candidate.py",
       "kind": "file",
-      "md5": "12663724823a10136d52f507dc285341"
+      "md5": "a49ac93df97481c20518b5ffcc6a2edf"
     },
     {
       "path": "docs/release/sender-candidate.md",
       "kind": "file",
-      "md5": "4a5a04b3356174c282cea299f93b4296"
+      "md5": "ba1c671968956ed01018ae0ab8f1f06b"
     }
   ],
   "features": [
@@ -275,6 +275,10 @@
         {
           "node": "Q",
           "path": "docs/release/sender-candidate.md"
+        },
+        {
+          "node": "R",
+          "path": "scripts/inspect_sender_candidate.py"
         }
       ],
       "depends_on": []

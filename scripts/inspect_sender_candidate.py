@@ -3,6 +3,7 @@
 
 import argparse
 import hashlib
+import json
 from pathlib import Path
 import re
 import sys
@@ -18,13 +19,22 @@ NOTICE_HASHES = {
     'wmi': 'df96d90111c405f2393770e6e9d115eed77f836cfc12b7c002132955d09f7b28',
 }
 COMMON = {'python', 'paho-mqtt', 'psutil', 'python-dotenv'}
-SECRET = re.compile(rb'(?i)(?:MQTT_PASS|PVE_TOKEN_SECRET|PASSWORD|API_KEY)\s*[:=]\s*["\']?[^\s"\']+|-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----')
+SECRET = re.compile(rb'(?i)(?:BROKER_HOST|MQTT_USER|MQTT_PASS|PVE_TOKEN_ID|PVE_TOKEN_SECRET|PASSWORD|API_KEY)\s*[:=]\s*["\']?[^\s"\']+|-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----')
 ARCHIVES = (b'PK\x03\x04', b'\x1f\x8b', b'BZh', b'\xfd7zXZ\x00', b'7z\xbc\xaf\x27\x1c', b'Rar!')
 
 
-def inspect(platform, root):
+def inspect(platform, root, approval):
     if root.is_symlink() or not root.is_dir():
         raise ValueError('candidate must be a real directory')
+    if approval.is_symlink() or not approval.is_file() or root.resolve() in approval.resolve().parents:
+        raise ValueError('approval must be an independent regular file')
+    record = json.loads(approval.read_text(encoding='utf-8'))
+    if (not isinstance(record, dict) or record.get('platform') != platform
+            or not isinstance(record.get('source'), str) or not re.fullmatch(r'[0-9a-f]{40,64}', record['source'])
+            or not isinstance(record.get('version'), str) or not record['version'].strip()
+            or not isinstance(record.get('executable_sha256'), str)
+            or not re.fullmatch(r'[0-9a-f]{64}', record['executable_sha256'])):
+        raise ValueError('invalid approval record')
     licenses = COMMON | ({'pythonnet', 'wmi'} if platform == 'windows-x64' else set())
     required = {'sender.exe' if platform == 'windows-x64' else 'sender'} | {f'licenses/{name}.txt' for name in licenses}
     executable = 'sender.exe' if platform == 'windows-x64' else 'sender'
@@ -41,6 +51,8 @@ def inspect(platform, root):
         data = path.read_bytes()
         if not data or data.startswith(ARCHIVES) or SECRET.search(data) or (name == executable and not data.startswith(magic)):
             raise ValueError(f'unsafe or empty content: {name}')
+        if name == executable and hashlib.sha256(data).hexdigest() != record['executable_sha256']:
+            raise ValueError('executable differs from approval')
         if name.startswith('licenses/') and hashlib.sha256(data).hexdigest() != NOTICE_HASHES[path.stem]:
             raise ValueError(f'unrecognized notice content: {name}')
         found.add(name)
@@ -52,9 +64,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('platform', choices=sorted(PLATFORMS))
     parser.add_argument('candidate', type=Path)
+    parser.add_argument('approval', type=Path)
     args = parser.parse_args()
     try:
-        inspect(args.platform, args.candidate)
+        inspect(args.platform, args.candidate, args.approval)
     except (OSError, ValueError) as error:
         print(f'candidate rejected: {error}', file=sys.stderr)
         return 1

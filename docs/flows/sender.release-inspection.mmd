@@ -2,13 +2,14 @@ flowchart TD
     A["Parse platform and candidate arguments"]
     B{"Arguments accepted"}
     C{"Candidate is a real directory"}
+    R{"External approval has matching platform, source, version and digest"}
     D["Select fixed platform paths and notice hashes"]
     E{"Another entry"}
     F{"Link or unapproved entry"}
     G{"Entry is the allowed licenses directory"}
     H["Read approved regular file"]
     I{"Empty, archive, secret or wrong executable prefix"}
-    J{"Notice hash mismatches"}
+    J{"Executable approval or notice hash mismatches"}
     K["Record approved file"]
     L{"All required paths found"}
     M["Report layout accepted, not release approval"]
@@ -20,8 +21,11 @@ flowchart TD
     B -->|no| O
     B -->|yes| C
     C -->|no| N
-    C -->|yes| D
+    C -->|yes| R
+    R -->|no| N
+    R -->|yes| D
     D --> E
+    E -->|error| N
     E -->|yes| F
     F -->|yes| N
     F -->|no| G
