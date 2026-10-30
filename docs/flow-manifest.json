@@ -337,11 +337,19 @@
         },
         {
           "node": "J",
-          "path": "tests/test_smart_collector.py"
+          "path": "hwmonitor_mqtt/collectors/smart.py"
         },
         {
           "node": "K",
           "path": "tests/test_smart_collector.py"
+        },
+        {
+          "node": "L",
+          "path": "tests/test_smart_collector.py"
+        },
+        {
+          "node": "M",
+          "path": "hwmonitor_mqtt/collectors/smart.py"
         }
       ],
       "depends_on": []

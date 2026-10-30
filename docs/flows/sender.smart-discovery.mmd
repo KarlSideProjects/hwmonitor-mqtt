@@ -1,27 +1,31 @@
 flowchart TD
-    A{"Provider supplied"}
-    B{"smartctl executable found"}
-    C["Scan and read usable SMART devices"]
-    D{"Fallback needed"}
-    E{"PVE client configured"}
-    F["Query PVE for missing devices when needed"]
+    A["Compute observation time before guarded poll"]
+    B{"Provider supplied"}
+    C{"smartctl found and scan succeeds"}
+    D["Read usable device data and track fallback need"]
+    E{"PVE client and empty results or fallback needed"}
+    F["Query PVE and add available missing device data"]
     G["Normalize devices and evaluate alerts"]
-    H["Return snapshot or unavailable when devices are empty"]
-    I["Poll error returns unavailable"]
-    J["Fixture mocks executable discovery and command execution"]
-    K["Missing executable test expects unavailable"]
-    A -->|yes| G
-    A -->|no| B
-    A -->|error| I
-    B -->|yes| C
-    B -->|no| E
-    C -->|read| D
-    C -->|error| E
-    D -->|no| G
-    D -->|yes| E
+    H["Return snapshot; empty devices are unavailable"]
+    I["Guarded poll error returns unavailable"]
+    J["Clock conversion error propagates"]
+    K["Fixture mocks executable lookup and command execution"]
+    L["Missing executable test expects unavailable"]
+    M{"PVE client configured"}
+    A -->|success| B
+    A -->|error| J
+    B -->|yes| G
+    B -->|no| C
+    B -->|provider error| I
+    C -->|yes| D
+    C -->|no or scan error| M
+    D -->|completed| E
+    D -->|malformed data error| I
     E -->|yes| F
-    E -->|no and discovery failed| I
-    E -->|no and discovery completed| G
-    F --> G
+    E -->|no| G
+    M -->|yes| F
+    M -->|no| I
+    F -->|complete or inventory error| G
+    F -->|malformed row error| I
     G -->|success| H
     G -->|error| I
