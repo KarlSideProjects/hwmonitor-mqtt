@@ -12,7 +12,7 @@ import pytest
 from test_release_assets import candidate
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from release_backend import GitHub, drain_ready, prepare_candidate, reconcile_latest
+from release_backend import GitHub, drain_ready, identity, prepare_candidate, reconcile_latest
 
 
 @pytest.fixture
@@ -175,3 +175,51 @@ def test_starter_recovery_and_restart_after_publication(service, tmp_path):
 def test_loopback_transport_is_explicit():
     with pytest.raises(ValueError): GitHub(test_api='https://example.com')
     with pytest.raises(ValueError): GitHub()
+
+
+def test_ready_retry_reuses_saved_assets_after_rebuild(service, tmp_path):
+    api, state = service
+    receipt = make_candidate(tmp_path / 'candidate', 1)
+    release = prepare_candidate(api, receipt, tmp_path / 'candidate')
+    rebuilt = make_candidate(tmp_path / 'rebuilt', 1)
+    path = tmp_path / 'rebuilt' / 'sender-linux-x64.tar.gz'
+    path.write_bytes(b'new build bytes')
+    (path.parent / (path.name + '.sha256')).write_text(hashlib.sha256(path.read_bytes()).hexdigest() + '  ' + path.name + '\n')
+    rebuilt['assets'] = {p.name: {'size': p.stat().st_size, 'digest': 'sha256:' + hashlib.sha256(p.read_bytes()).hexdigest()} for p in path.parent.iterdir()}
+    writes = list(state['writes'])
+    assert prepare_candidate(api, rebuilt, path.parent)['id'] == release['id']
+    assert state['writes'] == writes
+
+
+def test_zero_size_receipt_rejected(service, tmp_path):
+    api, state = service
+    receipt = make_candidate(tmp_path / 'candidate', 1)
+    receipt['assets']['version.json']['size'] = 0
+    with pytest.raises(ValueError): prepare_candidate(api, receipt, tmp_path / 'candidate')
+    assert not state['writes']
+
+
+def test_changed_rebuild_replaces_interrupted_staging_without_mixing(service, tmp_path):
+    api, state = service
+    old = make_candidate(tmp_path / 'old', 1)
+    staged = prepare_candidate(api, old, tmp_path / 'old')
+    staged = state['releases'][0]
+    staged['body'] = staged['body'].replace('\"READY\"', '\"STAGING\"')
+    new = make_candidate(tmp_path / 'new', 1)
+    path = tmp_path / 'new' / 'sender-linux-x64.tar.gz'
+    path.write_bytes(b'rebuilt')
+    (path.parent / (path.name + '.sha256')).write_text(hashlib.sha256(path.read_bytes()).hexdigest() + '  ' + path.name + '\n')
+    new['assets'] = {p.name: {'size': p.stat().st_size, 'digest': 'sha256:' + hashlib.sha256(p.read_bytes()).hexdigest()} for p in path.parent.iterdir()}
+    state['fail_upload'] = True
+    with pytest.raises(ValueError): prepare_candidate(api, new, path.parent)
+    release = prepare_candidate(api, new, path.parent)
+    assert len(state['releases']) == 1
+    assert {a['name']: a['digest'] for a in state['assets'][release['id']]} == {n: v['digest'] for n, v in new['assets'].items()}
+
+
+def test_oversized_receipt_rejected(service, tmp_path):
+    api, state = service
+    receipt = make_candidate(tmp_path / 'candidate', 1)
+    receipt['assets']['version.json']['size'] = 1024 ** 3 + 1
+    with pytest.raises(ValueError): identity(receipt)
+    assert not state['writes']

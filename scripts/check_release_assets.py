@@ -11,7 +11,7 @@ import sys
 
 ASSETS = (
     'sender-linux-x64.tar.gz', 'sender-linux-arm64.tar.gz', 'sender-windows-x64.zip',
-    'validate_sender_package.ps1', 'activate_sender_package.ps1',
+    'validate_sender_package.ps1', 'activate_sender_package.ps1', 'install.sh', 'install.ps1',
 )
 
 

@@ -8,7 +8,7 @@ import sys
 SCRIPT = Path(__file__).resolve().parents[1] / 'scripts/check_release_assets.py'
 NAMES = ('sender-linux-x64.tar.gz', 'sender-linux-arm64.tar.gz',
          'sender-windows-x64.zip', 'validate_sender_package.ps1',
-         'activate_sender_package.ps1')
+         'activate_sender_package.ps1', 'install.sh', 'install.ps1')
 
 
 def candidate(directory):

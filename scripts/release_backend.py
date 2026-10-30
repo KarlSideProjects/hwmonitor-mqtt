@@ -70,7 +70,7 @@ def identity(receipt):
         raise ValueError('invalid version')
     required = {'version.json'} | set(ASSETS) | {name + '.sha256' for name in ASSETS}
     if not isinstance(assets, dict) or set(assets) != required or any(not isinstance(v, dict) or set(v) != {'size', 'digest'} or
-            type(v['size']) is not int or v['size'] < 0 or not isinstance(v['digest'], str) or
+            type(v['size']) is not int or not 0 < v['size'] <= 1024 ** 3 or not isinstance(v['digest'], str) or
             not re.fullmatch(r'sha256:[0-9a-f]{64}', v['digest']) for v in assets.values()):
         raise ValueError('invalid receipt assets')
     return int(version.split('.')[2])
@@ -147,14 +147,28 @@ def prepare_candidate(api, receipt, directory):
     if matches:
         release = matches[0]
         state, saved, _ = parse(release)
-        if saved != receipt or release['tag_name'] != 'v' + receipt['version']:
+        if saved['source'] != receipt['source'] or saved['version'] != receipt['version']:
             raise ValueError('conflicting receipt')
         if state == 'READY':
-            if remote_assets(api, release, receipt) != set(actual):
+            if remote_assets(api, release, saved) != set(saved['assets']):
                 raise ValueError('ready release incomplete')
             return release
         if not release['draft']:
             raise ValueError('published staging release')
+        if saved != receipt:
+            remote_assets(api, release, saved, recover=True)
+            for asset in api.pages(f"/releases/{release['id']}/assets"):
+                status, fresh = api.request('GET', f"/releases/{release['id']}")
+                if (status != 200 or not isinstance(fresh, dict) or fresh.get('id') != release['id']
+                        or fresh.get('tag_name') != release['tag_name'] or fresh.get('body') != release['body']
+                        or fresh.get('draft') is not True or parse(fresh)[0] != 'STAGING'):
+                    raise ValueError('draft changed during reset')
+                status, _ = api.request('DELETE', f"/releases/assets/{asset['id']}")
+                if status != 204:
+                    raise ValueError('asset reset failed')
+            status, release = api.request('PATCH', f"/releases/{release['id']}", {'body': body('STAGING', receipt)})
+            if status != 200 or parse(release)[:2] != ('STAGING', receipt) or not release['draft']:
+                raise ValueError('draft reset failed')
     else:
         status, release = api.request('POST', '/releases', {'tag_name': 'v' + receipt['version'], 'name': 'v' + receipt['version'], 'body': body('STAGING', receipt), 'draft': True, 'prerelease': False})
         if status != 201 or not isinstance(release, dict) or parse(release)[:2] != ('STAGING', receipt) or not release['draft']:

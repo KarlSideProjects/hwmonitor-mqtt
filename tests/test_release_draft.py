@@ -85,7 +85,7 @@ def test_interrupted_upload_resumes_and_never_publishes(tmp_path):
         state['assets']['starter'] = {'id': 99, 'name': 'sender-linux-x64.tar.gz', 'state': 'starter', 'size': 0}
         second = subprocess.run(cmd, capture_output=True)
         assert second.returncode == 0, second.stderr
-        assert len(state['assets']) == 11
+        assert len(state['assets']) == 15
         writes = list(state['writes'])
         assert subprocess.run(cmd, capture_output=True).returncode == 0
         assert state['writes'] == writes
