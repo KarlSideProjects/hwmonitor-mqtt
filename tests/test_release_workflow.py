@@ -13,7 +13,7 @@ def test_release_workflow_is_master_only_and_has_no_publisher_credentials():
     assert 'scripts/release_controller.py drain' in workflow
     assert 'schedule:' in workflow
     assert 'scripts/release_version.py' in workflow
-    assert 'Block until PVE native acceptance is wired' in (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
+    assert 'scripts/release-tests/pve_acceptance.py' in (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
 
 
 def test_recovery_dispatch_accepts_source_only_as_data():
@@ -101,7 +101,7 @@ def test_linux_docker_acceptance_uses_both_real_archives():
     assert 'scripts/release-tests/docker_acceptance.py' in workflow
     assert '--old-archive "$RUNNER_TEMP/old-result/sender-$TARGET.tar.gz"' in workflow
     assert '--old-source "$OLD_SOURCE" --old-version 0.0.1' in workflow
-    assert 'Block until PVE native acceptance is wired' in workflow
+    assert 'scripts/release-tests/pve_acceptance.py' in workflow
 
 
 def test_linux_harness_uses_workflow_checkout_and_exact_source_checkout():

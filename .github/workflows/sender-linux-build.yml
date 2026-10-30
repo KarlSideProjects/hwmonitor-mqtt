@@ -131,11 +131,6 @@ jobs:
           path: ${{ runner.temp }}/pve-summary
           if-no-files-found: error
           retention-days: 3
-      - name: Block until PVE native acceptance is wired
-        if: inputs.platform == 'linux-x64'
-        run: |
-          echo 'PVE native compiled install and MQTT acceptance are not yet wired'
-          exit 1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sender-${{ inputs.platform }}-${{ inputs.source }}
