@@ -319,7 +319,7 @@ def test_image_layer_rejects_deleted_first_party_source(tmp_path):
     image = tmp_path / 'image.tar'
     with tarfile.open(image, 'w') as tar:
         manifest = json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()
-        for name, data in [('manifest.json', manifest), ('config.json', b'{"architecture":"amd64","os":"linux"}'), ('layer.tar', layer.getvalue())]:
+        for name, data in [('manifest.json', manifest), ('config.json', json.dumps({'architecture': 'amd64', 'os': 'linux', 'rootfs': {'type': 'layers', 'diff_ids': ['sha256:' + hashlib.sha256(layer.getvalue()).hexdigest()]}}).encode()), ('layer.tar', layer.getvalue())]:
             entry = tarfile.TarInfo(name)
             entry.size = len(data)
             tar.addfile(entry, io.BytesIO(data))
@@ -342,7 +342,7 @@ def test_image_layer_requires_trusted_sender_bytes(tmp_path):
         tar.addfile(entry, io.BytesIO(b'bad'))
     image = tmp_path / 'image.tar'
     with tarfile.open(image, 'w') as tar:
-        for name, data in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', b'{"architecture":"amd64","os":"linux"}'), ('layer.tar', layer.getvalue())]:
+        for name, data in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', json.dumps({'architecture': 'amd64', 'os': 'linux', 'rootfs': {'type': 'layers', 'diff_ids': ['sha256:' + hashlib.sha256(layer.getvalue()).hexdigest()]}}).encode()), ('layer.tar', layer.getvalue())]:
             entry = tarfile.TarInfo(name)
             entry.size = len(data)
             tar.addfile(entry, io.BytesIO(data))
@@ -366,7 +366,7 @@ def test_image_layer_only_allows_exact_known_debian_python_file(tmp_path):
             tar.addfile(entry, io.BytesIO(data))
     image = tmp_path / 'image.tar'
     with tarfile.open(image, 'w') as tar:
-        for name, data in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', b'{"architecture":"amd64","os":"linux"}'), ('layer.tar', layer.getvalue())]:
+        for name, data in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', json.dumps({'architecture': 'amd64', 'os': 'linux', 'rootfs': {'type': 'layers', 'diff_ids': ['sha256:' + hashlib.sha256(layer.getvalue()).hexdigest()]}}).encode()), ('layer.tar', layer.getvalue())]:
             entry = tarfile.TarInfo(name)
             entry.size = len(data)
             tar.addfile(entry, io.BytesIO(data))
@@ -388,7 +388,7 @@ def test_image_layer_rejects_unapproved_app_files_even_without_env_extension(tmp
         tar.addfile(entry, io.BytesIO(b'x'))
     image = tmp_path / 'image.tar'
     with tarfile.open(image, 'w') as tar:
-        for name, data in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', b'{"architecture":"amd64","os":"linux"}'), ('layer.tar', layer.getvalue())]:
+        for name, data in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', json.dumps({'architecture': 'amd64', 'os': 'linux', 'rootfs': {'type': 'layers', 'diff_ids': ['sha256:' + hashlib.sha256(layer.getvalue()).hexdigest()]}}).encode()), ('layer.tar', layer.getvalue())]:
             entry = tarfile.TarInfo(name)
             entry.size = len(data)
             tar.addfile(entry, io.BytesIO(data))
@@ -432,7 +432,7 @@ def test_image_scans_non_app_layer_file_for_private_settings(tmp_path):
             tar.addfile(entry, io.BytesIO(data))
     image = tmp_path / 'image.tar'
     with tarfile.open(image, 'w') as tar:
-        for name, data in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', b'{"architecture":"amd64","os":"linux"}'), ('layer.tar', layer.getvalue())]:
+        for name, data in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', json.dumps({'architecture': 'amd64', 'os': 'linux', 'rootfs': {'type': 'layers', 'diff_ids': ['sha256:' + hashlib.sha256(layer.getvalue()).hexdigest()]}}).encode()), ('layer.tar', layer.getvalue())]:
             entry = tarfile.TarInfo(name)
             entry.size = len(data)
             tar.addfile(entry, io.BytesIO(data))
@@ -526,7 +526,7 @@ def test_image_rejects_excessive_expanded_layer_size(tmp_path, monkeypatch):
         tar.addfile(entry, io.BytesIO(b'bad'))
     image = tmp_path / 'image.tar'
     with tarfile.open(image, 'w') as tar:
-        for name, data in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', b'{"architecture":"amd64","os":"linux"}'), ('layer.tar', layer.getvalue())]:
+        for name, data in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', json.dumps({'architecture': 'amd64', 'os': 'linux', 'rootfs': {'type': 'layers', 'diff_ids': ['sha256:' + hashlib.sha256(layer.getvalue()).hexdigest()]}}).encode()), ('layer.tar', layer.getvalue())]:
             entry = tarfile.TarInfo(name)
             entry.size = len(data)
             tar.addfile(entry, io.BytesIO(data))
@@ -565,7 +565,7 @@ def test_image_secret_exception_is_bound_to_exact_vendor_path_and_bytes(tmp_path
                 tar.addfile(entry, io.BytesIO(content))
         image = tmp_path / 'image.tar'
         with tarfile.open(image, 'w') as tar:
-            for path, content in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', b'{"architecture":"amd64","os":"linux"}'), ('layer.tar', layer.getvalue())]:
+            for path, content in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', json.dumps({'architecture': 'amd64', 'os': 'linux', 'rootfs': {'type': 'layers', 'diff_ids': ['sha256:' + hashlib.sha256(layer.getvalue()).hexdigest()]}}).encode()), ('layer.tar', layer.getvalue())]:
                 entry = tarfile.TarInfo(path)
                 entry.size = len(content)
                 tar.addfile(entry, io.BytesIO(content))
@@ -610,3 +610,125 @@ def test_archive_rejects_excessive_member_count(tmp_path, monkeypatch):
             package.addfile(item, io.BytesIO(b'x'))
     with pytest.raises(ValueError, match='too many'):
         checker.inspect_archive('linux-x64', archive, {'archive_sha256': hashlib.sha256(archive.read_bytes()).hexdigest()})
+
+
+def test_inventoried_runtime_rejects_private_secret(tmp_path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    data = b'\x7fELF\x02\x01' + b'\0' * 12 + (62).to_bytes(2, 'little') + b'MQTT_PASS=actual-secret'
+    (tmp_path / 'sender.bin').write_bytes(data)
+    inventory = [{'path': 'sender.bin', 'size': len(data), 'sha256': hashlib.sha256(data).hexdigest()}]
+    with pytest.raises(ValueError, match='secret'):
+        checker.inspect_runtime_files(tmp_path, inventory, 'linux-x64')
+
+
+def test_windows_runtime_rejects_native_x86(tmp_path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    data = bytearray(256)
+    data[:2] = b'MZ'
+    data[60:64] = (128).to_bytes(4, 'little')
+    data[128:132] = b'PE\0\0'
+    data[132:134] = (0x14c).to_bytes(2, 'little')
+    (tmp_path / 'bad.dll').write_bytes(data)
+    inventory = [{'path': 'bad.dll', 'size': len(data), 'sha256': hashlib.sha256(data).hexdigest()}]
+    with pytest.raises(ValueError, match='architecture'):
+        checker.inspect_runtime_files(tmp_path, inventory, 'windows-x64')
+
+
+@pytest.mark.parametrize('diff_ids', [['sha256:' + '0' * 64], [], ['sha256:' + '0' * 64, 'sha256:' + '1' * 64]])
+def test_image_rejects_incorrect_layer_diff_ids(tmp_path, diff_ids):
+    import importlib.util
+    import io
+    import tarfile
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    layer = io.BytesIO()
+    with tarfile.open(fileobj=layer, mode='w') as tar:
+        item = tarfile.TarInfo('app/sender')
+        item.size = 6
+        tar.addfile(item, io.BytesIO(b'sender'))
+    image = tmp_path / 'image.tar'
+    config = json.dumps({'architecture': 'amd64', 'os': 'linux', 'rootfs': {'type': 'layers', 'diff_ids': diff_ids}}).encode()
+    with tarfile.open(image, 'w') as tar:
+        for name, data in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['layer.tar']}]).encode()), ('config.json', config), ('layer.tar', layer.getvalue())]:
+            item = tarfile.TarInfo(name)
+            item.size = len(data)
+            tar.addfile(item, io.BytesIO(data))
+    with pytest.raises(ValueError, match='diff ID'):
+        checker.inspect_image_layers(image, hashlib.sha256(image.read_bytes()).hexdigest(), hashlib.sha256(b'sender').hexdigest())
+
+
+def test_windows_runtime_accepts_anycpu_and_rejects_required_32bit():
+    import importlib.util
+    import struct
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    data = bytearray(1024)
+    data[:2] = b'MZ'
+    struct.pack_into('<I', data, 60, 128)
+    data[128:132] = b'PE\0\0'
+    struct.pack_into('<HH', data, 132, 0x14c, 1)
+    struct.pack_into('<H', data, 148, 224)
+    opt = 152
+    struct.pack_into('<H', data, opt, 0x10b)
+    struct.pack_into('<I', data, opt + 92, 16)
+    struct.pack_into('<II', data, opt + 96 + 14 * 8, 0x2000, 72)
+    section = opt + 224
+    struct.pack_into('<III', data, section + 12, 0x2000, 512, 512)
+    struct.pack_into('<I', data, 512, 72)
+    struct.pack_into('<III', data, 520, 0x2060, 128, 9)
+    data[608:612] = b'BSJB'
+    struct.pack_into('<I', data, 620, 4)
+    struct.pack_into('<H', data, 630, 2)
+    struct.pack_into('<II', data, 632, 100, 4)
+    data[640:643] = b'#~\0'
+    struct.pack_into('<II', data, 644, 104, 4)
+    data[652:661] = b'#Strings\0'
+    assert checker.windows_runtime_architecture(data)
+    for flags in (0, 3, 0x20001):
+        struct.pack_into('<I', data, 528, flags)
+        assert not checker.windows_runtime_architecture(data)
+    struct.pack_into('<I', data, 528, 9)
+    data[608:612] = b'bad!'
+    assert not checker.windows_runtime_architecture(data)
+    struct.pack_into('<H', data, 132, 0xaa64)
+    assert not checker.windows_runtime_architecture(data)
+
+
+def test_image_diff_ids_follow_uncompressed_layer_order(tmp_path):
+    import gzip
+    import importlib.util
+    import io
+    import tarfile
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    layers = []
+    for name, content in [('etc/example', b'value'), ('app/sender', b'sender')]:
+        layer = io.BytesIO()
+        with tarfile.open(fileobj=layer, mode='w') as tar:
+            item = tarfile.TarInfo(name)
+            item.size = len(content)
+            tar.addfile(item, io.BytesIO(content))
+        layers.append(layer.getvalue())
+    ids = ['sha256:' + hashlib.sha256(layer).hexdigest() for layer in layers]
+    image = tmp_path / 'image.tar'
+    def write_image(diff_ids):
+        config = json.dumps({'architecture': 'amd64', 'os': 'linux', 'rootfs': {'type': 'layers', 'diff_ids': diff_ids}}).encode()
+        with tarfile.open(image, 'w') as tar:
+            for name, data in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['first.tar.gz', 'second.tar']}]).encode()), ('config.json', config), ('first.tar.gz', gzip.compress(layers[0])), ('second.tar', layers[1])]:
+                item = tarfile.TarInfo(name)
+                item.size = len(data)
+                tar.addfile(item, io.BytesIO(data))
+    write_image(ids)
+    checker.inspect_image_layers(image, hashlib.sha256(image.read_bytes()).hexdigest(), hashlib.sha256(b'sender').hexdigest())
+    write_image(ids[::-1])
+    with pytest.raises(ValueError, match='diff ID'):
+        checker.inspect_image_layers(image, hashlib.sha256(image.read_bytes()).hexdigest(), hashlib.sha256(b'sender').hexdigest())
