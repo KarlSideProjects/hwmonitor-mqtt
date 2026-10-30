@@ -220,3 +220,23 @@ def test_full_workflow_history_window_keeps_recent_attempts():
         server.shutdown()
         thread.join()
         server.server_close()
+
+
+def test_recovery_uses_newer_master_when_scheduled_snapshot_is_stale(service, tmp_path):
+    from release_controller import pending_sources
+    api, _ = service
+    repo, assets, evidence = (tmp_path / name for name in ('repo', 'assets', 'evidence'))
+    first = setup(repo, assets, evidence)
+    (repo / 'next').write_text('next')
+    subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True)
+    subprocess.run(['git', '-C', str(repo), '-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-qm', 'next'], check=True)
+    second = subprocess.check_output(['git', '-C', str(repo), 'rev-parse', 'HEAD'], text=True).strip()
+    (assets / 'version.json').write_text(json.dumps({'source': second, 'version': '0.1.2'}))
+    for record in evidence.glob('*/record.json'):
+        data = json.loads(record.read_text())
+        data.update(source=second, version='0.1.2')
+        record.write_text(json.dumps(data))
+    prepare(api, repo, second, second, assets, evidence, lambda args: None)
+    with pytest.raises(ValueError):
+        pending_sources(api, repo, first, first, 10)
+    assert pending_sources(api, repo, second, first, 10) == [first]

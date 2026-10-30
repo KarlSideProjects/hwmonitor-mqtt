@@ -128,3 +128,13 @@ def test_linux_compiled_failure_integration_uses_candidate_and_enforces_skips():
     assert 'tests/test_compiled_bootstrap_integration.py' in linux
     assert 'expected_skips = 1 if' in linux
     assert 'scripts/release-tests/docker_acceptance.py' in linux
+
+
+def test_scheduled_recovery_reads_fresh_master_without_replacing_controller():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    recovery = workflow.split('  recover:', 1)[1].split('  # A scheduled', 1)[0]
+    assert 'ref: master' in recovery
+    assert 'path: recovery-master' in recovery
+    assert 'git -C recovery-master rev-parse HEAD' in recovery
+    assert 'scripts/release_controller.py recover --repo recovery-master' in recovery
+    assert 'persist-credentials: false' in recovery

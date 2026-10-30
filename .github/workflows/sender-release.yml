@@ -135,18 +135,25 @@ jobs:
       contents: read
       actions: write
     env:
-      MASTER: ${{ github.sha }}
       START: ${{ vars.SENDER_RELEASE_ACTIVATION_SHA }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           persist-credentials: false
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: master
+          path: recovery-master
+          fetch-depth: 0
+          persist-credentials: false
       - name: Retry a bounded set of missing sources
         env:
           SENDER_RELEASE_TOKEN: ${{ secrets.SENDER_RELEASE_TOKEN }}
           SOURCE_WORKFLOW_TOKEN: ${{ github.token }}
-        run: python3 scripts/release_controller.py recover --master "$MASTER" --start "$START"
+        run: |
+          MASTER=$(git -C recovery-master rev-parse HEAD)
+          python3 scripts/release_controller.py recover --repo recovery-master --master "$MASTER" --start "$START"
 
   # A scheduled or manual drain can recover READY drafts after interrupted runs.
   publisher:
