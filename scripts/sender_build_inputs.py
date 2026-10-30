@@ -100,9 +100,15 @@ def windows_compiler_evidence(log):
         raise ValueError('backend and onefile compiler identities do not match')
     path, version = found[0]
     compiler = Path(path)
-    if not compiler.is_file():
-        raise ValueError('actual compiler is unavailable')
+    if not re.search(r'(?i)[\\/]VC[\\/]Tools[\\/]MSVC[\\/]14\.44\.35207[\\/]bin[\\/]Hostx64[\\/]x64[\\/]cl\.exe$', path) or not compiler.is_file():
+        raise ValueError('actual compiler does not match the supported toolset')
     return {'compiler': f'{path} (MSVC {version})', 'compiler_sha256': digest(compiler)}
+
+
+def verify_windows_compiler(toolchain, provenance, log):
+    compiler = windows_compiler_evidence(log)
+    if provenance.get('compiler_log_sha256') != digest(log) or any(toolchain.get(k) != v for k, v in compiler.items()):
+        raise ValueError('receipt compiler differs from actual build')
 
 
 def observed_toolchain(compiler_log=None):

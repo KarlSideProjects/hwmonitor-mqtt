@@ -126,7 +126,7 @@ def main():
         parser.error('evidence directory must be fresh')
     evidence.mkdir(parents=True)
     report = build / 'nuitka-report.xml'
-    command = [sys.executable, '-m', 'nuitka', '--onefile', '--msvc=latest', '--show-scons', f'--output-dir={build}',
+    command = [sys.executable, '-m', 'nuitka', '--onefile', '--msvc=latest', '--show-scons', '--noinclude-dlls=mfc140u.dll', '--noinclude-dlls=vcruntime140.dll', '--noinclude-dlls=vcruntime140_1.dll', f'--output-dir={build}',
                f'--report={report}', '--output-filename=sender.exe', '--include-package=pythonnet',
                '--include-package=clr_loader', '--include-module=clr', '--nofollow-import-to=win32com.test',
                '--nofollow-import-to=win32com.demos', 'hwmonitor_mqtt/agents/agent_sender_windows.py']

@@ -106,6 +106,37 @@ jobs:
           $oldHash = (Get-FileHash old-source/build/windows/sender.exe -Algorithm SHA256).Hash
           if ($oldHash -cnotmatch '^[A-F0-9]{64}$') { throw 'Invalid historical executable digest' }
           [IO.File]::AppendAllText($env:GITHUB_ENV, "OLD_SENDER_SHA256=$oldHash`n", [Text.UTF8Encoding]::new($false))
+      - name: Prepare recipient-acquired Microsoft runtime for native smoke
+        shell: pwsh
+        run: |
+          function Get-RuntimeState {
+            $runtime = Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64' -ErrorAction SilentlyContinue
+            $files = @{}
+            foreach ($name in @('mfc140u.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')) {
+              $item = Get-Item -LiteralPath (Join-Path (Join-Path $env:WINDIR 'System32') $name) -ErrorAction SilentlyContinue
+              $files[$name] = if ($item) { [string]$item.VersionInfo.FileVersion } else { '' }
+            }
+            $version = if ($runtime) { [string]$runtime.Version } else { '' }
+            $ready = $runtime -and $runtime.Installed -eq 1 -and $version -match '^v?([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)$' -and [version]$Matches[1] -ge [version]'14.44.35211.0'
+            foreach ($value in $files.Values) { if ($value -notmatch '^([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)' -or [version]$Matches[1] -lt [version]'14.44.35112.0') { $ready = $false } }
+            return [pscustomobject]@{ version=$version; files=$files; ready=[bool]$ready }
+          }
+          $before = Get-RuntimeState
+          $installer = Join-Path $env:RUNNER_TEMP 'vc_redist.x64.exe'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://aka.ms/vc14/vc_redist.x64.exe' -OutFile $installer
+          $signature = Get-AuthenticodeSignature -LiteralPath $installer
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notlike 'CN=Microsoft Corporation,*') { throw 'Microsoft runtime installer signature is invalid.' }
+          $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          $installed = $false
+          if (-not $before.ready) {
+            $process = Start-Process -FilePath $installer -ArgumentList '/install', '/quiet', '/norestart' -Wait -PassThru
+            if ($process.ExitCode -ne 0) { throw "Microsoft runtime installation failed with exit code $($process.ExitCode)." }
+            $installed = $true
+          }
+          $after = Get-RuntimeState
+          if (-not $after.ready) { throw 'Required Microsoft x64 runtime is unavailable after preparation.' }
+          $receipt = [pscustomobject]@{before=$before; after=$after; downloaded_sha256=$hash; signer=$signature.SignerCertificate.Subject; signature_status=[string]$signature.Status; installed_by_job=$installed}
+          [IO.File]::WriteAllText((Join-Path $env:RUNNER_TEMP 'vc-runtime-prerequisite.json'), ($receipt | ConvertTo-Json -Depth 5) + "`n", [Text.UTF8Encoding]::new($false))
       - name: Build Windows x64 executable
         shell: pwsh
         run: |
@@ -198,6 +229,7 @@ jobs:
           New-Item -ItemType Directory -Path release-private/assets, release-private/evidence/windows-x64 -Force | Out-Null
           Copy-Item record-assets/* release-private/assets/ -Recurse
           Copy-Item capture-evidence/* release-private/evidence/windows-x64/ -Recurse
+          Copy-Item (Join-Path $env:RUNNER_TEMP 'vc-runtime-prerequisite.json') release-private/evidence/windows-x64/
           Copy-Item build-record.json release-private/evidence/windows-x64/record.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -224,5 +256,6 @@ jobs:
             test-evidence/direct-*.log
             test-evidence/wmi-baseline.json
             test-evidence/compiled-process-tree.json
+            ${{ runner.temp }}/vc-runtime-prerequisite.json
           if-no-files-found: warn
           retention-days: 3

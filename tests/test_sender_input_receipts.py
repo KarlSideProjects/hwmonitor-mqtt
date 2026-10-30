@@ -39,8 +39,10 @@ def test_selected_archives_and_candidate_identity_are_bound(tmp_path):
 
 
 def test_windows_compiler_identity_comes_from_both_actual_scons_builds(tmp_path):
-    old = tmp_path / 'old-cl.exe'
-    selected = tmp_path / 'selected-cl.exe'
+    old = tmp_path / 'VC/Tools/MSVC/14.42.34433/bin/Hostx64/x64/cl.exe'
+    selected = tmp_path / 'VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe'
+    old.parent.mkdir(parents=True)
+    selected.parent.mkdir(parents=True)
     old.write_bytes(b'older compiler on PATH')
     selected.write_bytes(b'actual latest compiler')
     log = tmp_path / 'build.log'
@@ -54,3 +56,20 @@ def test_windows_compiler_identity_comes_from_both_actual_scons_builds(tmp_path)
     log.write_text(f'Scons: Compiler used {selected} (MSVC 14.3)\n')
     with pytest.raises(ValueError, match='compiler'):
         inputs.windows_compiler_evidence(log)
+
+
+def test_receipt_cannot_swap_actual_compiler_log(tmp_path):
+    compiler = tmp_path / 'VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe'
+    compiler.parent.mkdir(parents=True)
+    compiler.write_bytes(b'compiler')
+    log = tmp_path / 'compiler.log'
+    log.write_text(f'Scons: Compiler used {compiler} (MSVC 14.3)\nScons: Compiler used {compiler} (MSVC 14.3)\n')
+    evidence = inputs.windows_compiler_evidence(log)
+    provenance = {'compiler_log_sha256': hashlib.sha256(log.read_bytes()).hexdigest()}
+    inputs.verify_windows_compiler(evidence, provenance, log)
+    wrong = dict(evidence, compiler_sha256='0' * 64)
+    with pytest.raises(ValueError, match='compiler'):
+        inputs.verify_windows_compiler(wrong, provenance, log)
+    log.write_text(log.read_text() + 'changed\n')
+    with pytest.raises(ValueError, match='compiler'):
+        inputs.verify_windows_compiler(evidence, provenance, log)

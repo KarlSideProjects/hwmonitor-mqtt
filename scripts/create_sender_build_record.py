@@ -13,7 +13,7 @@ import zipfile
 from pathlib import Path
 
 from capture_sender_build import capture
-from sender_build_inputs import windows_compiler_evidence
+from sender_build_inputs import verify_windows_compiler
 from inspect_sender_candidate import (LINUX_ARCHIVE_PATHS, MAX_ARCHIVE_MEMBERS, PLATFORMS, WINDOWS_ARCHIVE_PATHS,
                                       inspect_build_evidence, inspect_runtime_files, receipt_inputs, strict_json)
 
@@ -133,9 +133,7 @@ def main():
     record['selected_inputs'] = strict_json(args.input_receipt.read_bytes())
     receipt_inputs(args.platform, record)
     if args.platform == 'windows-x64':
-        compiler = windows_compiler_evidence(args.compiler_log)
-        if any(record['selected_inputs']['toolchain'].get(k) != v for k, v in compiler.items()):
-            parser.error('receipt compiler differs from actual build')
+        verify_windows_compiler(record['selected_inputs']['toolchain'], provenance, args.compiler_log)
     args.output.write_text(json.dumps(record, indent=2, sort_keys=True) + '\n', encoding='utf-8')
 
 

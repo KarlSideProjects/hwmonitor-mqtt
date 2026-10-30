@@ -62,3 +62,17 @@ def test_capture_temporary_cleanup_fails_if_lock_persists(monkeypatch):
         with capture_module.capture_directory():
             pass
     assert len(calls) == 100
+
+
+def test_windows_capture_excludes_microsoft_runtime_dlls(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / "scripts"))
+    import capture_sender_build as module
+    calls = []
+    monkeypatch.setattr(module, 'compile_and_capture', lambda *args: calls.append(args))
+    monkeypatch.setattr(module.shutil, 'copy2', lambda *args: None)
+    monkeypatch.setattr(sys, 'argv', ['capture', '--source', str(tmp_path), '--build-dir', str(tmp_path / 'build'), '--evidence-dir', str(tmp_path / 'evidence')])
+    module.main()
+    command = calls[0][0]
+    assert {item for item in command if item.startswith('--noinclude-dlls=')} == {
+        '--noinclude-dlls=mfc140u.dll', '--noinclude-dlls=vcruntime140.dll', '--noinclude-dlls=vcruntime140_1.dll'}
+    assert '--show-scons' in command

@@ -1,6 +1,14 @@
 from pathlib import Path
 
-from _pwsh import run_pwsh
+from _pwsh import run_pwsh as _run_pwsh
+
+
+def run_pwsh(script, env=None):
+    mocks = r"""
+function Get-ItemProperty { param($LiteralPath, $ErrorAction) [pscustomobject]@{Installed=1; Version='v14.44.35211.0'} }
+function Get-Item { param($LiteralPath, $ErrorAction, [switch]$Force) if ($LiteralPath -match 'System32[\\/](mfc140u|vcruntime140|vcruntime140_1)\.dll$') { return [pscustomobject]@{VersionInfo=[pscustomobject]@{FileVersion='14.44.35211.0'}} }; Microsoft.PowerShell.Management\Get-Item -LiteralPath $LiteralPath -Force:$Force }
+"""
+    return _run_pwsh(mocks + script, env={**(env or {}), 'WINDIR': '/tmp'})
 
 
 def test_start_failure_restores_previous_package_and_settings(tmp_path):
@@ -430,3 +438,43 @@ def test_settings_write_failure_cleans_partial_and_retry_succeeds(tmp_path):
     assert result.returncode != 0
     assert (tmp_path / '.env').read_text() == 'BROKER_HOST=preserved\n'
     assert not list(tmp_path.glob('.env-*'))
+
+
+def test_missing_vc_runtime_fails_before_replacing_existing_sender(tmp_path):
+    root = tmp_path / 'installed'
+    old = root / 'package'
+    old.mkdir(parents=True)
+    (old / 'sender.exe').write_bytes(b'old')
+    stage = tmp_path / 'stage'
+    (stage / 'scripts/windows').mkdir(parents=True)
+    (stage / 'sender.exe').write_bytes(b'new')
+    (stage / 'scripts/windows/install_windows_sender_task.ps1').write_text('')
+    script = Path(__file__).resolve().parents[1] / 'scripts/windows/activate_sender_package.ps1'
+    result = _run_pwsh(r'''
+function Get-ItemProperty { param($LiteralPath, $ErrorAction) return $null }
+function Get-ScheduledTask { throw 'task must not be touched' }
+try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE -Source ('a' * 40); exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
+''', env={'ACTIVATOR': str(script), 'ROOT': str(root), 'STAGE': str(stage)})
+    assert result.returncode != 0
+    assert 'Visual C++' in result.stdout
+    assert 'https://aka.ms/vc14/vc_redist.x64.exe' in result.stdout
+    assert (old / 'sender.exe').read_bytes() == b'old'
+    assert (stage / 'sender.exe').read_bytes() == b'new'
+
+
+def test_outdated_or_incomplete_vc_runtime_fails_without_modification(tmp_path):
+    stage = tmp_path / 'stage'
+    (stage / 'scripts/windows').mkdir(parents=True)
+    (stage / 'sender.exe').write_bytes(b'new')
+    (stage / 'scripts/windows/install_windows_sender_task.ps1').write_text('')
+    script = Path(__file__).resolve().parents[1] / 'scripts/windows/activate_sender_package.ps1'
+    for version, file_version in [('v14.44.35210.0', '14.44.35211.0'), ('v14.44.35211.0', '14.44.35111.0')]:
+        result = _run_pwsh(r'''
+function Get-ItemProperty { param($LiteralPath, $ErrorAction) [pscustomobject]@{Installed=1;Version=$env:REG_VERSION} }
+function Get-Item { param($LiteralPath, $ErrorAction) [pscustomobject]@{VersionInfo=[pscustomobject]@{FileVersion=$env:FILE_VERSION}} }
+function Get-ScheduledTask { throw 'task must not be touched' }
+try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE -Source ('a' * 40) -CheckPrerequisitesOnly; exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
+''', env={'ACTIVATOR': str(script), 'ROOT': str(tmp_path / 'not-created'), 'STAGE': str(stage), 'REG_VERSION': version, 'FILE_VERSION': file_version, 'WINDIR': '/tmp'})
+        assert result.returncode != 0
+        assert 'Visual C++' in result.stdout
+        assert not (tmp_path / 'not-created').exists()
