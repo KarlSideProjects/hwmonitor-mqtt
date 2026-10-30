@@ -1,0 +1,16 @@
+flowchart TD
+    A["Select supported platform and real directory"]
+    B["Choose fixed required executable and notice paths"]
+    C["Inspect entries and reject links, unexpected paths or nonregular files"]
+    D["Reject empty data, archive signatures, selected secrets and invalid executable prefix"]
+    E["Reject missing required paths"]
+    F["Report layout result without release approval"]
+    G["Document real artifact and license review gates"]
+    H["Exercise sample layouts and rejection cases"]
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+    H --> C

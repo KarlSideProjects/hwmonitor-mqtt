@@ -7,7 +7,12 @@
       "Dockerfile",
       "README.md",
       "LICENSE",
-      "pyproject.toml"
+      "pyproject.toml",
+      "release-public/README.md",
+      "release-public/LICENSE-NOTICE.md",
+      "scripts/inspect_sender_candidate.py",
+      "tests/test_release_candidate.py",
+      "docs/release/sender-candidate.md"
     ],
     "exclude": {}
   },
@@ -41,6 +46,31 @@
       "path": "pyproject.toml",
       "kind": "file",
       "md5": "fb74708ed0e1b97777afc20963a5a958"
+    },
+    {
+      "path": "release-public/README.md",
+      "kind": "file",
+      "md5": "73120b122ad86db1f404e18c6a4cbc64"
+    },
+    {
+      "path": "release-public/LICENSE-NOTICE.md",
+      "kind": "file",
+      "md5": "5e19fee48c952ef2916bf4c8dd2c650d"
+    },
+    {
+      "path": "scripts/inspect_sender_candidate.py",
+      "kind": "file",
+      "md5": "5cd09da37cadc8aa82713525e43f163c"
+    },
+    {
+      "path": "tests/test_release_candidate.py",
+      "kind": "file",
+      "md5": "147a88186772950e765d8185ea30786c"
+    },
+    {
+      "path": "docs/release/sender-candidate.md",
+      "kind": "file",
+      "md5": "eeb40960f7712537fd1292b533e51425"
     }
   ],
   "features": [
@@ -131,6 +161,14 @@
         {
           "node": "U",
           "path": "Dockerfile"
+        },
+        {
+          "node": "V",
+          "path": "release-public/README.md"
+        },
+        {
+          "node": "W",
+          "path": "release-public/README.md"
         }
       ],
       "depends_on": []
@@ -154,6 +192,53 @@
         {
           "node": "D",
           "path": "pyproject.toml"
+        },
+        {
+          "node": "E",
+          "path": "release-public/LICENSE-NOTICE.md"
+        },
+        {
+          "node": "F",
+          "path": "release-public/LICENSE-NOTICE.md"
+        }
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "sender.release-inspection",
+      "flow": "docs/flows/sender.release-inspection.mmd",
+      "mappings": [
+        {
+          "node": "A",
+          "path": "scripts/inspect_sender_candidate.py"
+        },
+        {
+          "node": "B",
+          "path": "scripts/inspect_sender_candidate.py"
+        },
+        {
+          "node": "C",
+          "path": "scripts/inspect_sender_candidate.py"
+        },
+        {
+          "node": "D",
+          "path": "scripts/inspect_sender_candidate.py"
+        },
+        {
+          "node": "E",
+          "path": "scripts/inspect_sender_candidate.py"
+        },
+        {
+          "node": "F",
+          "path": "scripts/inspect_sender_candidate.py"
+        },
+        {
+          "node": "G",
+          "path": "docs/release/sender-candidate.md"
+        },
+        {
+          "node": "H",
+          "path": "tests/test_release_candidate.py"
         }
       ],
       "depends_on": []

@@ -20,6 +20,9 @@ flowchart TD
     S["Docker build installs dependencies and copies Python source"]
     T["Image declares default sender command"]
     U["Container execution uses default command unless overridden"]
+    V["Public release page marks required packages unavailable"]
+    W["No installer or package is published by the public baseline"]
+    V --> W
     A --> B
     B -->|no| C
     B -->|yes| D
