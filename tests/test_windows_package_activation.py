@@ -255,3 +255,28 @@ $root = $env:ROOT
     assert "retry recognized" in result.stdout
     assert (root / ".env").read_text() == "BROKER_HOST=preserved\n"
     assert not (root / "package").exists()
+
+
+def test_secret_acl_rejects_untrusted_read_and_accepts_restricted_access(tmp_path):
+    secret = tmp_path / ".env"
+    secret.write_text("MQTT_PASS=preserved\n")
+    source = (Path(__file__).resolve().parents[1] / "bootstrap.ps1").read_text()
+    functions = source[source.index("function Assert-TrustedItem"):source.index("# End trusted path checks")]
+    shell = r'''
+$trustedSids = @('S-1-5-18', 'S-1-5-32-544')
+function Get-Item { param($LiteralPath, [switch]$Force) [pscustomobject]@{Attributes=[IO.FileAttributes]::Normal} }
+function Get-Acl { param($LiteralPath)
+    $acl = [pscustomobject]@{}
+    $acl | Add-Member ScriptMethod GetOwner { param($type) [pscustomobject]@{Value='S-1-5-18'} }
+    $acl | Add-Member ScriptMethod GetAccessRules { param($a,$b,$type) @([pscustomobject]@{IdentityReference=[pscustomobject]@{Value=$env:SID}; AccessControlType='Allow'; FileSystemRights=[Security.AccessControl.FileSystemRights]::ReadData}) }
+    return $acl
+}
+''' + functions + r'''
+Assert-TrustedItem $env:ITEM $false $true
+'''
+    broad = run_pwsh(shell, env={"ITEM": str(secret), "SID": "S-1-1-0"})
+    assert broad.returncode != 0
+    assert "untrusted" in broad.stderr.lower()
+    restricted = run_pwsh(shell, env={"ITEM": str(secret), "SID": "S-1-5-18"})
+    assert restricted.returncode == 0, restricted.stderr
+    assert secret.read_text() == "MQTT_PASS=preserved\n"

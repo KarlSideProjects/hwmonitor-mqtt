@@ -6,13 +6,14 @@ $principal = [Security.Principal.WindowsPrincipal]::new($identity)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run this bootstrap from an elevated PowerShell window.' }
 if ([Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne [Runtime.InteropServices.Architecture]::X64) { throw 'Only Windows x64 is supported.' }
 $trustedSids = @('S-1-5-18', 'S-1-5-32-544', 'S-1-3-0', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464', $identity.User.Value)
-function Assert-TrustedItem([string]$Path, [bool]$Ancestor) {
+function Assert-TrustedItem([string]$Path, [bool]$Ancestor, [bool]$Secret = $false) {
     $item = Get-Item -LiteralPath $Path -Force
     if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Untrusted reparse path: $Path" }
     $acl = Get-Acl -LiteralPath $Path
     if ($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -notin $trustedSids) { throw "Untrusted owner: $Path" }
     $mask = [int][Security.AccessControl.FileSystemRights]::Delete -bor [int][Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor [int][Security.AccessControl.FileSystemRights]::ChangePermissions -bor [int][Security.AccessControl.FileSystemRights]::TakeOwnership
     if (-not $Ancestor) { $mask = $mask -bor [int][Security.AccessControl.FileSystemRights]::Write }
+    if ($Secret) { $mask = $mask -bor [int][Security.AccessControl.FileSystemRights]::ReadData }
     foreach ($rule in $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
         if ($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin $trustedSids -and (([int]$rule.FileSystemRights -band $mask) -ne 0)) { throw "Untrusted write access: $Path" }
     }
@@ -30,7 +31,7 @@ if (Test-Path $root) {
     foreach ($relative in @('.env', '.hwmonitor-mqtt-bootstrap', '.hwmonitor-mqtt-bootstrap-pending', 'scripts', 'package')) {
         $path = Join-Path $root $relative
         if (Test-Path -LiteralPath $path) {
-            Assert-TrustedItem $path $false
+            Assert-TrustedItem $path $false ($relative -eq '.env')
             if ((Get-Item -LiteralPath $path -Force).PSIsContainer) {
                 Get-ChildItem -LiteralPath $path -Force -Recurse | ForEach-Object { Assert-TrustedItem $_.FullName $false }
             }
