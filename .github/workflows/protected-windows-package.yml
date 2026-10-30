@@ -281,7 +281,7 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or -not (Select-String -Path sensors-restored.log -SimpleMatch 'available: True' -Quiet)) { throw 'Restored runtime sensor smoke failed.' }
           $sensors = Get-Content sensors-restored.json -Raw | ConvertFrom-Json
           if ($null -eq $sensors.sensors) { throw 'Missing restored sensor array.' }
-          & tests/windows_compiled_mqtt_smoke.ps1 -SenderExe (Resolve-Path build/windows/sender.exe).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe')
+          & tests/windows_compiled_mqtt_smoke.ps1 -SenderExe (Resolve-Path build/windows/sender.exe).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -RequireWmiFallback
       - name: Rehearse official bootstrap with Windows PowerShell 5.1
         shell: powershell
         run: |
