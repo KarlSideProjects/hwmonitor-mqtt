@@ -30,7 +30,7 @@ jobs:
         shell: pwsh
         run: |
           .venv/Scripts/python.exe -m nuitka --version
-          .venv/Scripts/python.exe -m nuitka --onefile --msvc=latest --assume-yes-for-downloads --output-dir=build/windows --output-filename=sender.exe --include-package=pythonnet --include-package=clr_loader --include-module=clr --include-package=win32com hwmonitor_mqtt/agents/agent_sender_windows.py
+          .venv/Scripts/python.exe -m nuitka --onefile --msvc=latest --assume-yes-for-downloads --output-dir=build/windows --report=build/windows/nuitka-report.xml --output-filename=sender.exe --include-package=pythonnet --include-package=clr_loader --include-module=clr --include-package=win32com hwmonitor_mqtt/agents/agent_sender_windows.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Get-FileHash build/windows/sender.exe -Algorithm SHA256
       - name: Install pinned LibreHardwareMonitor in the disposable runner
@@ -47,9 +47,26 @@ jobs:
           if (-not (Select-String -Path sensors.log -SimpleMatch 'available: True' -Quiet)) { throw 'LHM library did not load' }
           $sensors = Get-Content sensors.json -Raw | ConvertFrom-Json
           if ($null -eq $sensors.sensors) { throw 'Missing sensor array' }
+      - name: Assemble and validate private candidate
+        shell: pwsh
+        run: |
+          $source = (git rev-parse HEAD).Trim()
+          if ($source -cne $env:GITHUB_SHA -or (git status --porcelain --untracked-files=no)) { throw 'Source checkout is not the clean workflow commit' }
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/python/cpython/v3.13.17/LICENSE' -OutFile python-license.txt
+          if ((Get-FileHash python-license.txt -Algorithm SHA256).Hash -ne '78B12C3A81360B357002334F0E70EA0E92EEBF7A9B358805C03C48484945F3BB') { throw 'Python license SHA-256 mismatch' }
+          .venv/Scripts/python.exe scripts/windows/collect_notices.py --output notices --inventory notice-inventory.json --python-license python-license.txt paho-mqtt psutil python-dotenv pythonnet clr-loader cffi pycparser pywin32 WMI
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv/Scripts/python.exe scripts/windows/package_sender.py --executable build/windows/sender.exe --notices notices --output candidate --source $source --version 0.0.0 --compiler 'Nuitka 2.8.9'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $archive = 'candidate/sender-windows-x64.zip'
+          & scripts/windows/validate_sender_package.ps1 -Archive $archive -Sha256 (Get-FileHash $archive -Algorithm SHA256).Hash -Destination candidate-staged
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: windows-sender-wip
-          path: build/windows/sender.exe
+          path: |
+            candidate/sender-windows-x64.zip
+            candidate/sender-windows-x64.zip.sha256
+            notice-inventory.json
+            build/windows/nuitka-report.xml
           if-no-files-found: error
           retention-days: 3
