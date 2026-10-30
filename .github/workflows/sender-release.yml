@@ -88,15 +88,18 @@ jobs:
           test "$(git rev-parse HEAD)" = "$SOURCE"
           curl --fail --location --retry 3 "https://github.com/astral-sh/python-build-standalone/releases/download/20260728/$PYTHON_ARCHIVE" -o "$RUNNER_TEMP/python.tar.gz"
           printf '%s  %s\n' "$PYTHON_SHA" "$RUNNER_TEMP/python.tar.gz" | sha256sum -c -
-          docker run --rm -v "$GITHUB_WORKSPACE:/src" -v "$RUNNER_TEMP:/work" -w /src -e VERSION "$BUILD_IMAGE" bash -ec '
+          RUNNER_UID=$(id -u) RUNNER_GID=$(id -g)
+          export RUNNER_UID RUNNER_GID
+          docker run --rm -v "$GITHUB_WORKSPACE:/src" -v "$RUNNER_TEMP:/work" -w /src -e VERSION -e RUNNER_UID -e RUNNER_GID "$BUILD_IMAGE" bash -ec '
             apt-get update
-            apt-get install -y --no-install-recommends git gcc=4:10.2.1-1 patchelf=0.12-1
+            apt-get install -y --no-install-recommends git gcc=4:10.2.1-1 gcc-10=10.2.1-6 libc6-dev=2.31-13+deb11u14 patchelf=0.12-1
             git config --global --add safe.directory /src
             mkdir -p /opt/pbs /work/result
             tar -xzf /work/python.tar.gz -C /opt/pbs --strip-components=1
             /opt/pbs/bin/python3.11 -m venv /tmp/build-venv
             /tmp/build-venv/bin/pip install --no-build-isolation --require-hashes --force-reinstall -r scripts/requirements-sender-build.txt
             /tmp/build-venv/bin/python scripts/build_sender_package.py --version "$VERSION" --output /work/result
+            chown -R "$RUNNER_UID:$RUNNER_GID" /work/result
           '
       - name: Build image and independent build record
         run: |
@@ -210,7 +213,8 @@ jobs:
 
   # A scheduled or manual drain can recover READY drafts after interrupted runs.
   publisher:
-    if: github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.source == ''))
+    needs: prepare
+    if: ${{ always() && github.ref == 'refs/heads/master' && (needs.prepare.result == 'success' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.source == '')) }}
     runs-on: ubuntu-latest
     environment: sender-release-publisher
     concurrency:

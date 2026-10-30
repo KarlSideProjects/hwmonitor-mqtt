@@ -47,3 +47,36 @@ def test_preparation_requires_all_build_jobs_and_uses_controller():
     assert 'scripts/release_controller.py prepare' in workflow
     assert 'SOURCE_WORKFLOW_TOKEN: ${{ github.token }}' in workflow
     assert 'actions: write' in workflow
+
+
+def test_build_tree_remains_private_but_owned_by_runner():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    assert 'libc6-dev' in workflow
+    assert 'chown -R "$RUNNER_UID:$RUNNER_GID" /work/result' in workflow
+    assert 'chmod -R' not in workflow
+
+
+def test_publisher_requires_successful_prepare_or_explicit_recovery():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    publisher = workflow.split('  publisher:', 1)[1]
+    assert 'needs: prepare' in publisher
+    assert "needs.prepare.result == 'success'" in publisher
+    assert "github.event_name == 'schedule'" in publisher
+    assert "github.event_name == 'workflow_dispatch' && inputs.source == ''" in publisher
+    assert 'always()' in publisher
+
+
+def test_publisher_trigger_cases():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    expression = workflow.split('  publisher:', 1)[1].split('if: ${{ ', 1)[1].split(' }}', 1)[0]
+    expression = expression.replace('always()', 'True').replace('&&', ' and ').replace('||', ' or ')
+    for key, replacement in {'github.ref': 'ref', 'github.event_name': 'event', 'needs.prepare.result': 'result', 'inputs.source': 'source'}.items():
+        expression = expression.replace(key, replacement)
+    def allowed(event, result, source=''):
+        return eval(expression, {'__builtins__': {}}, {'ref': 'refs/heads/master', 'event': event, 'result': result, 'source': source})
+    assert allowed('push', 'success')
+    assert not allowed('push', 'failure')
+    assert allowed('schedule', 'skipped')
+    assert allowed('workflow_dispatch', 'skipped')
+    assert allowed('workflow_dispatch', 'success', 'a' * 40)
+    assert not allowed('workflow_dispatch', 'failure', 'a' * 40)
