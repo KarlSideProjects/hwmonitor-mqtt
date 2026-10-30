@@ -1,0 +1,145 @@
+name: Windows compiled sender WIP
+
+on:
+  push:
+    branches: [jhihweijhan/implement-spec-task-a6fe7c06]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    env:
+      OLD_SENDER_SHA256: '50292A12CDAA2AE894D95168A49D1D8DAB612F33BE3418BCA456DFDD996A20A6'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: windows-sender-wip
+          path: old-binary
+          run-id: 41105755482
+          github-token: ${{ github.token }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.13.17'
+          architecture: x64
+      - uses: astral-sh/setup-uv@22695119d769bdb6f7032ad67b9bca0ef8c4a174 # v5.4.0
+        with:
+          version: '0.13.6'
+      - name: Install locked application and pinned compiler dependencies
+        run: |
+          uv sync --locked --python (Get-Command python).Source
+          uv pip install --python .venv/Scripts/python.exe --no-deps --require-hashes -r scripts/windows/requirements-build-backend.txt
+          uv pip install --python .venv/Scripts/python.exe --no-build-isolation --no-deps --require-hashes -r scripts/windows/requirements-build.txt
+          .venv/Scripts/python.exe -c "import sys; print(sys.version); assert sys.version_info[:3] == (3, 13, 17)"
+      - name: Pin the build-only Dependency Walker archive
+        shell: pwsh
+        run: |
+          $cache = (& .venv/Scripts/python.exe -c "from nuitka.utils.Download import getDownloadCacheDir; from nuitka.utils.Utils import getArchitecture; import os; assert getArchitecture() == 'x86_64'; print(os.path.join(getDownloadCacheDir(), 'depends', getArchitecture()))").Trim()
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Force -Path $cache | Out-Null
+          if (Test-Path (Join-Path $cache 'depends.exe')) { throw 'Unexpected cached Dependency Walker executable' }
+          $archive = Join-Path $cache 'depends22_x64.zip'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://dependencywalker.com/depends22_x64.zip' -OutFile $archive
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne '35DB68A613874A2E8C1422EB0EA7861F825FC71717D46DABF1F249CE9634B4F1') { throw 'Dependency Walker archive SHA-256 mismatch' }
+      - name: Build Windows x64 executable
+        shell: pwsh
+        run: |
+          .venv/Scripts/python.exe -m nuitka --version
+          .venv/Scripts/python.exe -m nuitka --onefile --msvc=latest --output-dir=build/windows --report=build/windows/nuitka-report.xml --output-filename=sender.exe --include-package=pythonnet --include-package=clr_loader --include-module=clr --nofollow-import-to=win32com.test --nofollow-import-to=win32com.demos hwmonitor_mqtt/agents/agent_sender_windows.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv/Scripts/python.exe -c "import xml.etree.ElementTree as E; r=E.parse('build/windows/nuitka-report.xml').getroot(); names={m.get('name') for m in r.findall('module')}; bad=[n for n in names if n and n.startswith(('win32com.test', 'win32com.demos'))]; required={'wmi','pythoncom','win32com.client','clr','pythonnet','clr_loader'}; assert not bad, bad; assert required <= names, required-names; print('Required COM/CLR modules present; test/demo modules excluded')"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-FileHash build/windows/sender.exe -Algorithm SHA256
+      - name: Install pinned LibreHardwareMonitor in the disposable runner
+        shell: powershell
+        run: |
+          & scripts/windows/install_windows_sender_task.ps1 -ProjectRoot "$PWD" -UseUv:$false -EnsurePawnIo:$false -AtStartup
+          Unregister-ScheduledTask -TaskName 'HWMonitorMQTTSender' -Confirm:$false
+      - name: Test compiled executable sensor entrypoint
+        shell: pwsh
+        run: |
+          $env:LHM_PATH = Join-Path $PWD 'third_party/librehardwaremonitor/LibreHardwareMonitor.exe'
+          & build/windows/sender.exe --dump-sensors > sensors.json 2> sensors.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-Content sensors.log
+          if (-not (Select-String -Path sensors.log -SimpleMatch 'available: True' -Quiet)) { throw 'LHM library did not load' }
+          $sensors = Get-Content sensors.json -Raw | ConvertFrom-Json
+          if ($null -eq $sensors.sensors) { throw 'Missing sensor array' }
+      - name: Install pinned broker on the disposable runner
+        shell: pwsh
+        run: |
+          $setupPath = Join-Path $env:RUNNER_TEMP 'mosquitto-setup.exe'
+          $brokerDir = Join-Path $env:RUNNER_TEMP 'mosquitto-test'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://mosquitto.org/files/binary/win64/mosquitto-2.1.2-install-windows-x64.exe' -OutFile $setupPath
+          if ((Get-FileHash -LiteralPath $setupPath -Algorithm SHA256).Hash -ne '58008AD7A22ADA0B4073AFA415801746E027C5F583E4FA52D0F4E9193B98D6AA') { throw 'Test broker installer SHA-256 mismatch' }
+          $setup = Start-Process -FilePath $setupPath -ArgumentList '/S', "/D=$brokerDir" -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "Test broker install failed: $($setup.ExitCode)" }
+      - name: Observe compiled sender profiles on an isolated broker
+        shell: pwsh
+        run: |
+          & tests/windows_compiled_mqtt_smoke.ps1 -SenderExe (Resolve-Path build/windows/sender.exe).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe')
+      - name: Assemble and validate private candidate
+        shell: pwsh
+        run: |
+          $source = (git rev-parse HEAD).Trim()
+          if ($source -cne $env:GITHUB_SHA -or (git status --porcelain --untracked-files=no)) { throw 'Source checkout is not the clean workflow commit' }
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://www.python.org/ftp/python/3.13.17/python-3.13.17-embed-amd64.zip' -OutFile python-embed.zip
+          if ((Get-FileHash python-embed.zip -Algorithm SHA256).Hash -ne '9E35319BFFEDAB8B36AD44D8F377CB4F1733BCEC257A0B6D04D94F01486DDB38') { throw 'Python archive SHA-256 mismatch' }
+          Expand-Archive -LiteralPath python-embed.zip -DestinationPath python-embed
+          .venv/Scripts/python.exe -c "from pathlib import Path; import hashlib; dist=Path('build/windows/agent_sender_windows.dist'); embed=Path('python-embed'); required={'python313.dll','libssl-3.dll','libcrypto-3.dll','libffi-8.dll'}; assert all((dist / n).is_file() and (embed / n).is_file() for n in required); shared=[p for p in dist.iterdir() if p.is_file() and (embed / p.name).is_file()]; assert all(hashlib.sha256(p.read_bytes()).digest() == hashlib.sha256((embed / p.name).read_bytes()).digest() for p in shared); print('Verified matching CPython binary archive files:', len(shared))"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item -LiteralPath python-embed/LICENSE.txt -Destination python-license.txt
+          if ((Get-FileHash python-license.txt -Algorithm SHA256).Hash -ne '62BEC384DF47B0328307DB41455FF6EA2559E5546B394AC69148561B21703120') { throw 'Python license SHA-256 mismatch' }
+          .venv/Scripts/python.exe scripts/windows/collect_notices.py --output notices --inventory notice-inventory.json --python-license python-license.txt --report build/windows/nuitka-report.xml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv/Scripts/python.exe scripts/windows/inventory_sender_dist.py --dist build/windows/agent_sender_windows.dist --output dist-inventory.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv/Scripts/python.exe scripts/windows/package_sender.py --executable build/windows/sender.exe --notices notices --output candidate --source $source --version 0.0.1 --compiler 'Nuitka 2.8.9' --python-version '3.13.17' --report build/windows/nuitka-report.xml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ((Get-FileHash old-binary/build/windows/sender.exe -Algorithm SHA256).Hash -ne $env:OLD_SENDER_SHA256) { throw 'Prior native executable SHA-256 mismatch' }
+          New-Item -ItemType Directory -Path old-source | Out-Null
+          git archive --output old-source.tar 46bcc40d232cc2720b188c795d87e33d0894ea73 scripts/windows/install_windows_sender_task.ps1 scripts/windows/start_windows_sender.ps1 release-public/LICENSE-NOTICE.md
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          tar -xf old-source.tar -C old-source
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv/Scripts/python.exe scripts/windows/collect_notices.py --output old-notices --inventory old-notice-inventory.json --python-license python-license.txt --report old-binary/build/windows/nuitka-report.xml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv/Scripts/python.exe scripts/windows/package_sender.py --executable old-binary/build/windows/sender.exe --notices old-notices --output old-candidate --source 46bcc40d232cc2720b188c795d87e33d0894ea73 --source-root old-source --version 0.0.0 --compiler 'Nuitka 2.8.9' --python-version '3.13.17'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv/Scripts/python.exe scripts/windows/package_sender.py --executable (Join-Path $env:WINDIR 'SysWOW64/cmd.exe') --notices notices --output wrong-arch --source $source --version 0.0.1 --compiler 'failure injection' --python-version '3.13.17'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $archive = 'candidate/sender-windows-x64.zip'
+          & scripts/windows/validate_sender_package.ps1 -Archive $archive -Sha256 (Get-FileHash $archive -Algorithm SHA256).Hash -Destination candidate-staged
+      - name: Rehearse official bootstrap with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          & tests/windows_official_install_smoke.ps1 -Candidate (Resolve-Path old-candidate).Path -UpgradeCandidate (Resolve-Path candidate).Path -WrongArchCandidate (Resolve-Path wrong-arch).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource 46bcc40d232cc2720b188c795d87e33d0894ea73 -OldSha256 $env:OLD_SENDER_SHA256 -Source $env:GITHUB_SHA
+      - name: Rehearse official bootstrap with PowerShell 7
+        shell: pwsh
+        run: |
+          & tests/windows_official_install_smoke.ps1 -Candidate (Resolve-Path old-candidate).Path -UpgradeCandidate (Resolve-Path candidate).Path -WrongArchCandidate (Resolve-Path wrong-arch).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource 46bcc40d232cc2720b188c795d87e33d0894ea73 -OldSha256 $env:OLD_SENDER_SHA256 -Source $env:GITHUB_SHA
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: windows-sender-wip
+          path: |
+            build/windows/sender.exe
+            candidate/sender-windows-x64.zip
+            candidate/sender-windows-x64.zip.sha256
+            notice-inventory.json
+            dist-inventory.json
+            build/windows/nuitka-report.xml
+            test-evidence/process-tree-ps*.json
+            test-evidence/direct-*.log
+            test-evidence/wmi-baseline.json
+            test-evidence/compiled-process-tree.json
+          if-no-files-found: warn
+          retention-days: 3
