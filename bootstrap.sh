@@ -62,6 +62,16 @@ if command -v pveversion >/dev/null 2>&1 && dpkg-query -W -f='${Status}' pve-man
 else
     target=linux
 fi
+if [[ $target == linux ]] && command -v systemctl >/dev/null 2>&1; then
+    native_state=$(systemctl show --property=LoadState --property=ActiveState --property=UnitFileState hwmonitor-mqtt-pve.service) || { echo 'Cannot inspect the native sender service.' >&2; exit 1; }
+    load_state=$(sed -n 's/^LoadState=//p' <<<"$native_state")
+    active_state=$(sed -n 's/^ActiveState=//p' <<<"$native_state")
+    unit_state=$(sed -n 's/^UnitFileState=//p' <<<"$native_state")
+    if [[ ! ( $load_state == not-found && $active_state == inactive && -z $unit_state ) && ! ( $load_state == loaded && $active_state == inactive && $unit_state == disabled ) ]]; then
+        echo 'Native sender is active, enabled or in an unknown state; disable it before using Docker.' >&2
+        exit 1
+    fi
+fi
 pve_config=${PVE_CONFIG_FILE:-/etc/hwmonitor-mqtt/pve.env}
 mkdir -p "$root"
 exec 9>"$root/.sender-install.lock"

@@ -51,7 +51,7 @@ def release(tmp_path):
     server.shutdown(); server.server_close(); thread.join()
 
 
-def run_installer(tmp_path, port, *, existing=True, fail=False, input_text=""):
+def run_installer(tmp_path, port, *, existing=True, fail=False, input_text="", native_active=False):
     (tmp_path / "bin").mkdir(exist_ok=True)
     docker = tmp_path / "bin" / "docker"
     docker.write_text('''#!/bin/sh
@@ -66,6 +66,10 @@ esac
 ''')
     docker.chmod(0o755)
     virt = tmp_path / "bin" / "systemd-detect-virt"; virt.write_text("#!/bin/sh\nexit 1\n"); virt.chmod(0o755)
+    if native_active:
+        systemctl = tmp_path / "bin" / "systemctl"
+        systemctl.write_text("#!/bin/sh\nprintf 'LoadState=loaded\\nActiveState=active\\nUnitFileState=enabled\\n'\n")
+        systemctl.chmod(0o755)
     root = tmp_path / "root"
     if existing:
         root.mkdir()
@@ -117,3 +121,13 @@ def test_new_install_quotes_password_for_compose(release, tmp_path):
     envfile = tmp_path / "check.env"; envfile.write_bytes(content)
     parsed = subprocess.run(["docker", "compose", "--env-file", str(envfile), "-f", str(root / "docker-compose.linux.yml"), "config", "--environment"], env={**os.environ, "SENDER_HOSTNAME": "test"}, capture_output=True, text=True, check=True)
     assert f"MQTT_PASS={password}" in parsed.stdout.splitlines()
+
+
+def test_active_native_sender_blocks_docker_without_replacing_existing_files(release, tmp_path):
+    port, _, _ = release
+    result, root = run_installer(tmp_path, port, native_active=True)
+    assert result.returncode != 0
+    assert (root / "sender").read_text() == "old binary"
+    assert (root / ".env").read_text() == "private settings"
+    calls = (tmp_path / "docker-calls").read_text() if (tmp_path / "docker-calls").exists() else ""
+    assert " up " not in calls
