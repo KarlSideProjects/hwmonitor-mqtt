@@ -23,3 +23,11 @@ Uses the default five canonical triage labels (`needs-triage`, `needs-info`, `re
 ### Domain docs
 
 Single-context layout (`GLOSSARY.md` at the repo root and `docs/adr/`). See `docs/agents/domain.md`.
+
+## [MANDATORY] Flow Documentation Sync Gate
+
+1. Before changing code or behavior-bearing inputs, read `docs/flows/README.md`, `docs/flow-manifest.json`, and the affected flows and contracts. Report affected feature IDs before the first edit. Verify missing or untrusted baselines against source; unreadable required documents block dependent edits.
+2. The delivery boundary is a non-draft pull request. WIP retains pending impact. Before delivery, synchronize affected documents and fingerprints, obtain independent review, and validate the actual candidate against a trusted comparison base. Revalidate later candidates and preserve human approvals. Missing checks or coverage prevent completion claims.
+3. Each executing agent reads its own affected documents and rechecks the read set on scope changes or handoff.
+
+The bounded scope and gaps are in `docs/flows/README.md`; the manifest is `docs/flow-manifest.json` and the shared contract is `docs/flows/contracts.md`. Run `python3 tools/flow-docs/flow_checker.py check --root . --base <trusted-base-sha>` after `snapshot`; do not compare a committed candidate to itself. No local hook, generation automation, or required candidate CI is configured by this adoption. Existing CI and protections remain unchanged.

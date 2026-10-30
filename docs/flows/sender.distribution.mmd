@@ -1,0 +1,12 @@
+flowchart TD
+    A["Linux bootstrap downloads source archive"]
+    B["Validate and copy source"]
+    C["Invoke installer"]
+    D["Windows bootstrap downloads source archive on first install"]
+    E["Invoke scheduled task installer"]
+    F["Docker build copies Python source"]
+    G["Run Linux sender"]
+    A --> B
+    B --> C
+    D --> E
+    F --> G

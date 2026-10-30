@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "scope": {
+    "include": [
+      "bootstrap.sh",
+      "bootstrap.ps1",
+      "Dockerfile",
+      "README.md",
+      "LICENSE",
+      "pyproject.toml"
+    ],
+    "exclude": {}
+  },
+  "sources": [
+    {
+      "path": "bootstrap.sh",
+      "kind": "file",
+      "md5": "03868829c310390d72ad167e48d5f125"
+    },
+    {
+      "path": "bootstrap.ps1",
+      "kind": "file",
+      "md5": "f783e44d2a8ac7fd2e2028831d17cdec"
+    },
+    {
+      "path": "Dockerfile",
+      "kind": "file",
+      "md5": "99065d1fb3c6eac30da348b0746ad040"
+    },
+    {
+      "path": "README.md",
+      "kind": "file",
+      "md5": "72be271ff511f43a9321dd90158f22e8"
+    },
+    {
+      "path": "LICENSE",
+      "kind": "file",
+      "md5": "1ebbd3e34237af26da5dc08a4e440464"
+    },
+    {
+      "path": "pyproject.toml",
+      "kind": "file",
+      "md5": "fb74708ed0e1b97777afc20963a5a958"
+    }
+  ],
+  "features": [
+    {
+      "id": "sender.distribution",
+      "flow": "docs/flows/sender.distribution.mmd",
+      "mappings": [
+        {
+          "node": "A",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "B",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "C",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "D",
+          "path": "bootstrap.ps1"
+        },
+        {
+          "node": "E",
+          "path": "bootstrap.ps1"
+        },
+        {
+          "node": "F",
+          "path": "Dockerfile"
+        },
+        {
+          "node": "G",
+          "path": "Dockerfile"
+        }
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "sender.license",
+      "flow": "docs/flows/sender.license.mmd",
+      "mappings": [
+        {
+          "node": "A",
+          "path": "README.md"
+        },
+        {
+          "node": "B",
+          "path": "LICENSE"
+        },
+        {
+          "node": "C",
+          "path": "pyproject.toml"
+        },
+        {
+          "node": "D",
+          "path": "pyproject.toml"
+        }
+      ],
+      "depends_on": []
+    }
+  ],
+  "reviews": [],
+  "policy_inputs": [
+    "AGENTS.md",
+    "tools/flow-docs/flow_checker.py",
+    "tools/flow-docs/flow_parsers.py",
+    "tools/flow-docs/requirements-ast.txt",
+    "docs/flows/contracts.md"
+  ],
+  "limits": {
+    "nodes": 25,
+    "branch_depth": 8
+  }
+}
