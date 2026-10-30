@@ -6,10 +6,15 @@ $principal = [Security.Principal.WindowsPrincipal]::new($identity)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run this bootstrap from an elevated PowerShell window.' }
 if ([Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne [Runtime.InteropServices.Architecture]::X64) { throw 'Only Windows x64 is supported.' }
 if (Test-Path $root) {
-    if (-not (Test-Path (Join-Path $root '.hwmonitor-mqtt-bootstrap'))) { throw "Refusing to use existing unrecognized directory: $root" }
-    $installed = "$(Get-Content -Raw (Join-Path $root '.hwmonitor-mqtt-bootstrap'))".Trim()
-    if (-not $installed) { $installed = 'unknown' }
-    Write-Output "Installed source: $installed"
+    $oldInstall = (Test-Path (Join-Path $root 'install.sh')) -and (Test-Path (Join-Path $root 'scripts/windows/install_windows_sender_task.ps1'))
+    $compiledInstall = Test-Path (Join-Path $root 'package/sender.exe') -PathType Leaf
+    $pendingInstall = (Test-Path (Join-Path $root '.hwmonitor-mqtt-bootstrap-pending')) -and -not (Test-Path (Join-Path $root 'package'))
+    if (-not $pendingInstall -and (-not (Test-Path (Join-Path $root '.hwmonitor-mqtt-bootstrap')) -or -not ($oldInstall -or $compiledInstall))) { throw "Refusing to use existing unrecognized directory: $root" }
+    if (-not $pendingInstall) {
+        $installed = "$(Get-Content -Raw (Join-Path $root '.hwmonitor-mqtt-bootstrap'))".Trim()
+        if (-not $installed) { $installed = 'unknown' }
+        Write-Output "Installed source: $installed"
+    }
 }
 New-Item -ItemType Directory -Path $temp | Out-Null
 try {
@@ -49,7 +54,10 @@ try {
     & $validator -Archive $archive.Path -Sha256 $archive.Sha256 -Destination $staged
     $manifest = [IO.File]::ReadAllText((Join-Path $staged 'manifest.json')) | ConvertFrom-Json
     if ($manifest.version -cne $version.version -or $manifest.source -cne $version.source) { throw 'Package identity does not match release metadata.' }
-    if (-not (Test-Path $root)) { New-Item -ItemType Directory -Path $root | Out-Null }
+    if (-not (Test-Path $root)) {
+        New-Item -ItemType Directory -Path $root | Out-Null
+        New-Item -ItemType File -Path (Join-Path $root '.hwmonitor-mqtt-bootstrap-pending') | Out-Null
+    }
 
     $envFile = Join-Path $root '.env'
     if (-not (Test-Path $envFile)) {
@@ -89,6 +97,7 @@ try {
 
     & $activator -ProjectRoot $root -StagedPackage $staged
     [IO.File]::WriteAllText((Join-Path $root '.hwmonitor-mqtt-bootstrap'), $version.source + "`n", [Text.UTF8Encoding]::new($false))
+    Remove-Item -LiteralPath (Join-Path $root '.hwmonitor-mqtt-bootstrap-pending') -Force -ErrorAction SilentlyContinue
     Write-Output "Sender $($version.version) installed and started from $root."
 }
 finally {
