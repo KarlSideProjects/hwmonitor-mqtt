@@ -18,3 +18,16 @@ def test_compiled_sender_inherits_install_directory_and_lhm_path(tmp_path):
     )
     assert result.returncode == 23, result.stdout + result.stderr
     assert result.stdout.splitlines() == [str(tmp_path), "example-lhm.exe"]
+
+
+def test_task_installer_targets_compiled_sender_without_python_setup(tmp_path):
+    sender = tmp_path / "sender.exe"
+    sender.write_bytes(b"placeholder")
+    script = Path(__file__).resolve().parents[1] / "scripts/windows/install_windows_sender_task.ps1"
+    result = run_pwsh(
+        '& $env:INSTALL_SCRIPT -ProjectRoot $env:PROJECT_ROOT -SenderExe $env:SENDER_EXE -EnsureLhm:$false -EnsurePawnIo:$false -WhatIf',
+        env={"INSTALL_SCRIPT": str(script), "PROJECT_ROOT": str(tmp_path), "SENDER_EXE": str(sender)},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert f'-SenderExe "{sender}"' in result.stdout
+    assert "-UseUv" not in result.stdout
