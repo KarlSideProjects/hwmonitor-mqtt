@@ -27,3 +27,25 @@ jobs:
         run: |
           echo 'publication is disabled: platform evidence and independent legal inspection are not wired'
           exit 1
+
+  # Disabled until the protected inspector can produce a trusted receipt.
+  prepare:
+    if: ${{ false }}
+    needs: version
+    runs-on: ubuntu-latest
+    concurrency:
+      group: sender-prepare-${{ github.sha }}
+      queue: max
+    steps:
+      - run: exit 1
+
+  # READY drafts are durable; a later drain must recover queue overflow.
+  publisher:
+    if: ${{ false }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    concurrency:
+      group: sender-publisher
+      queue: max
+    steps:
+      - run: exit 1

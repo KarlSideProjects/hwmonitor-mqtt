@@ -5,12 +5,17 @@ import re
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import quote, urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from check_release_assets import check
+from check_release_assets import ASSETS, check
 
 REPO = '/repos/KarlSideProjects/hwmonitor-mqtt-releases'
 PREFIX = 'sender-release-v1:'
+
+
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 class GitHub:
@@ -37,7 +42,7 @@ class GitHub:
             headers['Content-Type'] = 'application/octet-stream'
         req = Request((self.upload if upload else self.api) + REPO + path, data=data, headers=headers, method=method)
         try:
-            with urlopen(req, timeout=30) as response:
+            with build_opener(NoRedirect()).open(req, timeout=30) as response:
                 content = response.read()
                 return response.status, json.loads(content) if content else None
         except HTTPError as error:
@@ -63,7 +68,8 @@ def identity(receipt):
         raise ValueError('invalid source')
     if not isinstance(version, str) or not re.fullmatch(r'0\.1\.[1-9][0-9]*', version):
         raise ValueError('invalid version')
-    if not isinstance(assets, dict) or any(not isinstance(v, dict) or set(v) != {'size', 'digest'} or
+    required = {'version.json'} | set(ASSETS) | {name + '.sha256' for name in ASSETS}
+    if not isinstance(assets, dict) or set(assets) != required or any(not isinstance(v, dict) or set(v) != {'size', 'digest'} or
             type(v['size']) is not int or v['size'] < 0 or not isinstance(v['digest'], str) or
             not re.fullmatch(r'sha256:[0-9a-f]{64}', v['digest']) for v in assets.values()):
         raise ValueError('invalid receipt assets')
@@ -112,7 +118,9 @@ def remote_assets(api, release, receipt, recover=False):
         seen.add(name)
         if asset.get('state') == 'starter' and recover:
             status, fresh = api.request('GET', f"/releases/{release['id']}")
-            if status != 200 or fresh != release or not fresh['draft'] or parse(fresh)[0] != 'STAGING':
+            if (status != 200 or not isinstance(fresh, dict) or fresh.get('id') != release['id']
+                    or fresh.get('tag_name') != release['tag_name'] or fresh.get('body') != release['body']
+                    or fresh.get('draft') is not True or parse(fresh)[0] != 'STAGING'):
                 raise ValueError('draft changed before starter recovery')
             status, _ = api.request('DELETE', f"/releases/assets/{asset['id']}")
             if status != 204:
