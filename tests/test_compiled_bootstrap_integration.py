@@ -53,7 +53,7 @@ def release(tmp_path):
     server.shutdown(); server.server_close(); thread.join()
 
 
-def run_installer(tmp_path, port, *, existing=True, fail=False, input_text="", native_active=False, mutate_stage=False, target_pve=False, unstable=False, rollback_failure=False, reuse=False, stopped=False, race=False, pin_failure=False, pin_replaced=False):
+def run_installer(tmp_path, port, *, existing=True, fail=False, input_text="", native_active=False, mutate_stage=False, target_pve=False, unstable=False, rollback_failure=False, reuse=False, stopped=False, race=False, pin_failure=False, pin_replaced=False, restore_failure=False):
     (tmp_path / "bin").mkdir(exist_ok=True)
     docker = tmp_path / "bin" / "docker"
     docker.write_text('''#!/bin/sh
@@ -71,6 +71,10 @@ esac
 ''')
     docker.chmod(0o755)
     virt = tmp_path / "bin" / "systemd-detect-virt"; virt.write_text("#!/bin/sh\nexit 1\n"); virt.chmod(0o755)
+    if restore_failure:
+        cp = tmp_path / "bin" / "cp"
+        cp.write_text("#!/bin/sh\ncase \"$2\" in /work/root/.sender-rollback.*/sender) exit 1;; esac\nexec /bin/cp \"$@\"\n")
+        cp.chmod(0o755)
     if race:
         mkdir = tmp_path / "bin" / "mkdir"
         mkdir.write_text("#!/bin/sh\nif [ \"$1\" = /work/root ]; then /bin/mkdir /work/root; echo untouched >/work/root/sentinel; fi\nexec /bin/mkdir \"$@\"\n")
@@ -278,4 +282,17 @@ def test_replaced_rollback_pin_is_not_retagged_or_deleted(release, tmp_path):
     assert list(root.glob('.sender-rollback.*'))
     calls = (tmp_path / 'docker-calls').read_text()
     assert ' old:tag' not in calls
+    assert 'image rm hwmonitor-mqtt-rollback:' not in calls
+
+
+def test_failed_file_restore_keeps_backup_and_image_without_restart(release, tmp_path):
+    port, _, _ = release
+    result, root = run_installer(tmp_path, port, fail=True, restore_failure=True)
+    assert result.returncode != 0
+    assert 'rollback failed' in result.stderr.lower()
+    assert list(root.glob('.sender-rollback.*'))
+    assert (tmp_path / 'image-pin').exists()
+    calls = (tmp_path / 'docker-calls').read_text()
+    assert ' old:tag' not in calls
+    assert 'up --no-build' not in calls
     assert 'image rm hwmonitor-mqtt-rollback:' not in calls

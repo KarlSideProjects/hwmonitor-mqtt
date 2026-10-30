@@ -168,7 +168,11 @@ pin_matches() {
 rollback() {
     local file
     for file in "${files[@]}"; do
-        if [[ -e $backup/$file.absent ]]; then rm -f "$root/$file"; else cp -p "$backup/$file" "$root/$file"; fi
+        if [[ -e $backup/$file.absent ]]; then
+            rm -f "$root/$file" || return 1
+        else
+            cp -p "$backup/$file" "$root/$file" || return 1
+        fi
     done
     if [[ $target == linux && $docker_attempted == 1 ]]; then
         if [[ -n $old_image && -n $old_ref ]]; then
