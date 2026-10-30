@@ -2,7 +2,7 @@ name: Windows compiled sender WIP
 
 on:
   push:
-    branches: [jhihweijhan/milkfish]
+    branches: [jhihweijhan/implement-spec-task-a6fe7c06]
   workflow_dispatch:
 
 permissions:
