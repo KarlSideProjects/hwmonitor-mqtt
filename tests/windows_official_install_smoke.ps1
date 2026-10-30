@@ -102,7 +102,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Could not create test broker credentials.' }
     $config = Join-Path $testRoot 'mosquitto.conf'
     $passwordPath = $passwordFile.Replace('\', '/')
-    [IO.File]::WriteAllText($config, "listener 18884 127.0.0.1`nallow_anonymous false`npassword_file $passwordPath`n", [Text.UTF8Encoding]::new($false))
+    $brokerLog = Join-Path $testRoot 'mosquitto.log'
+    $brokerLogPath = $brokerLog.Replace('\', '/')
+    [IO.File]::WriteAllText($config, "listener 18884 127.0.0.1`nallow_anonymous false`npassword_file $passwordPath`nlog_dest file $brokerLogPath`nlog_type all`n", [Text.UTF8Encoding]::new($false))
     $broker = Start-Process -FilePath $BrokerExe -ArgumentList '-c', "`"$config`"" -PassThru
     Start-Sleep -Seconds 2
     if ($broker.HasExited) { throw 'Test broker exited.' }
@@ -165,6 +167,9 @@ try {
     $observations.Add([pscustomobject]@{phase='upgrade-running'; processes=@(Get-SenderTree)})
     & .venv/Scripts/python.exe tests/windows_mqtt_observer.py --profile esp --port 18884
     if ($LASTEXITCODE -ne 0) { throw 'No installed esp payload.' }
+    Start-Sleep -Seconds 12
+    if (Select-String -LiteralPath $brokerLog -Pattern 'already connected' -Quiet) { throw 'Broker observed a duplicate sender client connection.' }
+    $observations.Add([pscustomobject]@{phase='broker-check'; duplicateClientConnection=$false})
     Write-Output "Official bootstrap activated distinct compiled bytes: old=$oldExe new=$newExe"
 }
 finally {
