@@ -1,5 +1,12 @@
-param([Parameter(Mandatory = $true)][string]$SenderExe, [Parameter(Mandatory = $true)][string]$BrokerExe)
+param([Parameter(Mandatory = $true)][string]$SenderExe, [Parameter(Mandatory = $true)][string]$BrokerExe, [switch]$RequireWmiFallback)
 $ErrorActionPreference = 'Stop'
+function Test-WmiFallbackAvailable {
+    param($Baseline, [bool]$SmartctlPresent, [bool]$Required)
+    $available = $Baseline.available -and $Baseline.physical_count -gt 0 -and -not $SmartctlPresent
+    if (-not $available -and $Required) { throw 'Compiled WMI fallback remains unverified: baseline unavailable, no devices, or smartctl is present.' }
+    return $available
+}
+# End WMI fallback availability check
 Remove-Item Env:BROKER_HOST, Env:BROKER_PORT, Env:MQTT_USER, Env:MQTT_PASS, Env:SENDER_PROFILE, Env:LHM_AUTOSTART, Env:SMART_POLL_INTERVAL_SEC -ErrorAction SilentlyContinue
 $testRoot = Join-Path $env:RUNNER_TEMP ('sender-mqtt-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $testRoot | Out-Null
@@ -61,7 +68,8 @@ except Exception as error:
     if ($LASTEXITCODE -ne 0) { throw 'Could not run WMI baseline.' }
     $baseline = $baselineOutput | Select-Object -Last 1 | ConvertFrom-Json
     $baseline | ConvertTo-Json | Set-Content -Path 'test-evidence/wmi-baseline.json' -Encoding UTF8
-    if ($baseline.available -and $baseline.physical_count -gt 0 -and -not (Get-Command smartctl -ErrorAction SilentlyContinue)) {
+    $smartctlPresent = $null -ne (Get-Command smartctl -ErrorAction SilentlyContinue)
+    if (Test-WmiFallbackAvailable $baseline $smartctlPresent $RequireWmiFallback.IsPresent) {
         $env:LHM_PATH = Join-Path $testRoot 'missing-lhm.exe'
         $content = "BROKER_HOST=127.0.0.1`nBROKER_PORT=18883`nSENDER_PROFILE=full`nSMART_POLL_INTERVAL_SEC=2`nLHM_AUTOSTART=0`n"
         [IO.File]::WriteAllText((Join-Path $testRoot '.env'), $content, [Text.UTF8Encoding]::new($false))

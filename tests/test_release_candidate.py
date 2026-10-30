@@ -412,7 +412,7 @@ def test_unknown_runtime_notice_set_cannot_pass_release_gate():
     spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
     checker = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(checker)
-    with pytest.raises(ValueError, match='not established'):
+    with pytest.raises(ValueError, match='receipt'):
         checker.check_release_notice_readiness('linux-x64', {'compiler': 'Nuitka unknown', 'runtime': {'python': '0.0.0'}})
 
 
@@ -820,13 +820,23 @@ def test_notice_readiness_binds_runtime_image_recipe(monkeypatch):
     checker = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(checker)
     recipe = 'a' * 64
-    record = {'compiler': 'Nuitka test', 'runtime': {'python': '3.11.15'}, 'source_files': {'Dockerfile': recipe}}
-    descriptor = {'platform': 'linux-x64', 'compiler': record['compiler'], 'runtime': record['runtime'], 'notices': checker.ARCHIVE_NOTICE_HASHES['linux-x64'], 'runtime_image_recipe': recipe}
+    record = {'compiler': 'Nuitka test', 'runtime': {'python': '3.11.15'}, 'source_files': {'Dockerfile': recipe},
+              'source': 'a' * 40, 'version': '1.0.0', 'inventory_sha256': 'b' * 64}
+    versions = {'nuitka': '2.7.16', 'ordered-set': '4.1.0', 'zstandard': '0.23.0', 'setuptools': '79.0.1', 'pip': '24.0'}
+    record['selected_inputs'] = {'platform': 'linux-x64', 'source': record['source'], 'version': record['version'], 'inventory_sha256': record['inventory_sha256'],
+        'runtime_archive': {'kind': 'runtime-install', 'filename': 'python.tar.gz', 'sha256': '39dfd79560d9b0c22ce7d16bccc171ed93537331a8c26a8aebe960301621b65e'},
+        'packages': [{'name': n, 'version': v, 'filename': n + '.whl', 'sha256': 'd' * 64} for n, v in versions.items()], 'toolchain': {'packages': 'gcc=10', 'compiler_version': '10', 'compiler_sha256': 'e' * 64, 'python_sha256': 'f' * 64, 'python_version': '3.11.15'}}
+    descriptor = {'platform': 'linux-x64', 'compiler': record['compiler'], 'runtime': record['runtime'], 'notices': checker.ARCHIVE_NOTICE_HASHES['linux-x64'], 'runtime_image_recipe': recipe,
+                  'selected_inputs': checker.receipt_inputs('linux-x64', record)}
     fingerprint = hashlib.sha256(json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     monkeypatch.setattr(checker, 'APPROVED_NOTICE_SETS', frozenset({fingerprint}))
     checker.check_release_notice_readiness('linux-x64', record)
     record['executable_sha256'] = 'c' * 64
     checker.check_release_notice_readiness('linux-x64', record)
+    record['selected_inputs']['packages'][0]['sha256'] = 'e' * 64
+    with pytest.raises(ValueError, match='not established'):
+        checker.check_release_notice_readiness('linux-x64', record)
+    record['selected_inputs']['packages'][0]['sha256'] = 'd' * 64
     record['source_files']['Dockerfile'] = 'b' * 64
     with pytest.raises(ValueError, match='not established'):
         checker.check_release_notice_readiness('linux-x64', record)

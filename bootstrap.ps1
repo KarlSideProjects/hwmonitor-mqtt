@@ -4,7 +4,7 @@ $temp = Join-Path $env:ProgramData ('hwmonitor-mqtt-stage-' + [guid]::NewGuid().
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = [Security.Principal.WindowsPrincipal]::new($identity)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run this bootstrap from an elevated PowerShell window.' }
-if ([Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne [Runtime.InteropServices.Architecture]::X64) { throw 'Only Windows x64 is supported.' }
+if ([Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne [Runtime.InteropServices.Architecture]::X64 -or [IntPtr]::Size -ne 8) { throw 'Only Windows x64 with 64-bit PowerShell is supported.' }
 $trustedSids = @('S-1-5-18', 'S-1-5-32-544', 'S-1-3-0', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464', $identity.User.Value)
 function Assert-TrustedItem([string]$Path, [bool]$Ancestor, [bool]$Secret = $false) {
     $item = Get-Item -LiteralPath $Path -Force
@@ -86,6 +86,9 @@ try {
     & $validator -Archive $archive.Path -Sha256 $archive.Sha256 -Destination $staged
     $manifest = [IO.File]::ReadAllText((Join-Path $staged 'manifest.json')) | ConvertFrom-Json
     if ($manifest.version -cne $version.version -or $manifest.source -cne $version.source) { throw 'Package identity does not match release metadata.' }
+    if ((Get-Command $activator).Parameters.ContainsKey('CheckPrerequisitesOnly')) {
+        & $activator -ProjectRoot $root -StagedPackage $staged -Source $version.source -CheckPrerequisitesOnly
+    }
     if (-not (Test-Path $root)) {
         New-Item -ItemType Directory -Path $root | Out-Null
         $rootAcl = [Security.AccessControl.DirectorySecurity]::new()

@@ -36,3 +36,45 @@ def test_upgrade_baseline_is_built_from_pinned_source_and_shared_digest():
     assert "uv sync --locked" in workflow
     assert "OLD_SENDER_SHA256=$oldHash" in workflow
     assert workflow.count('-OldSha256 $env:OLD_SENDER_SHA256') == 2
+
+
+def test_offline_selected_wheels_use_locked_export_without_remote_resolution():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/protected-windows-package.yml').read_text()
+    start = workflow.index('      - name: Install locked application and pinned compiler dependencies')
+    end = workflow.index('      - name: Pin the build-only Dependency Walker archive', start)
+    install = workflow[start:end]
+    assert 'uv export --locked --no-dev --no-emit-project' in install
+    assert 'uv venv --python (Get-Command python).Source' in install
+    assert '--offline --no-index --find-links selected-packages --no-cache --no-deps --require-hashes -r selected-requirements.txt' in install
+    assert 'uv sync' not in install
+
+
+def test_offline_install_requires_the_selected_hashlocked_wheel(tmp_path):
+    import hashlib
+    import subprocess
+    import sys
+    import zipfile
+
+    wheels = tmp_path / 'wheels'
+    wheels.mkdir()
+    wheel = wheels / 'selected_demo-1.0-py3-none-any.whl'
+    with zipfile.ZipFile(wheel, 'w') as package:
+        package.writestr('selected_demo.py', 'value = 1\n')
+        package.writestr('selected_demo-1.0.dist-info/METADATA', 'Metadata-Version: 2.1\nName: selected-demo\nVersion: 1.0\n')
+        package.writestr('selected_demo-1.0.dist-info/WHEEL', 'Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: py3-none-any\n')
+        package.writestr('selected_demo-1.0.dist-info/RECORD', 'selected_demo.py,,\nselected_demo-1.0.dist-info/METADATA,,\nselected_demo-1.0.dist-info/WHEEL,,\nselected_demo-1.0.dist-info/RECORD,,\n')
+    requirements = tmp_path / 'requirements.txt'
+    requirements.write_text('selected-demo==1.0 --hash=sha256:' + hashlib.sha256(wheel.read_bytes()).hexdigest() + '\n')
+    for label in ('present', 'missing'):
+        envdir = tmp_path / label
+        if label == 'missing':
+            wheel.unlink()
+        create = subprocess.run(['uv', 'venv', '--offline', '--python', sys.executable, str(envdir)], capture_output=True, text=True)
+        assert create.returncode == 0, create.stderr
+        python = envdir / ('Scripts/python.exe' if sys.platform == 'win32' else 'bin/python')
+        install = subprocess.run(['uv', 'pip', 'install', '--python', str(python), '--offline', '--no-index', '--find-links', str(wheels), '--no-cache', '--no-deps', '--require-hashes', '-r', str(requirements)], capture_output=True, text=True)
+        if label == 'present':
+            assert install.returncode == 0, install.stderr
+            assert subprocess.run([str(python), '-c', 'import selected_demo; assert selected_demo.value == 1']).returncode == 0
+        else:
+            assert install.returncode != 0

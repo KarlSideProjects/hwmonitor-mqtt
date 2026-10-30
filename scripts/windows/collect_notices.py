@@ -92,6 +92,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--inventory", type=Path, required=True)
     parser.add_argument("--python-license", type=Path, required=True)
+    parser.add_argument("--python-bundle", type=Path)
     parser.add_argument("--report", type=Path)
     parser.add_argument("packages", nargs="*")
     args = parser.parse_args()
@@ -115,7 +116,12 @@ def main():
         parser.error("a Nuitka report or packages are required")
     args.output.mkdir(parents=True, exist_ok=False)
     python_notice = args.output / "python.txt"
-    shutil.copyfile(args.python_license, python_notice)
+    if args.python_bundle:
+        if hashlib.sha256(args.python_license.read_bytes()).hexdigest() != CPYTHON_BINARY_LICENSE:
+            parser.error('Python binary license differs from pinned upstream bytes')
+        if hashlib.sha256(args.python_bundle.read_bytes()).hexdigest() != '359d4441518f0522a43adb96b48856ccba3fedef355fd9fd7d4f571c57367bda':
+            parser.error('Python notice bundle differs from pinned bytes')
+    shutil.copyfile(args.python_bundle or args.python_license, python_notice)
     if not python_notice.stat().st_size:
         parser.error("Python license is empty")
     inventory = {"python_license_sha256": hashlib.sha256(python_notice.read_bytes()).hexdigest(), "distributions": {}}

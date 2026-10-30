@@ -13,8 +13,9 @@ import zipfile
 from pathlib import Path
 
 from capture_sender_build import capture
+from sender_build_inputs import verify_windows_compiler
 from inspect_sender_candidate import (LINUX_ARCHIVE_PATHS, MAX_ARCHIVE_MEMBERS, PLATFORMS, WINDOWS_ARCHIVE_PATHS,
-                                      inspect_build_evidence, inspect_runtime_files, strict_json)
+                                      inspect_build_evidence, inspect_runtime_files, receipt_inputs, strict_json)
 
 
 def digest(path):
@@ -67,6 +68,8 @@ def main():
     parser.add_argument('--report', type=Path, required=True)
     parser.add_argument('--provenance', type=Path, required=True)
     parser.add_argument('--inventory', type=Path, required=True)
+    parser.add_argument('--input-receipt', type=Path)
+    parser.add_argument('--compiler-log', type=Path)
     parser.add_argument('--runtime-dir', type=Path, required=True)
     parser.add_argument('--assets', type=Path, required=True)
     parser.add_argument('--image', type=Path)
@@ -112,7 +115,12 @@ def main():
     if args.provenance.is_symlink() or not args.provenance.is_file() or args.provenance.stat().st_size > 4096:
         parser.error('invalid compiler invocation provenance')
     provenance = strict_json(args.provenance.read_bytes())
-    if provenance != {key: record[key] for key in ('executable_sha256', 'report_sha256', 'inventory_sha256')}:
+    expected_provenance = {key: record[key] for key in ('executable_sha256', 'report_sha256', 'inventory_sha256')}
+    if args.platform == 'windows-x64':
+        if args.compiler_log is None or args.compiler_log.is_symlink() or not args.compiler_log.is_file() or args.compiler_log.stat().st_size > 64 * 1024 * 1024:
+            parser.error('actual compiler log is required')
+        expected_provenance['compiler_log_sha256'] = digest(args.compiler_log)
+    if provenance != expected_provenance:
         parser.error('compiler invocation provenance mismatch')
     entries = inspect_build_evidence(args.platform, args.report, args.inventory, record)
     with tempfile.TemporaryDirectory(prefix='sender-record-') as directory:
@@ -120,6 +128,12 @@ def main():
         if captured != entries:
             parser.error('extracted runtime differs from inventory')
     inspect_runtime_files(args.runtime_dir, entries, args.platform)
+    if args.input_receipt is None or args.input_receipt.is_symlink() or not args.input_receipt.is_file() or args.input_receipt.stat().st_size > 1024 * 1024:
+        parser.error('selected input receipt is required')
+    record['selected_inputs'] = strict_json(args.input_receipt.read_bytes())
+    receipt_inputs(args.platform, record)
+    if args.platform == 'windows-x64':
+        verify_windows_compiler(record['selected_inputs']['toolchain'], provenance, args.compiler_log)
     args.output.write_text(json.dumps(record, indent=2, sort_keys=True) + '\n', encoding='utf-8')
 
 

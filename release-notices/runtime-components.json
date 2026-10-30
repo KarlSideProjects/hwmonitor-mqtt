@@ -1,0 +1,1063 @@
+{
+  "schema_version": 1,
+  "purpose": "Versioned evidence inputs for shipped Sender runtime notices, not candidate or legal approval.",
+  "source_runtime_commit": "b5e41f6a937a61620585a1a4c12a99a5b5c166dd",
+  "trust": "PBS release-tagged build catalog and full metadata are trusted as upstream build evidence, corroborated by observed extension symbols and allocated-section comparisons; they are not a universal binary link proof. A fresh candidate requires its own observed inventory and selected input receipt.",
+  "linux_native_components": [
+    {
+      "component": "bzip2",
+      "version": "1.0.8",
+      "source_archive": {
+        "url": "https://astral-sh.github.io/mirror/files/bzip2-1.0.8.tar.gz",
+        "sha256": "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269"
+      },
+      "build_reference": "https://github.com/astral-sh/python-build-standalone/blob/20260728/pythonbuild/downloads.py",
+      "license": [
+        "bzip2-1.0.6"
+      ],
+      "raw_notice": {
+        "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/LICENSE.bzip2.txt",
+        "sha256": "1f38bbc7caacafd65169276d759c0d88c991b753b643ce35d0e45ea1971dd441"
+      },
+      "condition": "Preserve applicable copyright, permission, conditions and disclaimer in the distributed notice; consult the exact text for component-specific restrictions.",
+      "evidence": "PBS 20260728 metadata static library paths and observed extension initialization symbols; section comparison is bounded."
+    },
+    {
+      "component": "libffi",
+      "version": "3.4.6",
+      "source_archive": {
+        "url": "https://github.com/libffi/libffi/releases/download/v3.4.6/libffi-3.4.6.tar.gz",
+        "sha256": "b0dea9df23c863a7a50e825440f3ebffabd65df1497108e5d437747843895a4e"
+      },
+      "build_reference": "https://github.com/astral-sh/python-build-standalone/blob/20260728/pythonbuild/downloads.py",
+      "license": [
+        "MIT"
+      ],
+      "raw_notice": {
+        "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/LICENSE.libffi.txt",
+        "sha256": "deaf3a42effb551a5b140fa9afefed183a27f1341c6d1bf430d106a5e6931fc0"
+      },
+      "condition": "Preserve applicable copyright, permission, conditions and disclaimer in the distributed notice; consult the exact text for component-specific restrictions.",
+      "evidence": "PBS 20260728 metadata static library paths and observed extension initialization symbols; section comparison is bounded."
+    },
+    {
+      "component": "ncurses",
+      "version": "6.5",
+      "source_archive": {
+        "url": "https://astral-sh.github.io/mirror/files/ncurses-6.5.tar.gz",
+        "sha256": "136d91bc269a9a5785e5f9e980bc76ab57428f604ce3e5a5a90cebc767971cc6"
+      },
+      "build_reference": "https://github.com/astral-sh/python-build-standalone/blob/20260728/pythonbuild/downloads.py",
+      "license": [
+        "X11"
+      ],
+      "raw_notice": {
+        "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/LICENSE.ncurses.txt",
+        "sha256": "87a4c4442337b8968ef956031c406b74f9cb7149b7ba87311bdaba534816201c"
+      },
+      "condition": "Preserve applicable copyright, permission, conditions and disclaimer in the distributed notice; consult the exact text for component-specific restrictions.",
+      "evidence": "PBS 20260728 metadata static library paths and observed extension initialization symbols; section comparison is bounded."
+    },
+    {
+      "component": "mpdecimal",
+      "version": "4.0.0",
+      "source_archive": {
+        "url": "https://astral-sh.github.io/mirror/files/mpdecimal-4.0.0.tar.gz",
+        "sha256": "942445c3245b22730fd41a67a7c5c231d11cb1b9936b9c0f76334fb7d0b4468c"
+      },
+      "build_reference": "https://github.com/astral-sh/python-build-standalone/blob/20260728/pythonbuild/downloads.py",
+      "license": [
+        "BSD-2-Clause"
+      ],
+      "raw_notice": {
+        "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/LICENSE.mpdecimal.txt",
+        "sha256": "669512af7219f58be03a398766d7c9da11a3b3df9d3f05cb74c5ceca25c8da3b"
+      },
+      "condition": "Binary distribution must reproduce the exact copyright, conditions and disclaimer; preserve source notice on source distribution.",
+      "evidence": "PBS 20260728 metadata static library paths and observed extension initialization symbols; section comparison is bounded.",
+      "additional_exact_version_notice": {
+        "path": "release-notices/windows-x64-cpython-3.13.17/mpdecimal-4.0.0-COPYRIGHT.txt",
+        "sha256": "2713324211652ce4a60e6e21e54f9dc3004299e591b0933a352f1a89c5fb53c2"
+      },
+      "build_action_reference": "https://github.com/astral-sh/python-build-standalone/blob/20260728/cpython-unix/build.py",
+      "source_evidence": "Release build action selects mpdecimal, pinned downloads catalog supplies version 4.0.0 and source archive SHA-256, and full metadata maps _decimal to libmpdec.a. The exact source archive COPYRIGHT.txt hashes to the additional notice."
+    },
+    {
+      "component": "expat",
+      "version": "2.8.2",
+      "source_archive": {
+        "url": "https://github.com/libexpat/libexpat/releases/download/R_2_8_2/expat-2.8.2.tar.xz",
+        "sha256": "3ad89b8588e6644bd4e49981480d48b21289eebbcd4f0a1a4afb1c29f99b6ab4"
+      },
+      "build_reference": "https://github.com/astral-sh/python-build-standalone/blob/20260728/pythonbuild/downloads.py",
+      "license": [
+        "MIT"
+      ],
+      "raw_notice": {
+        "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/LICENSE.expat.txt",
+        "sha256": "122f2c27000472a201d337b9b31f7eb2b52d091b02857061a8880371612d9534"
+      },
+      "condition": "Preserve applicable copyright, permission, conditions and disclaimer in the distributed notice; consult the exact text for component-specific restrictions.",
+      "evidence": "PBS 20260728 metadata static library paths and observed extension initialization symbols; section comparison is bounded."
+    },
+    {
+      "component": "openssl-3.5",
+      "version": "3.5.7",
+      "source_archive": {
+        "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.7/openssl-3.5.7.tar.gz",
+        "sha256": "a8c0d28a529ca480f9f36cf5792e2cd21984552a3c8e4aa11a24aa31aeac98e8"
+      },
+      "build_reference": "https://github.com/astral-sh/python-build-standalone/blob/20260728/pythonbuild/downloads.py",
+      "license": [
+        "Apache-2.0"
+      ],
+      "raw_notice": {
+        "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/LICENSE.openssl-3.txt",
+        "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
+      },
+      "condition": "Include Apache 2.0 license, preserve applicable notices and provide modification notices as required by section 4; the examined exact source archive has no NOTICE file.",
+      "evidence": "PBS 20260728 metadata static library paths and observed extension initialization symbols; section comparison is bounded.",
+      "source_archive_notice": "The complete openssl-3.5.7 release archive contains no file named NOTICE or NOTICES; LICENSE.txt SHA-256 7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a matches the retained text."
+    },
+    {
+      "component": "xz",
+      "version": "5.8.3",
+      "source_archive": {
+        "url": "https://github.com/tukaani-project/xz/releases/download/v5.8.3/xz-5.8.3.tar.gz",
+        "sha256": "3d3a1b973af218114f4f889bbaa2f4c037deaae0c8e815eec381c3d546b974a0"
+      },
+      "build_reference": "https://github.com/astral-sh/python-build-standalone/blob/20260728/pythonbuild/downloads.py",
+      "license": [
+        "0BSD"
+      ],
+      "raw_notice": {
+        "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/LICENSE.liblzma.txt",
+        "sha256": "9a4062de0a2c388a98cf35a35d348b62fa97c838a71c3c28ee1a2d7d0a565b02"
+      },
+      "condition": "Preserve applicable copyright, permission, conditions and disclaimer in the distributed notice; consult the exact text for component-specific restrictions.",
+      "evidence": "PBS 20260728 metadata static library paths and observed extension initialization symbols; section comparison is bounded."
+    },
+    {
+      "component": "sqlite",
+      "version": "3.53.1.0",
+      "source_archive": {
+        "url": "https://www.sqlite.org/2026/sqlite-autoconf-3530100.tar.gz",
+        "sha256": "83e6b2020a034e9a7ad4a72feea59e1ad52f162e09cbd26735a3ffb98359fc4f"
+      },
+      "build_reference": "https://github.com/astral-sh/python-build-standalone/blob/20260728/pythonbuild/downloads.py",
+      "license": [],
+      "raw_notice": {
+        "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/LICENSE.sqlite.txt",
+        "sha256": "38bef3d28b24f145ea293bd3b6eb4b20396982abc8303128fb493986ea5bc719"
+      },
+      "condition": "PBS identifies the code as public domain; retain the supplied upstream notice.",
+      "evidence": "PBS 20260728 metadata static library paths and observed extension initialization symbols; section comparison is bounded."
+    },
+    {
+      "component": "uuid",
+      "version": "1.0.3",
+      "source_archive": {
+        "url": "https://sourceforge.net/projects/libuuid/files/libuuid-1.0.3.tar.gz",
+        "sha256": "46af3275291091009ad7f1b899de3d0cea0252737550e7919d17237997db5644"
+      },
+      "build_reference": "https://github.com/astral-sh/python-build-standalone/blob/20260728/pythonbuild/downloads.py",
+      "license": [
+        "BSD-3-Clause"
+      ],
+      "raw_notice": {
+        "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/LICENSE.libuuid.txt",
+        "sha256": "122ee1f7e258f2c3c0e538a75c037684f420454bf3850ddc74ce750bbf5fe86b"
+      },
+      "condition": "Preserve applicable copyright, permission, conditions and disclaimer in the distributed notice; consult the exact text for component-specific restrictions.",
+      "evidence": "PBS 20260728 metadata static library paths and observed extension initialization symbols; section comparison is bounded."
+    },
+    {
+      "component": "libedit",
+      "version": "20240808-3.1",
+      "source_archive": {
+        "url": "https://thrysoee.dk/editline/libedit-20240808-3.1.tar.gz",
+        "sha256": "5f0573349d77c4a48967191cdd6634dd7aa5f6398c6a57fe037cc02696d6099f"
+      },
+      "build_reference": "https://github.com/astral-sh/python-build-standalone/blob/20260728/pythonbuild/downloads.py",
+      "license": [
+        "BSD-3-Clause"
+      ],
+      "raw_notice": {
+        "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/LICENSE.libedit.txt",
+        "sha256": "29cea33c32bbc9785142386377915612a2fa786482c46843383384aded2e09b1"
+      },
+      "condition": "Preserve applicable copyright, permission, conditions and disclaimer in the distributed notice; consult the exact text for component-specific restrictions.",
+      "evidence": "PBS 20260728 metadata static library paths and observed extension initialization symbols; section comparison is bounded."
+    },
+    {
+      "component": "zlib",
+      "version": "1.3.2",
+      "source_archive": {
+        "url": "https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.gz",
+        "sha256": "bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16"
+      },
+      "build_reference": "https://github.com/astral-sh/python-build-standalone/blob/20260728/pythonbuild/downloads.py",
+      "license": [
+        "Zlib"
+      ],
+      "raw_notice": {
+        "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/LICENSE.zlib.txt",
+        "sha256": "818922b2620f12801a12bf78e399644a30990e66824abd8ca8ec24d451d6f92c"
+      },
+      "condition": "Preserve applicable copyright, permission, conditions and disclaimer in the distributed notice; consult the exact text for component-specific restrictions.",
+      "evidence": "PBS 20260728 metadata static library paths and observed extension initialization symbols; section comparison is bounded."
+    }
+  ],
+  "platforms": {
+    "linux-x64": {
+      "runtime": {
+        "name": "CPython PBS",
+        "version": "3.11.15+20260728",
+        "input_sha256": "39dfd79560d9b0c22ce7d16bccc171ed93537331a8c26a8aebe960301621b65e",
+        "reference": "https://github.com/astral-sh/python-build-standalone/releases/tag/20260728",
+        "raw_notice": {
+          "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/LICENSE.cpython.txt",
+          "sha256": "86e61415828a8b5b06ec8d024e6f086ce155a8b85fd0c419c0ba4dc004e74fdd"
+        }
+      },
+      "runtime_bundle": {
+        "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/runtime-bundle.txt",
+        "sha256": "7b6e2eb4ebcd365049b2ee508c5dc9ecbdcad0c8ed6dc3d8772841dcea02a671"
+      },
+      "archive_path": "licenses/python.txt",
+      "packages": [
+        {
+          "component": "paho-mqtt",
+          "version": "2.1.0",
+          "source_reference": "https://pypi.org/project/paho-mqtt/2.1.0/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "EDL-1.0",
+          "notices": [
+            {
+              "archive_path": "licenses/paho-mqtt.txt",
+              "sha256": "3c3ce20f2f04eb331f297297c0cc235bb3d1e4365e2b402377a7481a442d7746"
+            }
+          ],
+          "condition": "EDL 1.0 selected: reproduce copyright, conditions and disclaimer in binary documentation or other materials; no endorsement without permission."
+        },
+        {
+          "component": "psutil",
+          "version": "7.1.1",
+          "source_reference": "https://pypi.org/project/psutil/7.1.1/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "BSD-3-Clause",
+          "notices": [
+            {
+              "archive_path": "licenses/psutil.txt",
+              "sha256": "b89c063b3786e28e0c0a38f1931db61fed35e69dd2a2966fbecffee0f46c8d10"
+            }
+          ],
+          "condition": "Preserve applicable copyright, permission, conditions and disclaimer; consult the referenced notice for exact terms."
+        },
+        {
+          "component": "python-dotenv",
+          "version": "1.1.1",
+          "source_reference": "https://pypi.org/project/python-dotenv/1.1.1/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "BSD-3-Clause",
+          "notices": [
+            {
+              "archive_path": "licenses/python-dotenv.txt",
+              "sha256": "80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9"
+            }
+          ],
+          "condition": "Preserve applicable copyright, permission, conditions and disclaimer; consult the referenced notice for exact terms."
+        },
+        {
+          "component": "typing-extensions",
+          "version": "4.15.0",
+          "source_reference": "https://pypi.org/project/typing-extensions/4.15.0/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "PSF-2.0",
+          "notices": [
+            {
+              "archive_path": "licenses/typing-extensions.txt",
+              "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+            }
+          ],
+          "condition": "Preserve applicable copyright, permission, conditions and disclaimer; consult the referenced notice for exact terms."
+        }
+      ],
+      "native_components": [
+        "bzip2",
+        "libffi",
+        "ncurses",
+        "mpdecimal",
+        "expat",
+        "openssl-3.5",
+        "xz",
+        "sqlite",
+        "uuid",
+        "libedit",
+        "zlib"
+      ],
+      "compiler": {
+        "name": "Nuitka",
+        "version": "2.7.16",
+        "notice": {
+          "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/LICENSE.nuitka-2.7.16.txt",
+          "sha256": "656abbe26f13de955b4458c206eef8abfe06c96d75ac2aad601ff5bd9e2b43cf"
+        },
+        "reference": "https://github.com/Nuitka/Nuitka/tree/2.7.16",
+        "condition": "Apache 2.0 terms apply to included Nuitka runtime; retain license and applicable notices. Determine actual compiler runtime and any applicable additional terms from producer evidence."
+      },
+      "candidate_evidence": "8df x64 member hashes are historical, not final candidate.",
+      "historical_members_8df": [
+        {
+          "path": "libpython3.11.so.1.0",
+          "size": 21816016,
+          "sha256": "0578c5a3fa7cf0e31a48d19d5be2cc105370096dfff6d05d0df0bb0f3cf65a36"
+        },
+        {
+          "path": "psutil/_psutil_linux.so",
+          "size": 141736,
+          "sha256": "ce5420dc2167621737aa93b89e27f224d8461c2a6b8d1f26f6e0448bd22531f7"
+        },
+        {
+          "path": "psutil/_psutil_posix.so",
+          "size": 96048,
+          "sha256": "4efb42e14d5c7d7a9ead2d741d98cb31656b300326e8773690652abc1fba2e53"
+        },
+        {
+          "path": "sender.bin",
+          "size": 15417384,
+          "sha256": "8412c1a2f9402ab54be4a44153be9e90c265495bf9b7daf4eeb7a92fa86deb2c"
+        }
+      ],
+      "compiler_runtime_evidence": {
+        "observed_source_revision": "8df389e5eeccface5ccbbaad8a78bcc47e2ee035",
+        "sender_bin_sha256": "8412c1a2f9402ab54be4a44153be9e90c265495bf9b7daf4eeb7a92fa86deb2c",
+        "outer_launcher_sha256": "12544d51ba1322eac72610eab516941d5820725792d336cd923acf2e31d51e9d",
+        "compiler_comment": "GCC: (Debian 10.2.1-6) 10.2.1 20210110",
+        "dynamic_dependencies": "sender.bin needs libdl, libm, libpython3.11, libpthread and libc; outer launcher needs libc. Neither lists libgcc as a dynamic dependency.",
+        "specific_unresolved_origin": "Both binaries are stripped. These observations cannot identify whether either includes static libgcc routines or which exact libgcc archive supplied them; require the actual candidate link map or equivalent object provenance and selected toolchain receipt.",
+        "conditional_terms": "If an included GCC runtime file carries GPL-3.0-or-later and the GCC Runtime Library Exception, apply that file-specific license and exception. The exception permits propagation of eligible target code under terms of choice, subject to its stated conditions; do not generalize it to unrelated code.",
+        "gcc_license_reference": "https://github.com/gcc-mirror/gcc/blob/releases/gcc-10.2.0/COPYING3",
+        "gcc_exception_reference": "https://github.com/gcc-mirror/gcc/blob/releases/gcc-10.2.0/COPYING.RUNTIME",
+        "reference_scope": "Upstream GCC 10.2.0 texts identify the license and exception; they do not prove exact Debian package file provenance or that any particular routine was included."
+      }
+    },
+    "linux-arm64": {
+      "runtime": {
+        "name": "CPython PBS",
+        "version": "3.11.15+20260728",
+        "input_sha256": "a6decd180099e6768269bd8e8968aeaa84bb01511f00f6921dc204fe648729aa",
+        "reference": "https://github.com/astral-sh/python-build-standalone/releases/tag/20260728",
+        "raw_notice": {
+          "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/LICENSE.cpython.txt",
+          "sha256": "86e61415828a8b5b06ec8d024e6f086ce155a8b85fd0c419c0ba4dc004e74fdd"
+        }
+      },
+      "runtime_bundle": {
+        "path": "release-notices/linux-arm64-cpython-3.11.15-pbs-20260728/runtime-bundle.txt",
+        "sha256": "c83e087151c1b7ce752e06144d8f747a239746af59d6b6bc2960734c58f64dad"
+      },
+      "archive_path": "licenses/python.txt",
+      "packages": [
+        {
+          "component": "paho-mqtt",
+          "version": "2.1.0",
+          "source_reference": "https://pypi.org/project/paho-mqtt/2.1.0/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "EDL-1.0",
+          "notices": [
+            {
+              "archive_path": "licenses/paho-mqtt.txt",
+              "sha256": "3c3ce20f2f04eb331f297297c0cc235bb3d1e4365e2b402377a7481a442d7746"
+            }
+          ],
+          "condition": "EDL 1.0 selected: reproduce copyright, conditions and disclaimer in binary documentation or other materials; no endorsement without permission."
+        },
+        {
+          "component": "psutil",
+          "version": "7.1.1",
+          "source_reference": "https://pypi.org/project/psutil/7.1.1/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "BSD-3-Clause",
+          "notices": [
+            {
+              "archive_path": "licenses/psutil.txt",
+              "sha256": "b89c063b3786e28e0c0a38f1931db61fed35e69dd2a2966fbecffee0f46c8d10"
+            }
+          ],
+          "condition": "Preserve applicable copyright, permission, conditions and disclaimer; consult the referenced notice for exact terms."
+        },
+        {
+          "component": "python-dotenv",
+          "version": "1.1.1",
+          "source_reference": "https://pypi.org/project/python-dotenv/1.1.1/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "BSD-3-Clause",
+          "notices": [
+            {
+              "archive_path": "licenses/python-dotenv.txt",
+              "sha256": "80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9"
+            }
+          ],
+          "condition": "Preserve applicable copyright, permission, conditions and disclaimer; consult the referenced notice for exact terms."
+        },
+        {
+          "component": "typing-extensions",
+          "version": "4.15.0",
+          "source_reference": "https://pypi.org/project/typing-extensions/4.15.0/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "PSF-2.0",
+          "notices": [
+            {
+              "archive_path": "licenses/typing-extensions.txt",
+              "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+            }
+          ],
+          "condition": "Preserve applicable copyright, permission, conditions and disclaimer; consult the referenced notice for exact terms."
+        }
+      ],
+      "native_components": [
+        "bzip2",
+        "libffi",
+        "ncurses",
+        "mpdecimal",
+        "expat",
+        "openssl-3.5",
+        "xz",
+        "sqlite",
+        "uuid",
+        "libedit",
+        "zlib"
+      ],
+      "compiler": {
+        "name": "Nuitka",
+        "version": "2.7.16",
+        "notice": {
+          "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/LICENSE.nuitka-2.7.16.txt",
+          "sha256": "656abbe26f13de955b4458c206eef8abfe06c96d75ac2aad601ff5bd9e2b43cf"
+        },
+        "reference": "https://github.com/Nuitka/Nuitka/tree/2.7.16",
+        "condition": "Apache 2.0 terms apply to included Nuitka runtime; retain license and applicable notices. Determine actual compiler runtime and any applicable additional terms from producer evidence."
+      },
+      "candidate_evidence": "Prior ARM observed inventory is historical, not final candidate.",
+      "compiler_runtime_evidence": {
+        "observed_source_revision": "8df389e5eeccface5ccbbaad8a78bcc47e2ee035",
+        "sender_bin_sha256": "c160689b18940e15aa65e98a7ae6b1930ef8f2e62de69801ff324f6d7a198145",
+        "outer_launcher_sha256": "1499acdc922d3afe91e63f895f1f2265626a3c99a429e66bccb5bab85a05e34e",
+        "compiler_comment": "GCC: (Debian 10.2.1-6) 10.2.1 20210110",
+        "dynamic_dependencies": "sender.bin needs libdl, libm, libpython3.11, libpthread and libc; outer launcher needs libc. Neither lists libgcc as a dynamic dependency.",
+        "specific_unresolved_origin": "Both binaries are stripped. These observations cannot identify whether either includes static libgcc routines or which exact libgcc archive supplied them; require the actual candidate link map or equivalent object provenance and selected toolchain receipt.",
+        "conditional_terms": "If an included GCC runtime file carries GPL-3.0-or-later and the GCC Runtime Library Exception, apply that file-specific license and exception. The exception permits propagation of eligible target code under terms of choice, subject to its stated conditions; do not generalize it to unrelated code.",
+        "gcc_license_reference": "https://github.com/gcc-mirror/gcc/blob/releases/gcc-10.2.0/COPYING3",
+        "gcc_exception_reference": "https://github.com/gcc-mirror/gcc/blob/releases/gcc-10.2.0/COPYING.RUNTIME",
+        "reference_scope": "Upstream GCC 10.2.0 texts identify the license and exception; they do not prove exact Debian package file provenance or that any particular routine was included."
+      }
+    },
+    "windows-x64": {
+      "runtime": {
+        "name": "CPython embeddable",
+        "version": "3.13.17",
+        "input_sha256": "9e35319bffedab8b36ad44d8f377cb4f1733bcec257a0b6d04d94f01486ddb38",
+        "reference": "https://www.python.org/ftp/python/3.13.17/python-3.13.17-embed-amd64.zip",
+        "raw_notice": {
+          "path": "release-notices/windows-x64-cpython-3.13.17/LICENSE.cpython-binary.txt",
+          "sha256": "62bec384df47b0328307db41455ff6ea2559e5546b394ac69148561b21703120"
+        }
+      },
+      "runtime_bundle": {
+        "path": "release-notices/windows-x64-cpython-3.13.17/runtime-bundle.txt",
+        "sha256": "359d4441518f0522a43adb96b48856ccba3fedef355fd9fd7d4f571c57367bda"
+      },
+      "archive_path": "licenses/python.txt",
+      "packages": [
+        {
+          "component": "paho-mqtt",
+          "version": "2.1.0",
+          "source_reference": "https://pypi.org/project/paho-mqtt/2.1.0/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "EDL-1.0",
+          "notices": [
+            {
+              "archive_path": "licenses/paho-mqtt-0.txt",
+              "sha256": "66408b049249c3bdb0ba1ed285f5422ce67e371d40151bebd4d806af454ffe7c"
+            },
+            {
+              "archive_path": "licenses/edl-v10",
+              "sha256": "e8cf7d54ea46c19aba793983889b7f7425e1ebfcaaccec764a7db091646e203c"
+            },
+            {
+              "archive_path": "licenses/epl-v20",
+              "sha256": "8c349f80764d0648e645f41ef23772a70c995a0924b5235f735f4a3d09df127c"
+            }
+          ],
+          "condition": "EDL 1.0 selected: reproduce copyright, conditions and disclaimer in binary documentation or other materials; no endorsement without permission."
+        },
+        {
+          "component": "psutil",
+          "version": "7.1.1",
+          "source_reference": "https://pypi.org/project/psutil/7.1.1/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "BSD-3-Clause",
+          "notices": [
+            {
+              "archive_path": "licenses/psutil-0.txt",
+              "sha256": "c7adc4d5d1337a548b967421f1fbe258b93033a0417708fd6f4e38f8ecbceb80"
+            }
+          ],
+          "condition": "Preserve applicable copyright, permission, conditions and disclaimer; consult the referenced notice for exact terms."
+        },
+        {
+          "component": "python-dotenv",
+          "version": "1.1.1",
+          "source_reference": "https://pypi.org/project/python-dotenv/1.1.1/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "BSD-3-Clause",
+          "notices": [
+            {
+              "archive_path": "licenses/python-dotenv-0.txt",
+              "sha256": "80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9"
+            }
+          ],
+          "condition": "Preserve applicable copyright, permission, conditions and disclaimer; consult the referenced notice for exact terms."
+        },
+        {
+          "component": "typing-extensions",
+          "version": "4.15.0",
+          "source_reference": "https://pypi.org/project/typing-extensions/4.15.0/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "PSF-2.0",
+          "notices": [
+            {
+              "archive_path": "licenses/typing_extensions-0.txt",
+              "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+            }
+          ],
+          "condition": "Preserve applicable copyright, permission, conditions and disclaimer; consult the referenced notice for exact terms."
+        },
+        {
+          "component": "WMI",
+          "version": "1.5.1",
+          "source_reference": "https://pypi.org/project/WMI/1.5.1/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "MIT",
+          "notices": [
+            {
+              "archive_path": "licenses/WMI-0.txt",
+              "sha256": "bf90809237a8ce1dac86bed7e34e4e76692d87ffd21aed16541105cd63ea533a"
+            },
+            {
+              "archive_path": "licenses/WMI-1.txt",
+              "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+            }
+          ],
+          "condition": "Preserve applicable copyright, permission, conditions and disclaimer; consult the referenced notice for exact terms."
+        },
+        {
+          "component": "cffi",
+          "version": "2.0.0",
+          "source_reference": "https://pypi.org/project/cffi/2.0.0/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "MIT",
+          "notices": [
+            {
+              "archive_path": "licenses/cffi-0.txt",
+              "sha256": "2a67a60bbfb33759d67d645ff131b8e6d6bc4cafc232d751fcac3eda4d314cc8"
+            },
+            {
+              "archive_path": "licenses/cffi-1.txt",
+              "sha256": "5ba24ddc57067f9249add644c3afc41a5d6dc37e23433ef759d95df370b0af63"
+            }
+          ],
+          "condition": "Preserve applicable copyright, permission, conditions and disclaimer; consult the referenced notice for exact terms."
+        },
+        {
+          "component": "clr-loader",
+          "version": "0.2.10",
+          "source_reference": "https://pypi.org/project/clr-loader/0.2.10/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "MIT",
+          "notices": [
+            {
+              "archive_path": "licenses/clr_loader-0.txt",
+              "sha256": "b00f9a4b112b44f91276ad8388ed470ad36668ff80f56f15e1e6981c85e6d23d"
+            }
+          ],
+          "condition": "Preserve applicable copyright, permission, conditions and disclaimer; consult the referenced notice for exact terms."
+        },
+        {
+          "component": "pycparser",
+          "version": "3.0",
+          "source_reference": "https://pypi.org/project/pycparser/3.0/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "BSD-3-Clause",
+          "notices": [
+            {
+              "archive_path": "licenses/pycparser-0.txt",
+              "sha256": "0c846399369ea76ddd7b5c44fe6d16497415fcf015f5cbb508c24bf98b81c5b1"
+            }
+          ],
+          "condition": "Preserve applicable copyright, permission, conditions and disclaimer; consult the referenced notice for exact terms."
+        },
+        {
+          "component": "pythonnet",
+          "version": "3.0.5",
+          "source_reference": "https://pypi.org/project/pythonnet/3.0.5/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "MIT",
+          "notices": [
+            {
+              "archive_path": "licenses/pythonnet-0.txt",
+              "sha256": "e1dc3a6ff017a6800dc27a7220500f512b95fbcd996d38ebbbff85c693245369"
+            }
+          ],
+          "condition": "Preserve applicable copyright, permission, conditions and disclaimer; consult the referenced notice for exact terms."
+        },
+        {
+          "component": "pywin32",
+          "version": "311",
+          "source_reference": "https://pypi.org/project/pywin32/311/",
+          "selected_wheel": null,
+          "selected_wheel_status": "Requires producer receipt with exact filename and SHA-256; version and lock alternatives do not prove selection.",
+          "license": "PSF and component terms",
+          "notices": [
+            {
+              "archive_path": "licenses/pywin32-0.txt",
+              "sha256": "5ea2f23c7f00c3006bacf267183e816d8d4b6dc95ea57a4ddb0ff81de6d8719e"
+            },
+            {
+              "archive_path": "licenses/pywin32-1.txt",
+              "sha256": "11d8462e134e8efe8f4bd52372292a72ff0b670753d2f49f71675eed0dbfd085"
+            },
+            {
+              "archive_path": "licenses/pywin32-2.txt",
+              "sha256": "11d8462e134e8efe8f4bd52372292a72ff0b670753d2f49f71675eed0dbfd085"
+            },
+            {
+              "archive_path": "licenses/pywin32-3.txt",
+              "sha256": "c3bdfa1152a9b9d404ddc90b817e1b6945803879ac53a14d2dde30d677f883bd"
+            }
+          ],
+          "condition": "Preserve applicable copyright, permission, conditions and disclaimer; consult the referenced notice for exact terms."
+        }
+      ],
+      "native_components": [
+        {
+          "component": "bzip2",
+          "version": "1.0.8",
+          "notice": {
+            "path": "release-notices/windows-x64-cpython-3.13.17/LICENSE.cpython-binary.txt",
+            "sha256": "62bec384df47b0328307db41455ff6ea2559e5546b394ac69148561b21703120"
+          },
+          "evidence": "_bz2.pyd in 53e matches CPython embed; build input and binary notice identify version.",
+          "condition": "Retain source notice; identify altered source; do not misrepresent origin or use author endorsement.",
+          "reference": "https://github.com/python/cpython/blob/v3.13.17/PCbuild/get_externals.bat"
+        },
+        {
+          "component": "libffi",
+          "version": "3.4.4",
+          "notice": {
+            "path": "release-notices/windows-x64-cpython-3.13.17/LICENSE.cpython-binary.txt",
+            "sha256": "62bec384df47b0328307db41455ff6ea2559e5546b394ac69148561b21703120"
+          },
+          "evidence": "libffi-8.dll in 53e matches CPython embed; CPython build input identifies version.",
+          "condition": "Include copyright and permission notice in copies or substantial portions.",
+          "reference": "https://github.com/python/cpython/blob/v3.13.17/PCbuild/get_externals.bat"
+        },
+        {
+          "component": "mpdecimal",
+          "version": "4.0.0",
+          "notice": {
+            "path": "release-notices/windows-x64-cpython-3.13.17/mpdecimal-4.0.0-COPYRIGHT.txt",
+            "sha256": "2713324211652ce4a60e6e21e54f9dc3004299e591b0933a352f1a89c5fb53c2"
+          },
+          "reference": "https://github.com/python/cpython/blob/v3.13.17/PCbuild/_decimal.vcxproj",
+          "source_reference": "https://github.com/python/cpython-source-deps/blob/mpdecimal-4.0.0/COPYRIGHT.txt",
+          "source_sha256": "942445c3245b22730fd41a67a7c5c231d11cb1b9936b9c0f76334fb7d0b4468c",
+          "evidence": "_decimal.pyd matches embed; CPython project compiles mpdecimal sources and get_externals.bat pins 4.0.0.",
+          "condition": "Reproduce copyright, conditions and disclaimer in binary distribution materials."
+        },
+        {
+          "component": "OpenSSL",
+          "version": "3.5.9",
+          "notice": {
+            "path": "release-notices/windows-x64-cpython-3.13.17/openssl-3.5.9-LICENSE.txt",
+            "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
+          },
+          "evidence": "libcrypto and libssl match embed; pinned CPython build inputs.",
+          "condition": "Include Apache 2.0 license, preserve applicable notices and provide modification notices as required by section 4; the examined exact source archive has no NOTICE file.",
+          "reference": "https://github.com/openssl/openssl/blob/openssl-3.5.9/LICENSE.txt",
+          "source_archive": {
+            "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz",
+            "sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a"
+          },
+          "source_archive_notice": "The complete release archive contains no file named NOTICE or NOTICES; LICENSE.txt SHA-256 7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a matches the retained text."
+        },
+        {
+          "component": "liblzma",
+          "version": "5.2.5",
+          "notice": {
+            "path": "release-notices/windows-x64-cpython-3.13.17/xz-5.2.5-COPYING",
+            "sha256": "bcb02973ef6e87ea73d331b3a80df7748407f17efdb784b61b47e0e610d3bb5c"
+          },
+          "evidence": "_lzma.pyd matches embed; pinned CPython build input.",
+          "condition": "Consult retained XZ notice for applicable component terms.",
+          "reference": "https://github.com/tukaani-project/xz/blob/v5.2.5/COPYING"
+        },
+        {
+          "component": "expat",
+          "version": "2.8.5",
+          "notice": {
+            "path": "release-notices/windows-x64-cpython-3.13.17/cpython-3.13.17-expat-COPYING",
+            "sha256": "31b15de82aa19a845156169a17a5488bf597e561b2c318d159ed583139b25e87"
+          },
+          "reference": "https://github.com/python/cpython/blob/v3.13.17/Modules/expat/COPYING",
+          "evidence": "pyexpat and _elementtree match embed; CPython bundled expat notice.",
+          "condition": "Preserve copyright and permission notice."
+        }
+      ],
+      "native_build_reference": "https://github.com/python/cpython/blob/v3.13.17/PCbuild/get_externals.bat",
+      "compiler": {
+        "name": "Nuitka",
+        "version": "2.8.9",
+        "reference": "https://github.com/Nuitka/Nuitka/tree/2.8.9",
+        "condition": "The exact 2.8.9 upstream LICENSE.txt matches the retained 2.7.16 license bytes; include Apache 2.0 license and applicable notices. The selected compiler archive still needs a producer receipt.",
+        "notice": {
+          "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/LICENSE.nuitka-2.7.16.txt",
+          "sha256": "656abbe26f13de955b4458c206eef8abfe06c96d75ac2aad601ff5bd9e2b43cf"
+        },
+        "source_license_reference": "https://github.com/Nuitka/Nuitka/blob/2.8.9/LICENSE.txt"
+      },
+      "historical_members": [
+        {
+          "member": "_asyncio.pyd",
+          "sha256": "0e53f227048492830bf0328bbc3bebc336268821c88c1da1ba1711855b51cd01",
+          "observed_origin": "CPython-3.13.17-embed#_asyncio.pyd"
+        },
+        {
+          "member": "_bz2.pyd",
+          "sha256": "0adf0680f54eec173401230df0aa561aa188c7f4d40e5f2ba790d333c6057d8d",
+          "observed_origin": "CPython-3.13.17-embed#_bz2.pyd"
+        },
+        {
+          "member": "_cffi_backend.pyd",
+          "sha256": "d5b09da2e726b4e90cf0edad5d2a0ec52f369dfd060e14d3807a32b2205031fa",
+          "observed_origin": "wheel#_cffi_backend.cp313-win_amd64.pyd"
+        },
+        {
+          "member": "_ctypes.pyd",
+          "sha256": "487d9041455132d74ed26c0eae514675c31010a926db0cd6c6f391fcccc66c42",
+          "observed_origin": "CPython-3.13.17-embed#_ctypes.pyd"
+        },
+        {
+          "member": "_decimal.pyd",
+          "sha256": "7e8e5d026e22be2669b2ac6175fece6b7fbe2faf1e456fa4785130832d244955",
+          "observed_origin": "CPython-3.13.17-embed#_decimal.pyd"
+        },
+        {
+          "member": "_elementtree.pyd",
+          "sha256": "5436c3d722e4b7709d20cb9bbb8385253337651417cc6a5d447f7b9e8a9da7a9",
+          "observed_origin": "CPython-3.13.17-embed#_elementtree.pyd"
+        },
+        {
+          "member": "_hashlib.pyd",
+          "sha256": "fc9075f3a836fdcbb826b541f4d1e9382d84c73f830f5f51f8ca3b9ccb9d42cb",
+          "observed_origin": "CPython-3.13.17-embed#_hashlib.pyd"
+        },
+        {
+          "member": "_lzma.pyd",
+          "sha256": "09596ee41dadfabe006429f1cbb7505a3006daa80206ae2dd2d0d8d5936b6229",
+          "observed_origin": "CPython-3.13.17-embed#_lzma.pyd"
+        },
+        {
+          "member": "_multiprocessing.pyd",
+          "sha256": "56bc0f253e74f965d5565377e40737093ee084a8ca4b4347f2f6bb9c15661c6d",
+          "observed_origin": "CPython-3.13.17-embed#_multiprocessing.pyd"
+        },
+        {
+          "member": "_overlapped.pyd",
+          "sha256": "b2dcaefadf6194783f24184fd074b83983091d46c6b50e88dc8a652a8569d614",
+          "observed_origin": "CPython-3.13.17-embed#_overlapped.pyd"
+        },
+        {
+          "member": "_queue.pyd",
+          "sha256": "aa1bc394ac6ed619b2525e631665431e9fbd798cd7d8374755efed9c3d325539",
+          "observed_origin": "CPython-3.13.17-embed#_queue.pyd"
+        },
+        {
+          "member": "_socket.pyd",
+          "sha256": "03ac131ec3fa4c550d36fa7c5cad3601cbe6c8f18e1a65b9bd8a65ce1131f9e1",
+          "observed_origin": "CPython-3.13.17-embed#_socket.pyd"
+        },
+        {
+          "member": "_ssl.pyd",
+          "sha256": "74bfe7a396737cf5910cf4a789d9cf4263ba6ba93c994ce8d5e2f61fa972097d",
+          "observed_origin": "CPython-3.13.17-embed#_ssl.pyd"
+        },
+        {
+          "member": "_uuid.pyd",
+          "sha256": "0d7589ac0965d1ad7b19bcdfddc726eefa5896aafa6702d68dc9ca6cd58820dc",
+          "observed_origin": "CPython-3.13.17-embed#_uuid.pyd"
+        },
+        {
+          "member": "_win32sysloader.pyd",
+          "sha256": "b11b641fc73ab5cc8853e0e7384147ee97056a2508927129dc385237e5a70b3a",
+          "observed_origin": "wheel#win32/_win32sysloader.pyd"
+        },
+        {
+          "member": "_wmi.pyd",
+          "sha256": "927aab8eef564d2dee1bbcf8e11f488789f664eafb4a0d2aacd99e224be2f10a",
+          "observed_origin": "CPython-3.13.17-embed#_wmi.pyd"
+        },
+        {
+          "member": "agent_sender_windows.dll",
+          "sha256": "c25d95228d931a5cd00cd5690acffd331d2fdfea7c293ed6d4e0cb60d3ab8601",
+          "observed_origin": "compiled-or-unmatched"
+        },
+        {
+          "member": "clr_loader/ffi/dlls/amd64/ClrLoader.dll",
+          "sha256": "e6cb8b51dbd5d5b5548696e6ddf17875af73b8abd99ca1572d32b1df98028591",
+          "observed_origin": "wheel#clr_loader/ffi/dlls/amd64/ClrLoader.dll"
+        },
+        {
+          "member": "libcrypto-3.dll",
+          "sha256": "75495fe0e079ab00d49be740d3c710a0b94e3f74f9648cb7cc9f768fc7f52319",
+          "observed_origin": "CPython-3.13.17-embed#libcrypto-3.dll"
+        },
+        {
+          "member": "libffi-8.dll",
+          "sha256": "eff52743773eb550fcc6ce3efc37c85724502233b6b002a35496d828bd7b280a",
+          "observed_origin": "CPython-3.13.17-embed#libffi-8.dll"
+        },
+        {
+          "member": "libssl-3.dll",
+          "sha256": "8957182a9c385bfd9f3f790921de2ddc614cf91f99edbed4e9e5446a46504e32",
+          "observed_origin": "CPython-3.13.17-embed#libssl-3.dll"
+        },
+        {
+          "member": "mfc140u.dll",
+          "sha256": "643ce7fe6a203c53a96a00f272a1a5b42d5b0c320c84364a6fe866307a19bb65",
+          "observed_origin": "wheel#pythonwin/mfc140u.dll"
+        },
+        {
+          "member": "psutil/_psutil_windows.pyd",
+          "sha256": "84a0ef5e448777816ca5f77da81eb96c2fbf0a4db614b8a33400ae888e4c7861",
+          "observed_origin": "wheel#psutil/_psutil_windows.pyd"
+        },
+        {
+          "member": "pyexpat.pyd",
+          "sha256": "4095f444c5d0fe9d24c1a46a8630459f8488c5392dc82be9af67f4045ea9c368",
+          "observed_origin": "CPython-3.13.17-embed#pyexpat.pyd"
+        },
+        {
+          "member": "python3.dll",
+          "sha256": "a45d898ba8b796f1883fc2fcd55e4736163dfb7cea825d52e3477f1957dfb45a",
+          "observed_origin": "CPython-3.13.17-embed#python3.dll"
+        },
+        {
+          "member": "python313.dll",
+          "sha256": "26026530507a7389e7892ce130e7c1753b32a2df03ec3721d45ad8c1705d40eb",
+          "observed_origin": "CPython-3.13.17-embed#python313.dll"
+        },
+        {
+          "member": "pythoncom313.dll",
+          "sha256": "e312c8edb2d43a014daddfa984a805e6b5f933c60777e7b527332e682d9b1813",
+          "observed_origin": "wheel#pywin32_system32/pythoncom313.dll"
+        },
+        {
+          "member": "pythonnet/runtime/Python.Runtime.dll",
+          "sha256": "d204ad74dc18cd07320c8e665bd32ec6549b555ce97e61e4d3cf88437a64988e",
+          "observed_origin": "wheel#pythonnet/runtime/Python.Runtime.dll"
+        },
+        {
+          "member": "pywintypes313.dll",
+          "sha256": "9bb6dece38380abc747dce9ba8b0834a2bec469bc942dbcc8658e30ebdfb59a4",
+          "observed_origin": "wheel#pywin32_system32/pywintypes313.dll"
+        },
+        {
+          "member": "select.pyd",
+          "sha256": "f2b8f6008d9e8697700b73fd645a76d83e096e8214a6e31e644de32f56122f6a",
+          "observed_origin": "CPython-3.13.17-embed#select.pyd"
+        },
+        {
+          "member": "unicodedata.pyd",
+          "sha256": "541f46cf1ab49239b008a563eee6762086c7288f64631cb5cf59451cf22fc70c",
+          "observed_origin": "CPython-3.13.17-embed#unicodedata.pyd"
+        },
+        {
+          "member": "vcruntime140.dll",
+          "sha256": "d1f4225df2cd877dbf130d5668a021dce3f94118455ff5ec952061c30afc9ce7",
+          "observed_origin": "CPython-3.13.17-embed#vcruntime140.dll"
+        },
+        {
+          "member": "vcruntime140_1.dll",
+          "sha256": "a7146c08f89fe5b04541ab507cdb59ff7b44534d4ba3c668a426c6450a03434e",
+          "observed_origin": "CPython-3.13.17-embed#vcruntime140_1.dll"
+        },
+        {
+          "member": "win32api.pyd",
+          "sha256": "b80722e54741563e72e264ca33e1900ee49c927c475e54ef8f94c3eac9032465",
+          "observed_origin": "wheel#win32/win32api.pyd"
+        },
+        {
+          "member": "win32event.pyd",
+          "sha256": "b70d2aebb12d2a0c8d100f37e109319407cf025fc406ef23d13c1b5ddb64370a",
+          "observed_origin": "wheel#win32/win32event.pyd"
+        },
+        {
+          "member": "win32ui.pyd",
+          "sha256": "8a9f51b9a5152ef0b0fe3c5017af1f7004036311bdb806eb7987305ce9f1651f",
+          "observed_origin": "wheel#pythonwin/win32ui.pyd"
+        }
+      ],
+      "microsoft_dlls": {
+        "members": [
+          "mfc140u.dll",
+          "vcruntime140.dll",
+          "vcruntime140_1.dll"
+        ],
+        "condition": "Redistribution entitlement and exact applicable terms remain unestablished; CI runner availability is not evidence of Karl entitlement.",
+        "reference": "https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution",
+        "alternative": "Exclude all three; require recipient installation from https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist; preflight x64 version and loadability; validate MFC, WMI/COM, pythonnet, LHM and both profiles on a clean host. This alternative is untested."
+      },
+      "candidate_evidence": "53e origin matches are historical, not evidence of the current native run.",
+      "compiler_runtime_evidence": {
+        "observed_source_revision": "b5e41f6a937a61620585a1a4c12a99a5b5c166dd",
+        "outer_launcher_sha256": "274f990c1f5b1cc01a08bbf430bf3cdcb5098e246f67a71942e908d22830230d",
+        "sender_dll_sha256": "ad96bce69218df04bf75030bb94ac4de30681a5e9f7a14d2ecfdecaf71e5df16",
+        "observations": "Both PE files import VCRUNTIME140.dll and Windows UCRT API-set DLLs. The launcher also imports KERNEL32 and SHELL32; the generated DLL imports KERNEL32 and python313.dll.",
+        "specific_unresolved_origin": "Any statically linked runtime code requires link provenance. The observed Microsoft VCRuntime and MFC redistribution entitlement remains unresolved.",
+        "observed_compiler": "Native run 41133228244 identifies MSVC cl 14.3 in toolset 14.44.35207 for both backend and onefile.",
+        "mfc_report_origin": "The b5 build report identifies mfc140u.dll from VC Redist MSVC 14.44.35112; this is a separate identity from the compiler toolset and from the earlier 53e wheel match."
+      }
+    }
+  },
+  "boundary": "Public assets contain application archives, scripts and notices; private Docker-save images are not shipped. Linux recipients fetch Debian packages from signed snapshots. Windows installer downloads LHM 0.9.6 and PawnIO 2.2.0 directly from vendors; neither is in the application archive allowlist.",
+  "open_facts": [
+    "Capture exact selected wheel archive filenames and SHA-256 for each platform, including compiler inputs.",
+    "Bind a fresh native member inventory and compiler/toolchain identities to each actual candidate.",
+    "Determine whether the stripped Linux sender.bin and onefile launchers contain static libgcc routines and identify their exact input archive; establish any associated conditions from the identified files.",
+    "Identify any statically linked Windows runtime code and retain exact selected compiler and CRT input receipts.",
+    "Confirm any native build modifications and corresponding change notices.",
+    "Establish Microsoft entitlement or validate the DLL-exclusion acquisition path on a clean host.",
+    "Update producer and inspector to ship the corrected bundles and validate final archive bytes."
+  ],
+  "embedded_compiler_inputs": {
+    "nuitka_onefile_zstd": {
+      "version": "1.4.7",
+      "license": {
+        "path": "release-notices/embedded-nuitka/zstd-1.4.7-LICENSE.txt",
+        "sha256": "2c1a7fa704df8f3a606f6fc010b8b5aaebf403f3aeec339a12048f1ba7331a0b"
+      },
+      "source_archives": {
+        "linux_Nuitka_2.7.16": {
+          "sha256": "768909faf365b21ae4777727fc4ae88efc29239c664bd177061fc907e263e0fa"
+        },
+        "windows_Nuitka_2.8.9": {
+          "sha256": "b178cd437f2110c46943b368db51d20d57d586a13f8f6323ab1be4e51e2fabf8"
+        }
+      },
+      "source_header_sha256": {
+        "common/bitstream.h": "ef9a523bdf423fbd43c3fe6b4650daff191255a16f992a4dd18a938b949a0c58",
+        "common/compiler.h": "24a567e73dadcca73b8183a41deb5063e8dce13697209abd153a23154e46e54e",
+        "common/cpu.h": "b88e98ad90fcf7c1fb6812e11e34572390dd76ca47d7f816c284a65e24f57fe9",
+        "common/entropy_common.c": "3ade9e678ee92df618bc9315d893c877769f55380e607f9ea162e684361a0c48",
+        "common/fse_decompress.c": "f919d16108002dac71c17f22fb5deac696d31fdffd09d3877a0f3d5bced1d8ba",
+        "common/xxhash.c": "e348f1426d3e9c7fe4cdff8e97c790ba6b2911512efa5c943263c63f6c69f74e",
+        "common/xxhash.h": "0913671a82a8cc4a636dd28c044b9ef108f704871604ca790e83db1368dac1fc",
+        "decompress/huf_decompress.c": "8966d774bc753d59a3f90d3e9ac489458c4f4fa077655f458f86026f45eb2cdf",
+        "decompress/zstd_decompress.c": "72e72338416447c7a29d4c6320b61e694aa43a5b61d6bafa090768615d22736f",
+        "zstd.h": "1a7c9f0beaa1b2fc7ec2c4d01e007209d2260db281057f70b34030d5c2e84d25",
+        "common/error_private.c": "115410a6bf3b9675b7c12c1b7428ad9b074a123f557af59e814b7227c88ecfab",
+        "common/zstd_common.c": "1b6bb4a97feb9b5873d0912e6506d43f240267ba14a75e5d419dfbbc04d30a58",
+        "decompress/zstd_ddict.c": "c0e68a07a88d66e3ff1a60858f3980202c8b183100cfade2849470de739a0ae1",
+        "decompress/zstd_decompress_block.c": "1933cd8bbbf69ae40059de0ba92e7eab2beeea7f2a8fbdc9e7dcba0adc703953",
+        "common/zstd_deps.h": "d8bc76f6ad1e685f72987aee5914c39e2046bd4c9791efa235ffd6f3d41af376"
+      },
+      "source_attributions": [
+        {
+          "files": "common/xxhash.c, common/xxhash.h",
+          "copyright": "Copyright (c) 2012-2020, Yann Collet, Facebook, Inc."
+        },
+        {
+          "files": "common/bitstream.h, common/fse_decompress.c, decompress/huf_decompress.c",
+          "copyright": "Copyright (c) 2013-2020, Yann Collet, Facebook, Inc."
+        },
+        {
+          "files": "common/compiler.h, common/entropy_common.c, common/error_private.c, common/zstd_common.c, decompress/zstd_ddict.c, decompress/zstd_decompress.c, decompress/zstd_decompress_block.c, zstd.h",
+          "copyright": "Copyright (c) 2016-2020, Yann Collet, Facebook, Inc."
+        },
+        {
+          "files": "common/cpu.h",
+          "copyright": "Copyright (c) 2018-2020, Facebook, Inc."
+        },
+        {
+          "files": "common/zstd_deps.h",
+          "copyright": "Copyright (c) 2016-2020, Facebook, Inc."
+        }
+      ],
+      "evidence": "Linux 76a onefile build log records compression and pinned Nuitka source directly includes zstd and xxhash. Windows 1b9 compression remains to be verified in its completed build log. Listed zstd source files were compared byte-for-byte across the pinned 2.7.16 and 2.8.9 sdists.",
+      "condition": "When bundled compression code is included, retain its copyright, conditions and disclaimer."
+    },
+    "gcc_runtime_conditional": {
+      "package": "Debian gcc-10-base and libgcc-10-dev 10.2.1-6 amd64",
+      "package_hashes": {
+        "gcc-10-base_10.2.1-6_amd64.deb": "be65535e94f95fbf04b104e8ab36790476f063374430f7dfc6c516cbe2d2cd1e",
+        "libgcc-10-dev_10.2.1-6_amd64.deb": "3b711374092b84e732c4e73cf33e02cff02e34a5f105eb6467de8d9038e4cd9d"
+      },
+      "reference": "https://snapshot.debian.org/archive/debian/20250721T000000Z/pool/main/g/gcc-10/",
+      "membership": "Static GCC runtime member inclusion in the observed stripped binaries is not established; determine it from an actual candidate link map or equivalent provenance.",
+      "terms": "For named runtime files under GPL-3.0-or-later with GCC Runtime Library Exception 3.1, apply the exact file-specific license and exception; do not generalize to unrelated GCC files.",
+      "notices": [
+        {
+          "path": "release-notices/embedded-nuitka/gcc-10.2.0-COPYING3",
+          "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+        },
+        {
+          "path": "release-notices/embedded-nuitka/gcc-10.2.0-COPYING.RUNTIME",
+          "sha256": "9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74"
+        },
+        {
+          "path": "release-notices/embedded-nuitka/debian-gcc-10-base-10.2.1-6-copyright",
+          "sha256": "719dd73912334e65a64c63fb1f7ccdacf70c27258570de0fb123b33d490eddf5"
+        }
+      ],
+      "file_terms": {
+        "paths": [
+          "libgcc/",
+          "gcc/libgcc2.[ch]",
+          "gcc/unwind*",
+          "gcc/gthr*",
+          "gcc/coretypes.h",
+          "gcc/crtstuff.c",
+          "gcc/defaults.h",
+          "gcc/dwarf2.h",
+          "gcc/emults.c",
+          "gcc/gbl-ctors.h",
+          "gcc/gcov-io.h",
+          "gcc/libgcov.c",
+          "gcc/tsystem.h",
+          "gcc/typeclass.h"
+        ],
+        "license": "GPL-3.0-or-later WITH GCC-exception-3.1",
+        "evidence": "Debian gcc-10-base 10.2.1-6 copyright, lines 102-108; these terms apply to the named runtime files if included, not all GCC files."
+      }
+    }
+  }
+}

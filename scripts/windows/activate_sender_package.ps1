@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory = $true)][string]$ProjectRoot,
     [Parameter(Mandatory = $true)][string]$StagedPackage,
-    [Parameter(Mandatory = $true)][ValidatePattern('^[a-f0-9]{40}$')][string]$Source
+    [Parameter(Mandatory = $true)][ValidatePattern('^[a-f0-9]{40}$')][string]$Source,
+    [switch]$CheckPrerequisitesOnly
 )
 $ErrorActionPreference = 'Stop'
 $taskName = 'HWMonitorMQTTSender'
@@ -9,6 +10,17 @@ $package = Join-Path $ProjectRoot 'package'
 $backup = Join-Path $ProjectRoot ('package-backup-' + [guid]::NewGuid().ToString('N'))
 $installer = Join-Path $StagedPackage 'scripts/windows/install_windows_sender_task.ps1'
 if (-not (Test-Path -LiteralPath (Join-Path $StagedPackage 'sender.exe') -PathType Leaf) -or -not (Test-Path -LiteralPath $installer -PathType Leaf)) { throw 'Validated package is incomplete.' }
+$runtimeHelp = 'Install the Microsoft Visual C++ x64 Redistributable 14.44.35211 or later from https://aka.ms/vc14/vc_redist.x64.exe, then retry.'
+try {
+    $runtime = Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64' -ErrorAction Stop
+    if ($runtime.Installed -ne 1 -or $runtime.Version -notmatch '^v?([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)$' -or [version]$Matches[1] -lt [version]'14.44.35211.0') { throw 'missing or outdated x64 runtime' }
+    foreach ($name in @('mfc140u.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')) {
+        $dll = Get-Item -LiteralPath (Join-Path (Join-Path $env:WINDIR 'System32') $name) -ErrorAction Stop
+        if ($dll.VersionInfo.FileVersion -notmatch '^([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)' -or [version]$Matches[1] -lt [version]'14.44.35112.0') { throw "missing or outdated $name" }
+    }
+}
+catch { throw $runtimeHelp }
+if ($CheckPrerequisitesOnly) { return }
 $previousTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 if ($previousTask) {
     $actions = @($previousTask.Actions)
