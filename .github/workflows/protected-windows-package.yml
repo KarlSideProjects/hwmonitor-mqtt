@@ -91,16 +91,18 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .venv/Scripts/python.exe scripts/windows/package_sender.py --executable old-binary/sender.exe --notices notices --output old-candidate --source f52d10100c62ee5ac9935cd274490ccfb9d67293 --source-root old-source --version 0.0.0 --compiler 'Nuitka 2.8.9' --python-version '3.13.17'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv/Scripts/python.exe scripts/windows/package_sender.py --executable (Join-Path $env:WINDIR 'SysWOW64/cmd.exe') --notices notices --output wrong-arch --source $source --version 0.0.1 --compiler 'failure injection' --python-version '3.13.17'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $archive = 'candidate/sender-windows-x64.zip'
           & scripts/windows/validate_sender_package.ps1 -Archive $archive -Sha256 (Get-FileHash $archive -Algorithm SHA256).Hash -Destination candidate-staged
       - name: Rehearse official bootstrap with Windows PowerShell 5.1
         shell: powershell
         run: |
-          & tests/windows_official_install_smoke.ps1 -Candidate (Resolve-Path old-candidate).Path -UpgradeCandidate (Resolve-Path candidate).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource f52d10100c62ee5ac9935cd274490ccfb9d67293 -Source $env:GITHUB_SHA
+          & tests/windows_official_install_smoke.ps1 -Candidate (Resolve-Path old-candidate).Path -UpgradeCandidate (Resolve-Path candidate).Path -WrongArchCandidate (Resolve-Path wrong-arch).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource f52d10100c62ee5ac9935cd274490ccfb9d67293 -Source $env:GITHUB_SHA
       - name: Rehearse official bootstrap with PowerShell 7
         shell: pwsh
         run: |
-          & tests/windows_official_install_smoke.ps1 -Candidate (Resolve-Path old-candidate).Path -UpgradeCandidate (Resolve-Path candidate).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource f52d10100c62ee5ac9935cd274490ccfb9d67293 -Source $env:GITHUB_SHA
+          & tests/windows_official_install_smoke.ps1 -Candidate (Resolve-Path old-candidate).Path -UpgradeCandidate (Resolve-Path candidate).Path -WrongArchCandidate (Resolve-Path wrong-arch).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource f52d10100c62ee5ac9935cd274490ccfb9d67293 -Source $env:GITHUB_SHA
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:

@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$Candidate,
     [Parameter(Mandatory = $true)][string]$UpgradeCandidate,
+    [Parameter(Mandatory = $true)][string]$WrongArchCandidate,
     [Parameter(Mandatory = $true)][string]$BrokerExe,
     [Parameter(Mandatory = $true)][string]$OldSource,
     [Parameter(Mandatory = $true)][string]$Source
@@ -133,6 +134,20 @@ try {
     [IO.File]::WriteAllText($checksumPath, (('0' * 64) + "  sender-windows-x64.zip`n"), [Text.Encoding]::ASCII)
     try { & $bootstrap; throw 'Expected checksum failure.' } catch { if ($_ -notmatch 'SHA-256 mismatch') { throw } }
     [IO.File]::WriteAllText($checksumPath, $checksum, [Text.Encoding]::ASCII)
+    Assert-OldState $oldExe $oldEnv $oldAcl
+    $upgradeDir = Join-Path $assets $global:SmokeRelease
+    $archivePath = Join-Path $upgradeDir 'sender-windows-x64.zip'
+    $savedArchive = Join-Path $testRoot 'saved-upgrade.zip'
+    Copy-Item -LiteralPath $archivePath -Destination $savedArchive
+    try {
+        Copy-Item -LiteralPath (Join-Path $WrongArchCandidate 'sender-windows-x64.zip') -Destination $archivePath -Force
+        Copy-Item -LiteralPath (Join-Path $WrongArchCandidate 'sender-windows-x64.zip.sha256') -Destination $checksumPath -Force
+        try { & $bootstrap; throw 'Expected architecture failure.' } catch { if ($_ -notmatch 'architecture') { throw } }
+    }
+    finally {
+        Copy-Item -LiteralPath $savedArchive -Destination $archivePath -Force
+        [IO.File]::WriteAllText($checksumPath, $checksum, [Text.Encoding]::ASCII)
+    }
     Assert-OldState $oldExe $oldEnv $oldAcl
     $global:FailNextStart = $true
     try { & $bootstrap; throw 'Expected upgrade start failure.' } catch { if ($_ -notmatch 'Injected start failure') { throw } }
