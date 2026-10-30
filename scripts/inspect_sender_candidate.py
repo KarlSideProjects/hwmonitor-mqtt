@@ -566,6 +566,7 @@ def inspect_image_layers(image, expected, expected_sender, platform='linux-x64')
         sender_count = 0
         member_count = 0
         expanded_size = 0
+        uncompressed_total = 0
         for index, name in enumerate(layers):
             entry = outer.getmember(name)
             if not entry.isfile() or entry.size > 1024 * 1024 * 1024:
@@ -582,11 +583,10 @@ def inspect_image_layers(image, expected, expected_sender, platform='linux-x64')
             else:
                 uncompressed = stream
             layer_digest = hashlib.sha256()
-            uncompressed_size = 0
             with uncompressed:
                 for chunk in iter(lambda: uncompressed.read(1024 * 1024), b''):
-                    uncompressed_size += len(chunk)
-                    if uncompressed_size > MAX_IMAGE_EXPANDED:
+                    uncompressed_total += len(chunk)
+                    if uncompressed_total > MAX_IMAGE_EXPANDED:
                         raise ValueError('image expanded size exceeded')
                     layer_digest.update(chunk)
             if rootfs['diff_ids'][index] != 'sha256:' + layer_digest.hexdigest():

@@ -749,3 +749,29 @@ def test_runtime_secret_scan_allows_only_proven_literal_context(tmp_path):
     for secret in (b'MQTT_PASS=actual-secret', b'PVE_TOKEN_SECRET=actual-secret', b'password: private-value', b'-----BEGIN PRIVATE KEY-----'):
         with pytest.raises(ValueError, match='secret'):
             scan(data + secret)
+
+
+def test_image_limits_total_uncompressed_layer_streams(tmp_path, monkeypatch):
+    import importlib.util
+    import io
+    import tarfile
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    layer = io.BytesIO()
+    with tarfile.open(fileobj=layer, mode='w') as tar:
+        item = tarfile.TarInfo('app/sender')
+        item.size = 6
+        tar.addfile(item, io.BytesIO(b'sender'))
+    data = layer.getvalue()
+    monkeypatch.setattr(checker, 'MAX_IMAGE_EXPANDED', len(data) + 1)
+    digest = 'sha256:' + hashlib.sha256(data).hexdigest()
+    config = json.dumps({'architecture': 'amd64', 'os': 'linux', 'rootfs': {'type': 'layers', 'diff_ids': [digest, digest]}}).encode()
+    image = tmp_path / 'image.tar'
+    with tarfile.open(image, 'w') as tar:
+        for name, content in [('manifest.json', json.dumps([{'Config': 'config.json', 'Layers': ['a.tar', 'b.tar']}]).encode()), ('config.json', config), ('a.tar', data), ('b.tar', data)]:
+            item = tarfile.TarInfo(name)
+            item.size = len(content)
+            tar.addfile(item, io.BytesIO(content))
+    with pytest.raises(ValueError, match='expanded'):
+        checker.inspect_image_layers(image, hashlib.sha256(image.read_bytes()).hexdigest(), hashlib.sha256(b'sender').hexdigest())
