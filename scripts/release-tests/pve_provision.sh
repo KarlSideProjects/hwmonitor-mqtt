@@ -30,7 +30,7 @@ elif [ "$1" = packages ]; then
   test "$(hostname --fqdn)" = pve-sandbox.local
   pvecm updatecerts --force
   systemctl restart pveproxy
-  openssl x509 -in /etc/pve/local/pveproxy-ssl.pem -noout -checkhost pve-sandbox.local | grep -q 'does match certificate'
+  openssl x509 -in /etc/pve/local/pve-ssl.pem -noout -checkhost pve-sandbox.local | grep -q 'does match certificate'
   dpkg-query -W proxmox-ve pve-manager proxmox-default-kernel
   for unit in pve-cluster pveproxy mosquitto; do systemctl is-active --quiet "$unit"; done
   pveversion
