@@ -53,88 +53,15 @@ jobs:
 
   linux-build:
     needs: version
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 240
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: linux-x64
-            runner: ubuntu-24.04
-            image: python@sha256:9e25f400253a5fa3191813d6a67eb801ca1e6f012b3bd2588fa6920b59e3eba6
-            python-archive: cpython-3.11.15%2B20260728-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz
-            python-sha: 39dfd79560d9b0c22ce7d16bccc171ed93537331a8c26a8aebe960301621b65e
-          - platform: linux-arm64
-            runner: ubuntu-24.04-arm
-            image: debian@sha256:29e60bc6b8355ce47307cecadb843f25c9a1ee332ed8458039cc435262677bdc
-            python-archive: cpython-3.11.15%2B20260728-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz
-            python-sha: a6decd180099e6768269bd8e8968aeaa84bb01511f00f6921dc204fe648729aa
-    env:
-      SOURCE: ${{ needs.version.outputs.source }}
-      OLD_SOURCE: c40a66d16d23ba7fac7fba171d02e4959a9a91a9
-      VERSION: ${{ needs.version.outputs.version }}
-      TARGET: ${{ matrix.platform }}
-      BUILD_IMAGE: ${{ matrix.image }}
-      PYTHON_ARCHIVE: ${{ matrix.python-archive }}
-      PYTHON_SHA: ${{ matrix.python-sha }}
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ needs.version.outputs.source }}
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Build from the pinned native toolchain
-        run: |
-          set -eu
-          test "$(git rev-parse HEAD)" = "$SOURCE"
-          test "$SOURCE" != "$OLD_SOURCE"
-          curl --fail --location --retry 3 "https://github.com/astral-sh/python-build-standalone/releases/download/20260728/$PYTHON_ARCHIVE" -o "$RUNNER_TEMP/python.tar.gz"
-          printf '%s  %s\n' "$PYTHON_SHA" "$RUNNER_TEMP/python.tar.gz" | sha256sum -c -
-          RUNNER_UID=$(id -u) RUNNER_GID=$(id -g)
-          export RUNNER_UID RUNNER_GID
-          docker run --rm -v "$GITHUB_WORKSPACE:/src" -v "$RUNNER_TEMP:/work" -w /src -e VERSION -e OLD_SOURCE -e RUNNER_UID -e RUNNER_GID "$BUILD_IMAGE" bash -ec '
-            printf "deb http://archive.debian.org/debian bullseye main\ndeb http://archive.debian.org/debian-security bullseye-security main\n" > /etc/apt/sources.list
-            apt-get -o Acquire::Check-Valid-Until=false update
-            apt-get install -y --no-install-recommends git gcc=4:10.2.1-1 gcc-10=10.2.1-6 libc6-dev=2.31-13+deb11u14 patchelf=0.12-1
-            git config --global --add safe.directory /src
-            mkdir -p /opt/pbs /work/result
-            tar -xzf /work/python.tar.gz -C /opt/pbs --strip-components=1
-            /opt/pbs/bin/python3.11 -m venv /tmp/build-venv
-            /tmp/build-venv/bin/pip install --no-build-isolation --require-hashes --force-reinstall -r scripts/requirements-sender-build.txt
-            /tmp/build-venv/bin/python scripts/build_sender_package.py --version "$VERSION" --output /work/result
-            git clone --quiet --no-checkout --shared /src /work/old-source
-            git -C /work/old-source checkout --quiet --detach "$OLD_SOURCE"
-            cd /work/old-source
-            /tmp/build-venv/bin/pip install --no-build-isolation --require-hashes --force-reinstall -r scripts/requirements-sender-build.txt
-            /tmp/build-venv/bin/python scripts/build_sender_package.py --version 0.0.1 --output /work/old-result
-            chown -R "$RUNNER_UID:$RUNNER_GID" /work/result /work/old-result
-          '
-      - name: Build image and independent build record
-        run: |
-          set -eu
-          mkdir -p "$RUNNER_TEMP/candidate" "$RUNNER_TEMP/private/evidence/$TARGET" "$RUNNER_TEMP/private/assets"
-          python3 -c 'import os, tarfile; p=os.environ["RUNNER_TEMP"]; t=os.environ["TARGET"]; tarfile.open(f"{p}/result/sender-{t}.tar.gz").extractall(f"{p}/candidate", filter="data")'
-          docker build -t sender-release-candidate:local "$RUNNER_TEMP/candidate"
-          docker save sender-release-candidate:local -o "$RUNNER_TEMP/private/evidence/$TARGET/image.tar"
-          cp "$RUNNER_TEMP/result/sender-$TARGET.tar.gz"* "$RUNNER_TEMP/private/assets/"
-          cp -a "$RUNNER_TEMP/result/evidence/." "$RUNNER_TEMP/private/evidence/$TARGET/"
-          python3 scripts/create_sender_build_record.py --source-root . --platform "$TARGET" \
-            --archive "$RUNNER_TEMP/private/assets/sender-$TARGET.tar.gz" --executable "$RUNNER_TEMP/candidate/sender" \
-            --report "$RUNNER_TEMP/private/evidence/$TARGET/report.xml" --inventory "$RUNNER_TEMP/private/evidence/$TARGET/inventory.json" \
-            --provenance "$RUNNER_TEMP/private/evidence/$TARGET/provenance.json" --runtime-dir "$RUNNER_TEMP/private/evidence/$TARGET/runtime" \
-            --assets "$RUNNER_TEMP/private/assets" --image "$RUNNER_TEMP/private/evidence/$TARGET/image.tar" \
-            --version "$VERSION" --python-version 3.11.15 --output "$RUNNER_TEMP/private/evidence/$TARGET/record.json"
-      - name: Verify distinct baseline archive checksum
-        run: (cd "$RUNNER_TEMP/old-result"; sha256sum -c "sender-$TARGET.tar.gz.sha256")
-      # Native installer and MQTT acceptance must run here before upload; harness is in progress.
-      - name: Block until native release acceptance is wired
-        run: exit 1
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: sender-${{ matrix.platform }}-${{ needs.version.outputs.source }}
-          path: ${{ runner.temp }}/private
-          if-no-files-found: error
-          retention-days: 3
+        platform: [linux-x64, linux-arm64]
+    uses: ./.github/workflows/sender-linux-build.yml
+    with:
+      source: ${{ needs.version.outputs.source }}
+      version: ${{ needs.version.outputs.version }}
+      platform: ${{ matrix.platform }}
 
   windows-build:
     needs: version

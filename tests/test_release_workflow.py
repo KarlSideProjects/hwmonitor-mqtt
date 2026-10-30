@@ -13,7 +13,7 @@ def test_release_workflow_is_master_only_and_has_no_publisher_credentials():
     assert 'scripts/release_controller.py drain' in workflow
     assert 'schedule:' in workflow
     assert 'scripts/release_version.py' in workflow
-    assert 'Block until native release acceptance is wired' in workflow
+    assert 'Block until PVE native acceptance is wired' in (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
 
 
 def test_recovery_dispatch_accepts_source_only_as_data():
@@ -33,11 +33,11 @@ def test_source_identity_job_exports_verified_source_and_version():
 
 def test_linux_builds_are_source_bound_and_have_no_publisher_token():
     workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
-    linux = workflow.split('  linux-build:', 1)[1].split('  windows-build:', 1)[0]
+    linux = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
     assert 'ubuntu-24.04-arm' in linux and 'ubuntu-24.04' in linux
     assert 'scripts/build_sender_package.py' in linux
     assert 'scripts/create_sender_build_record.py' in linux
-    assert 'needs.version.outputs.source' in linux
+    assert 'needs.version.outputs.source' in workflow and 'inputs.source' in linux
     assert 'secrets.' not in linux
 
 
@@ -50,7 +50,7 @@ def test_preparation_requires_all_build_jobs_and_uses_controller():
 
 
 def test_build_tree_remains_private_but_owned_by_runner():
-    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
     assert 'libc6-dev' in workflow
     assert 'chown -R "$RUNNER_UID:$RUNNER_GID" /work/result' in workflow
     assert 'chmod -R' not in workflow
@@ -84,13 +84,30 @@ def test_publisher_trigger_cases():
 
 
 def test_bullseye_builder_uses_archived_security_repository():
-    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
     assert 'http://archive.debian.org/debian-security bullseye-security main' in workflow
     assert 'Acquire::Check-Valid-Until=false' in workflow
 
 
 def test_linux_upgrade_baseline_is_built_from_distinct_pinned_source():
-    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
     assert 'c40a66d16d23ba7fac7fba171d02e4959a9a91a9' in workflow
     assert 'scripts/build_sender_package.py --version 0.0.1 --output /work/old-result' in workflow
     assert 'test "$SOURCE" != "$OLD_SOURCE"' in workflow
+
+
+def test_linux_docker_acceptance_uses_both_real_archives():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
+    assert 'scripts/release-tests/docker_acceptance.py' in workflow
+    assert '--old-archive "$RUNNER_TEMP/old-result/sender-$TARGET.tar.gz"' in workflow
+    assert '--old-source "$OLD_SOURCE" --old-version 0.0.1' in workflow
+    assert 'Block until PVE native acceptance is wired' in workflow
+
+
+def test_linux_harness_uses_workflow_checkout_and_exact_source_checkout():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    linux = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
+    assert 'path: source' in linux
+    assert 'git -C source rev-parse HEAD' in linux
+    assert '--source-root source' in linux
+    assert '--bootstrap "$GITHUB_WORKSPACE/source/bootstrap.sh"' in linux
