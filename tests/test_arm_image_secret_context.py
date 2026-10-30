@@ -62,3 +62,28 @@ def test_arm_arch_independent_debian_members_are_exact(tmp_path, monkeypatch, pa
             image_scan(tmp_path, public + secret, vendor_path=path)
         with pytest.raises(ValueError, match='potential secret'):
             image_scan(tmp_path, public, sender=b'sender' + secret, vendor_path=path)
+
+
+@pytest.mark.parametrize('path', [
+    'usr/share/gcc/python/libstdcxx/__init__.py',
+    'usr/share/gcc/python/libstdcxx/v6/__init__.py',
+    'usr/share/gcc/python/libstdcxx/v6/printers.py',
+    'usr/share/gcc/python/libstdcxx/v6/xmethods.py',
+    'usr/share/gdb/auto-load/usr/lib/aarch64-linux-gnu/libstdc++.so.6.0.30-gdb.py',
+])
+def test_arm_debian_debug_helpers_require_exact_path_and_hash(tmp_path, monkeypatch, path):
+    content = b'public debugger helper'
+    if '/aarch64-linux-gnu/' in path:
+        monkeypatch.setattr(checker, 'DEBIAN_ARM_IMAGE_FILES', {path: hashlib.sha256(content).hexdigest()}, raising=False)
+    else:
+        monkeypatch.setitem(checker.DEBIAN_IMAGE_FILES, path, hashlib.sha256(content).hexdigest())
+    image_scan(tmp_path, content, vendor_path=path)
+    with pytest.raises(ValueError, match='forbidden image layer path'):
+        image_scan(tmp_path, content + b'changed', vendor_path=path)
+    with pytest.raises(ValueError, match='forbidden image layer path'):
+        image_scan(tmp_path, content, vendor_path=path + '.py')
+    for secret in (b'MQTT_PASS=private', b'PVE_TOKEN_SECRET=private', b'-----BEGIN PRIVATE KEY-----'):
+        with pytest.raises(ValueError):
+            image_scan(tmp_path, content + secret, vendor_path=path)
+        with pytest.raises(ValueError, match='potential secret'):
+            image_scan(tmp_path, content, sender=b'sender' + secret, vendor_path=path)

@@ -376,6 +376,12 @@ DEBIAN_IMAGE_FILES = {
 }
 
 
+# The ARM libstdc++ package has an architecture-specific GDB loader path.
+DEBIAN_ARM_IMAGE_FILES = {
+    'usr/share/gdb/auto-load/usr/lib/aarch64-linux-gnu/libstdc++.so.6.0.30-gdb.py': '0759a8654f71c7b72ada1bf863ceeb7f23c794ef716c27196a2aec490cfce242',
+}
+
+
 # Exact Debian Bookworm package members; provenance is recorded in the candidate guide.
 DEBIAN_SECRET_PATTERN_FILES = {'usr/bin/gpasswd': 'f5ddf4ff327b07c2e1109645d35b0f75011d20877c9a0c2c1b0678dd1b8c3879',
  'usr/bin/newgrp': 'ced400910c4fe7ab0676ae07ee6489d677baa18e1425750a21b9688ab2e02fb6',
@@ -629,7 +635,9 @@ def inspect_image_layers(image, expected, expected_sender, platform='linux-x64')
                         if not item.isfile() or item.size > 128 * 1024 * 1024 or hashlib.sha256(layer.extractfile(item).read()).hexdigest() != expected_sender:
                             raise ValueError('image sender differs from trusted executable')
                     if 'hwmonitor_mqtt' in lowered or lowered.endswith(('.py', '.pyc', '.map', '.o')) or path.name in ('.env', '.git'):
-                        expected_file = DEBIAN_IMAGE_FILES.get(str(path)) if platform == 'linux-x64' else None
+                        expected_file = DEBIAN_IMAGE_FILES.get(str(path)) if (platform == 'linux-x64' or (platform == 'linux-arm64' and str(path).startswith('usr/share/gcc/python/libstdcxx/'))) else None
+                        if platform == 'linux-arm64' and expected_file is None:
+                            expected_file = DEBIAN_ARM_IMAGE_FILES.get(str(path))
                         if (not expected_file or not item.isfile() or item.size > 1024 * 1024
                                 or hashlib.sha256(layer.extractfile(item).read()).hexdigest() != expected_file):
                             raise ValueError(f'forbidden image layer path: {item.name}')
