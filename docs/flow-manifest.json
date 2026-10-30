@@ -390,6 +390,13 @@
       "reviewer": "orca_session_id:e14349ec-b616-491b-b7f1-b068ac18369e / task_9c74f91a9cd2 / ctx_fb3d3a70cc76",
       "verdict": "pass",
       "evidence": "docs/flow-evidence/reviews/sender.release-inspection/c59de418dfebcdaba9c320228c0d52638f3e41f41270d64abc0627440f825a77.json"
+    },
+    {
+      "feature": "sender.smart-discovery",
+      "fingerprint": "ee96fcf37fcb5e9fb725cc3228f74e921bc8f60a22f6557c1518ab079c445037",
+      "reviewer": "orca_session_id:a282d825-5f46-4890-95b8-5474ef2bec54 / task_69bdca2201f0 / ctx_cec1cc6dd37f",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.smart-discovery/ee96fcf37fcb5e9fb725cc3228f74e921bc8f60a22f6557c1518ab079c445037.json"
     }
   ],
   "policy_inputs": [
