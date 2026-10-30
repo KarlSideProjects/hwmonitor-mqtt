@@ -75,3 +75,20 @@ def test_package_uses_scripts_from_selected_committed_source_tree(tmp_path):
     with zipfile.ZipFile(output / "sender-windows-x64.zip") as package:
         assert package.read("scripts/windows/start_windows_sender.ps1") == b"old launcher"
         assert package.read("licenses/project.txt") == b"old project notice"
+
+
+def test_manifest_runtime_uses_actual_nuitka_report(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    binary = tmp_path / "sender.exe"
+    binary.write_bytes(b"test binary bytes")
+    notices = tmp_path / "notices"
+    notices.mkdir()
+    (notices / "python.txt").write_text("notice")
+    report = tmp_path / "report.xml"
+    report.write_text('<nuitka-compilation-report completion="yes"><distributions><distribution name="psutil" version="7.1.1"/><distribution name="setuptools" version="84.2.1"/></distributions></nuitka-compilation-report>')
+    output = tmp_path / "out"
+    result = subprocess.run([sys.executable, str(root / "scripts/windows/package_sender.py"), "--executable", str(binary), "--notices", str(notices), "--output", str(output), "--source", "a" * 40, "--version", "1.2.3", "--compiler", "test", "--python-version", "3.13.17", "--report", str(report)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    with zipfile.ZipFile(output / "sender-windows-x64.zip") as package:
+        runtime = json.loads(package.read("manifest.json"))["runtime"]
+    assert runtime == {"python": "3.13.17", "psutil": "7.1.1", "setuptools": "84.2.1"}

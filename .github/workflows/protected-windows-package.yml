@@ -79,9 +79,11 @@ jobs:
           if ($source -cne $env:GITHUB_SHA -or (git status --porcelain --untracked-files=no)) { throw 'Source checkout is not the clean workflow commit' }
           Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/python/cpython/v3.13.17/LICENSE' -OutFile python-license.txt
           if ((Get-FileHash python-license.txt -Algorithm SHA256).Hash -ne '78B12C3A81360B357002334F0E70EA0E92EEBF7A9B358805C03C48484945F3BB') { throw 'Python license SHA-256 mismatch' }
-          .venv/Scripts/python.exe scripts/windows/collect_notices.py --output notices --inventory notice-inventory.json --python-license python-license.txt paho-mqtt psutil python-dotenv pythonnet clr-loader cffi pycparser pywin32 WMI
+          .venv/Scripts/python.exe scripts/windows/collect_notices.py --output notices --inventory notice-inventory.json --python-license python-license.txt --report build/windows/nuitka-report.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .venv/Scripts/python.exe scripts/windows/package_sender.py --executable build/windows/sender.exe --notices notices --output candidate --source $source --version 0.0.1 --compiler 'Nuitka 2.8.9' --python-version '3.13.17'
+          .venv/Scripts/python.exe scripts/windows/inventory_sender_dist.py --dist build/windows/agent_sender_windows.dist --output dist-inventory.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv/Scripts/python.exe scripts/windows/package_sender.py --executable build/windows/sender.exe --notices notices --output candidate --source $source --version 0.0.1 --compiler 'Nuitka 2.8.9' --python-version '3.13.17' --report build/windows/nuitka-report.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if ((Get-FileHash old-binary/sender.exe -Algorithm SHA256).Hash -ne 'B64D67E5D004ED31C69C733ACB0867AD008E8288CB3A263DDFAC220F61FCFFB8') { throw 'Prior native executable SHA-256 mismatch' }
           New-Item -ItemType Directory -Path old-source | Out-Null
@@ -112,6 +114,7 @@ jobs:
             candidate/sender-windows-x64.zip
             candidate/sender-windows-x64.zip.sha256
             notice-inventory.json
+            dist-inventory.json
             build/windows/nuitka-report.xml
             test-evidence/process-tree-ps*.json
             test-evidence/direct-*.log

@@ -9,6 +9,7 @@ import re
 import shutil
 import tarfile
 import urllib.request
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
@@ -45,7 +46,8 @@ def fetch_verified(url, expected):
 
 
 def supplemental_notices(name, dist):
-    if name.lower() == "paho-mqtt" and dist.version == "2.1.0":
+    normalized_name = name.lower().replace("_", "-")
+    if normalized_name == "paho-mqtt" and dist.version == "2.1.0":
         data = fetch_verified(PAHO_URL, PAHO_SHA256)
         notices = []
         with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
@@ -58,7 +60,7 @@ def supplemental_notices(name, dist):
                     raise ValueError("Paho notice SHA-256 mismatch")
                 notices.append((content, f"{PAHO_URL}#{member}", PAHO_SHA256))
         return notices
-    info = SUPPLEMENTS.get((name.lower(), dist.version))
+    info = SUPPLEMENTS.get((normalized_name, dist.version))
     if info:
         url, archive_hash, member, notice_hash = info
         data = fetch_verified(url, archive_hash)
@@ -70,7 +72,7 @@ def supplemental_notices(name, dist):
         if hashlib.sha256(content).hexdigest() != notice_hash:
             raise ValueError(f"notice SHA-256 mismatch for {name}")
         return [(content, f"{url}#{member}", archive_hash)]
-    if name.lower() == "wmi" and dist.version == "1.5.1":
+    if normalized_name == "wmi" and dist.version == "1.5.1":
         metadata = dist.read_text("METADATA")
         if not metadata or hashlib.sha256(metadata.encode("utf-8")).hexdigest() != "bf90809237a8ce1dac86bed7e34e4e76692d87ffd21aed16541105cd63ea533a":
             raise ValueError("WMI metadata SHA-256 mismatch")
@@ -84,19 +86,40 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--inventory", type=Path, required=True)
     parser.add_argument("--python-license", type=Path, required=True)
-    parser.add_argument("packages", nargs="+")
+    parser.add_argument("--report", type=Path)
+    parser.add_argument("packages", nargs="*")
     args = parser.parse_args()
+    if args.report and args.packages:
+        parser.error("choose a Nuitka report or explicit packages")
+    expected = {}
+    if args.report:
+        report = ET.parse(args.report).getroot()
+        if report.tag != "nuitka-compilation-report" or report.get("completion") != "yes":
+            parser.error("Nuitka report is incomplete")
+        for item in report.findall("./distributions/distribution"):
+            name, version = item.get("name"), item.get("version")
+            if not name or not version or name in expected:
+                parser.error("invalid distribution in Nuitka report")
+            expected[name] = version
+        if not expected:
+            parser.error("Nuitka report contains no distributions")
+    elif args.packages:
+        expected = dict.fromkeys(args.packages)
+    else:
+        parser.error("a Nuitka report or packages are required")
     args.output.mkdir(parents=True, exist_ok=False)
     python_notice = args.output / "python.txt"
     shutil.copyfile(args.python_license, python_notice)
     if not python_notice.stat().st_size:
         parser.error("Python license is empty")
     inventory = {"python_license_sha256": hashlib.sha256(python_notice.read_bytes()).hexdigest(), "distributions": {}}
-    for name in args.packages:
+    for name, expected_version in expected.items():
         dist = importlib.metadata.distribution(name)
+        if expected_version is not None and dist.version != expected_version:
+            parser.error(f"installed {name} version does not match Nuitka report")
         if name.lower() == "paho-mqtt" and dist.version != "2.1.0":
             parser.error(f"Paho notice sources are not pinned for {dist.version}")
-        files = [item for item in (dist.files or []) if ("license" in str(item).lower() or "copying" in str(item).lower()) and dist.locate_file(item).is_file()]
+        files = [item for item in (dist.files or []) if re.match(r"^(license|copying|authors)(?:$|[._-])", item.name, re.IGNORECASE) and item.suffix.lower() not in {".py", ".pyc", ".pyd", ".dll", ".so"} and dist.locate_file(item).is_file()]
         entries = []
         for index, item in enumerate(files):
             target = re.sub(r"[^a-zA-Z0-9_-]", "-", name) + f"-{index}.txt"

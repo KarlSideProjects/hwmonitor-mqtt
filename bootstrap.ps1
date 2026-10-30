@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $root = Join-Path $env:ProgramData 'hwmonitor-mqtt'
-$temp = Join-Path $env:TEMP ('hwmonitor-mqtt-' + [guid]::NewGuid().ToString('N'))
+$temp = Join-Path $env:ProgramData ('hwmonitor-mqtt-stage-' + [guid]::NewGuid().ToString('N'))
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = [Security.Principal.WindowsPrincipal]::new($identity)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run this bootstrap from an elevated PowerShell window.' }

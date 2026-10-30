@@ -342,3 +342,12 @@ Assert-TrustedItem $env:ITEM $false $true
     result = run_pwsh(shell, env={"ITEM": str(tmp_path)})
     assert result.returncode != 0
     assert "untrusted" in result.stderr.lower()
+
+
+def test_bootstrap_stages_on_same_volume_as_installation(tmp_path):
+    source = (Path(__file__).resolve().parents[1] / "bootstrap.ps1").read_text()
+    declarations = "\n".join(line for line in source.splitlines() if line.startswith("$root =") or line.startswith("$temp ="))
+    result = run_pwsh(declarations + '; Write-Output $root; Write-Output $temp', env={"ProgramData": str(tmp_path / "programdata"), "TEMP": str(tmp_path / "other-volume")})
+    assert result.returncode == 0, result.stderr
+    root, stage = result.stdout.splitlines()
+    assert Path(root).parent == Path(stage).parent

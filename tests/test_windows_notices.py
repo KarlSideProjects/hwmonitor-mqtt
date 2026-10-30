@@ -117,3 +117,42 @@ def test_paho_terms_keep_the_filenames_referenced_by_wheel_notice(tmp_path, monk
     module.main()
     assert (tmp_path / "out/edl-v10").read_bytes() == b"edl"
     assert (tmp_path / "out/epl-v20").read_bytes() == b"epl"
+
+
+def test_notice_collection_does_not_copy_python_files_from_license_directories(tmp_path):
+    import os
+
+    root = Path(__file__).resolve().parents[1]
+    site = tmp_path / "site"
+    metadata = site / "fixture-1.0.dist-info"
+    metadata.mkdir(parents=True)
+    (metadata / "METADATA").write_text("Metadata-Version: 2.1\nName: fixture\nVersion: 1.0\n")
+    (metadata / "RECORD").write_text("fixture/licenses/LICENSE,,\nfixture/licenses/helper.py,,\n")
+    folder = site / "fixture/licenses"
+    folder.mkdir(parents=True)
+    (folder / "LICENSE").write_text("fixture license")
+    (folder / "helper.py").write_text("private = 'not a license'\n")
+    python_license = tmp_path / "python-license"
+    python_license.write_text("test Python license")
+    result = subprocess.run([sys.executable, str(root / "scripts/windows/collect_notices.py"), "--output", str(tmp_path / "notices"), "--inventory", str(tmp_path / "inventory.json"), "--python-license", str(python_license), "fixture"], env={**os.environ, "PYTHONPATH": str(site)}, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    records = json.loads((tmp_path / "inventory.json").read_text())
+    assert len(records["distributions"]["fixture"]["notices"]) == 1
+
+
+def test_notice_collection_uses_reported_distributions_and_checks_versions(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    python_license = tmp_path / "python-license"
+    python_license.write_text("test Python license")
+    report = tmp_path / "report.xml"
+    version = importlib.metadata.version("psutil")
+    report.write_text(f'<nuitka-compilation-report completion="yes"><distributions><distribution name="psutil" version="{version}"/></distributions></nuitka-compilation-report>')
+    command = [sys.executable, str(root / "scripts/windows/collect_notices.py"), "--output", str(tmp_path / "notices"), "--inventory", str(tmp_path / "inventory.json"), "--python-license", str(python_license), "--report", str(report)]
+    result = subprocess.run(command, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert json.loads((tmp_path / "inventory.json").read_text())["distributions"]["psutil"]["version"] == version
+    report.write_text('<nuitka-compilation-report completion="yes"><distributions><distribution name="psutil" version="0.0.0"/></distributions></nuitka-compilation-report>')
+    command[command.index(str(tmp_path / "notices"))] = str(tmp_path / "notices-bad")
+    result = subprocess.run(command, capture_output=True, text=True)
+    assert result.returncode != 0
+    assert "version" in result.stderr.lower()

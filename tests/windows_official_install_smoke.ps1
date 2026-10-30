@@ -11,14 +11,12 @@ if ($env:GITHUB_ACTIONS -ne 'true') { throw 'This smoke test only runs on a disp
 Remove-Item Env:BROKER_HOST, Env:BROKER_PORT, Env:MQTT_USER, Env:MQTT_PASS, Env:SENDER_PROFILE -ErrorAction SilentlyContinue
 $testRoot = Join-Path $env:RUNNER_TEMP ('official-smoke-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $testRoot | Out-Null
-$oldProgramData = $env:ProgramData
-$env:ProgramData = Join-Path $testRoot 'ProgramData'
-New-Item -ItemType Directory -Path $env:ProgramData | Out-Null
 $root = Join-Path $env:ProgramData 'hwmonitor-mqtt'
 $assets = Join-Path $testRoot 'assets'
 New-Item -ItemType Directory -Path $assets | Out-Null
 $broker = $null
 $ownsTask = $false
+$ownsRoot = $false
 $global:FailNextStart = $false
 $global:FailNextDownload = $false
 $global:SmokeRelease = '0.0.0'
@@ -85,8 +83,10 @@ function Assert-TreeExited($tree) {
     }
 }
 try {
+    if (Test-Path -LiteralPath $root) { throw 'Refusing to replace an existing install in the smoke environment.' }
     if (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue) { throw 'Refusing to replace an existing task in the smoke environment.' }
     $ownsTask = $true
+    $ownsRoot = $true
     foreach ($item in @(@('0.0.0', $Candidate, $OldSource), @('0.0.1', $UpgradeCandidate, $Source))) {
         $version = $item[0]
         $dir = Join-Path $assets $version
@@ -190,7 +190,7 @@ finally {
         Unregister-ScheduledTask -TaskName 'HWMonitorMQTTSender' -Confirm:$false -ErrorAction SilentlyContinue
     }
     if ($broker -and -not $broker.HasExited) { Stop-Process -Id $broker.Id -Force }
-    $env:ProgramData = $oldProgramData
     Remove-Item Env:SMOKE_MQTT_USER, Env:SMOKE_MQTT_PASS -ErrorAction SilentlyContinue
+    if ($ownsRoot) { Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue }
     Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
