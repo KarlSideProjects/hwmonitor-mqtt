@@ -88,3 +88,32 @@ try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE; exit 0 
     assert result.returncode != 0
     assert "exit code 23" in result.stdout
     assert (old / "sender.exe").read_text() == "old"
+
+
+def test_bootstrap_checks_release_asset_against_its_checksum(tmp_path):
+    import hashlib
+
+    asset = tmp_path / "sender-windows-x64.zip"
+    asset.write_bytes(b"downloaded bytes")
+    digest = hashlib.sha256(asset.read_bytes()).hexdigest()
+    (tmp_path / "sender-windows-x64.zip.sha256").write_text(f"{digest}  sender-windows-x64.zip\n")
+    download = tmp_path / "download"
+    download.mkdir()
+    source = (Path(__file__).resolve().parents[1] / "bootstrap.ps1").read_text()
+    functions = source[source.index("    function Download-ReleaseAsset"):source.index("    $versionPath")]
+    shell = r'''
+$release = @{assets = @(@{name='sender-windows-x64.zip'}, @{name='sender-windows-x64.zip.sha256'})}
+$base = 'https://example.invalid/release'
+$temp = $env:DOWNLOAD_DIR
+function Invoke-WebRequest { param([switch]$UseBasicParsing, $Uri, $OutFile) Copy-Item -LiteralPath (Join-Path $env:ASSET_DIR (Split-Path $Uri -Leaf)) -Destination $OutFile }
+''' + functions + r'''
+$result = Download-VerifiedAsset 'sender-windows-x64.zip'
+Write-Output $result.Sha256
+'''
+    result = run_pwsh(shell, env={"ASSET_DIR": str(tmp_path), "DOWNLOAD_DIR": str(download)})
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == digest
+    asset.write_bytes(b"changed bytes")
+    result = run_pwsh(shell, env={"ASSET_DIR": str(tmp_path), "DOWNLOAD_DIR": str(download)})
+    assert result.returncode != 0
+    assert "mismatch" in result.stderr.lower()
