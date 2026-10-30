@@ -4,6 +4,14 @@ on:
   push:
     branches: [jhihweijhan/implement-spec-task-a6fe7c06]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      source:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -14,12 +22,29 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 60
     env:
+      BUILD_SOURCE: ${{ inputs.source || github.sha }}
+      BUILD_VERSION: ${{ inputs.version || '0.0.1' }}
+      REUSABLE_BUILD: ${{ inputs.source && 'true' || 'false' }}
       OLD_SENDER_SHA256: '50292A12CDAA2AE894D95168A49D1D8DAB612F33BE3418BCA456DFDD996A20A6'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
           fetch-depth: 0
+          ref: ${{ inputs.source || github.sha }}
+      - name: Validate source and version for reusable builds
+        shell: pwsh
+        run: |
+          if ($env:BUILD_SOURCE -cnotmatch '^[a-f0-9]{40}$' -or $env:BUILD_VERSION -cnotmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { throw 'Invalid source or version' }
+          $actual = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actual -cne $env:BUILD_SOURCE) { throw 'Checkout differs from selected source' }
+          if ($env:REUSABLE_BUILD -eq 'true') {
+            if ((git rev-parse --is-shallow-repository).Trim() -ne 'false') { throw 'Complete master history is required' }
+            $history = @(git rev-list --first-parent --reverse refs/remotes/origin/master)
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot read master history' }
+            $index = [Array]::IndexOf($history, $env:BUILD_SOURCE)
+            if ($index -lt 0 -or $env:BUILD_VERSION -cne "0.1.$($index + 1)") { throw 'Source or version does not match master first-parent history' }
+          }
       - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: windows-sender-wip
@@ -92,7 +117,7 @@ jobs:
         shell: pwsh
         run: |
           $source = (git rev-parse HEAD).Trim()
-          if ($source -cne $env:GITHUB_SHA -or (git status --porcelain --untracked-files=no)) { throw 'Source checkout is not the clean workflow commit' }
+          if ($source -cne $env:BUILD_SOURCE -or (git status --porcelain --untracked-files=no)) { throw 'Source checkout is not the clean workflow commit' }
           Invoke-WebRequest -UseBasicParsing -Uri 'https://www.python.org/ftp/python/3.13.17/python-3.13.17-embed-amd64.zip' -OutFile python-embed.zip
           if ((Get-FileHash python-embed.zip -Algorithm SHA256).Hash -ne '9E35319BFFEDAB8B36AD44D8F377CB4F1733BCEC257A0B6D04D94F01486DDB38') { throw 'Python archive SHA-256 mismatch' }
           Expand-Archive -LiteralPath python-embed.zip -DestinationPath python-embed
@@ -104,7 +129,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Copy-Item capture-evidence/inventory.json dist-inventory.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .venv/Scripts/python.exe scripts/windows/package_sender.py --executable build/windows/sender.exe --notices notices --output candidate --source $source --version 0.0.1 --compiler 'Nuitka 2.8.9' --python-version '3.13.17' --report build/windows/nuitka-report.xml
+          .venv/Scripts/python.exe scripts/windows/package_sender.py --executable build/windows/sender.exe --notices notices --output candidate --source $source --version $env:BUILD_VERSION --compiler 'Nuitka 2.8.9' --python-version '3.13.17' --report build/windows/nuitka-report.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           New-Item -ItemType Directory -Path record-assets | Out-Null
           Copy-Item candidate/sender-windows-x64.zip record-assets/sender-windows-x64.zip
@@ -115,7 +140,7 @@ jobs:
             $assetHash = (Get-FileHash -LiteralPath (Join-Path 'record-assets' $name) -Algorithm SHA256).Hash.ToLowerInvariant()
             [IO.File]::WriteAllText((Join-Path $PWD "record-assets/$name.sha256"), "$assetHash  $name`n", [Text.Encoding]::ASCII)
           }
-          .venv/Scripts/python.exe scripts/create_sender_build_record.py --source-root . --platform windows-x64 --archive candidate/sender-windows-x64.zip --executable build/windows/sender.exe --report capture-evidence/report.xml --provenance capture-evidence/provenance.json --inventory dist-inventory.json --runtime-dir capture-evidence/runtime --assets record-assets --version 0.0.1 --python-version 3.13.17 --output build-record.json
+          .venv/Scripts/python.exe scripts/create_sender_build_record.py --source-root . --platform windows-x64 --archive candidate/sender-windows-x64.zip --executable build/windows/sender.exe --report capture-evidence/report.xml --provenance capture-evidence/provenance.json --inventory dist-inventory.json --runtime-dir capture-evidence/runtime --assets record-assets --version $env:BUILD_VERSION --python-version 3.13.17 --output build-record.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if ((Get-FileHash old-binary/build/windows/sender.exe -Algorithm SHA256).Hash -ne $env:OLD_SENDER_SHA256) { throw 'Prior native executable SHA-256 mismatch' }
           New-Item -ItemType Directory -Path old-source | Out-Null
@@ -127,18 +152,31 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .venv/Scripts/python.exe scripts/windows/package_sender.py --executable old-binary/build/windows/sender.exe --notices old-notices --output old-candidate --source 46bcc40d232cc2720b188c795d87e33d0894ea73 --source-root old-source --version 0.0.0 --compiler 'Nuitka 2.8.9' --python-version '3.13.17'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .venv/Scripts/python.exe scripts/windows/package_sender.py --executable (Join-Path $env:WINDIR 'SysWOW64/cmd.exe') --notices notices --output wrong-arch --source $source --version 0.0.1 --compiler 'failure injection' --python-version '3.13.17'
+          .venv/Scripts/python.exe scripts/windows/package_sender.py --executable (Join-Path $env:WINDIR 'SysWOW64/cmd.exe') --notices notices --output wrong-arch --source $source --version $env:BUILD_VERSION --compiler 'failure injection' --python-version '3.13.17'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $archive = 'candidate/sender-windows-x64.zip'
           & scripts/windows/validate_sender_package.ps1 -Archive $archive -Sha256 (Get-FileHash $archive -Algorithm SHA256).Hash -Destination candidate-staged
       - name: Rehearse official bootstrap with Windows PowerShell 5.1
         shell: powershell
         run: |
-          & tests/windows_official_install_smoke.ps1 -Candidate (Resolve-Path old-candidate).Path -UpgradeCandidate (Resolve-Path candidate).Path -WrongArchCandidate (Resolve-Path wrong-arch).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource 46bcc40d232cc2720b188c795d87e33d0894ea73 -OldSha256 $env:OLD_SENDER_SHA256 -Source $env:GITHUB_SHA
+          & tests/windows_official_install_smoke.ps1 -Candidate (Resolve-Path old-candidate).Path -UpgradeCandidate (Resolve-Path candidate).Path -WrongArchCandidate (Resolve-Path wrong-arch).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource 46bcc40d232cc2720b188c795d87e33d0894ea73 -OldSha256 $env:OLD_SENDER_SHA256 -Source $env:BUILD_SOURCE -UpgradeVersion $env:BUILD_VERSION
       - name: Rehearse official bootstrap with PowerShell 7
         shell: pwsh
         run: |
-          & tests/windows_official_install_smoke.ps1 -Candidate (Resolve-Path old-candidate).Path -UpgradeCandidate (Resolve-Path candidate).Path -WrongArchCandidate (Resolve-Path wrong-arch).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource 46bcc40d232cc2720b188c795d87e33d0894ea73 -OldSha256 $env:OLD_SENDER_SHA256 -Source $env:GITHUB_SHA
+          & tests/windows_official_install_smoke.ps1 -Candidate (Resolve-Path old-candidate).Path -UpgradeCandidate (Resolve-Path candidate).Path -WrongArchCandidate (Resolve-Path wrong-arch).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource 46bcc40d232cc2720b188c795d87e33d0894ea73 -OldSha256 $env:OLD_SENDER_SHA256 -Source $env:BUILD_SOURCE -UpgradeVersion $env:BUILD_VERSION
+      - name: Prepare private release evidence
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path release-private/assets, release-private/evidence/windows-x64 -Force | Out-Null
+          Copy-Item record-assets/* release-private/assets/ -Recurse
+          Copy-Item capture-evidence/* release-private/evidence/windows-x64/ -Recurse
+          Copy-Item build-record.json release-private/evidence/windows-x64/record.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sender-windows-x64-${{ env.BUILD_SOURCE }}
+          path: release-private/
+          if-no-files-found: error
+          retention-days: 3
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:

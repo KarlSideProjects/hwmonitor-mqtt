@@ -5,7 +5,8 @@ param(
     [Parameter(Mandatory = $true)][string]$BrokerExe,
     [Parameter(Mandatory = $true)][string]$OldSource,
     [Parameter(Mandatory = $true)][string]$OldSha256,
-    [Parameter(Mandatory = $true)][string]$Source
+    [Parameter(Mandatory = $true)][string]$Source,
+    [string]$UpgradeVersion = '0.0.1'
 )
 $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true') { throw 'This smoke test only runs on a disposable GitHub Actions runner.' }
@@ -99,7 +100,7 @@ try {
     if (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue) { throw 'Refusing to replace an existing task in the smoke environment.' }
     $ownsTask = $true
     $ownsRoot = $true
-    foreach ($item in @(@('0.0.0', $Candidate, $OldSource), @('0.0.1', $UpgradeCandidate, $Source))) {
+    foreach ($item in @(@('0.0.0', $Candidate, $OldSource), @($UpgradeVersion, $UpgradeCandidate, $Source))) {
         $version = $item[0]
         $dir = Join-Path $assets $version
         New-Item -ItemType Directory -Path $dir | Out-Null
@@ -143,7 +144,7 @@ try {
     if ($oldExe -ne $OldSha256) { throw 'The prior compiled sender is not the expected artifact.' }
     $oldEnv = (Get-FileHash (Join-Path $root '.env') -Algorithm SHA256).Hash
     $oldAcl = (Get-Acl (Join-Path $root '.env')).Sddl
-    $global:SmokeRelease = '0.0.1'
+    $global:SmokeRelease = $UpgradeVersion
     $global:FailNextDownload = $true
     try { & $bootstrap; throw 'Expected download failure.' } catch { if ($_ -notmatch 'Injected download failure') { throw } }
     Assert-OldState $oldExe $oldEnv $oldAcl
@@ -184,11 +185,11 @@ try {
     & $bootstrap
     if ((Get-FileHash (Join-Path $root '.env') -Algorithm SHA256).Hash -ne $oldEnv -or (Get-Acl (Join-Path $root '.env')).Sddl -ne $oldAcl) { throw 'Upgrade changed settings or ACL.' }
     $manifest = [IO.File]::ReadAllText((Join-Path $root 'package/manifest.json')) | ConvertFrom-Json
-    if ($manifest.version -ne '0.0.1') { throw 'Upgrade did not activate candidate manifest.' }
+    if ($manifest.version -ne $UpgradeVersion) { throw 'Upgrade did not activate candidate manifest.' }
     $newExe = (Get-FileHash (Join-Path $root 'package/sender.exe') -Algorithm SHA256).Hash
     if ($newExe -eq $oldExe -or $manifest.source -ne $Source) { throw 'Upgrade did not activate distinct compiled bytes from the selected source.' }
     $versionOutput = & (Join-Path $root 'package/sender.exe') --version
-    if ($LASTEXITCODE -ne 0 -or "$versionOutput" -notmatch [regex]::Escape($Source) -or "$versionOutput" -notmatch '0\.0\.1') { throw 'Installed executable version identity is incorrect.' }
+    if ($LASTEXITCODE -ne 0 -or "$versionOutput" -notmatch [regex]::Escape($Source) -or "$versionOutput" -notmatch [regex]::Escape($UpgradeVersion)) { throw 'Installed executable version identity is incorrect.' }
     Assert-TreeExited $rollbackTree
     $observations.Add([pscustomobject]@{phase='upgrade-running'; processes=@(Get-SenderTree)})
     & .venv/Scripts/python.exe tests/windows_mqtt_observer.py --profile esp --port 18884
