@@ -167,6 +167,7 @@ rollback() {
             if [[ $old_state == running ]]; then
                 SENDER_HOSTNAME=$(hostname) docker compose --project-directory "$root" "${compose[@]}" --profile agent up --no-build -d || return 1
             else
+                if docker inspect sys-agent >/dev/null 2>&1; then docker stop sys-agent >/dev/null || return 1; fi
                 SENDER_HOSTNAME=$(hostname) docker compose --project-directory "$root" "${compose[@]}" --profile agent create --no-build || return 1
             fi
         elif docker inspect sys-agent >/dev/null 2>&1; then

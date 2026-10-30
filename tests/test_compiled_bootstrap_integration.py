@@ -220,7 +220,8 @@ def test_failed_upgrade_preserves_previously_stopped_container(release, tmp_path
     assert (root / "sender").read_text() == "old binary"
     assert (tmp_path / "docker-calls").exists(), result.stderr
     calls = (tmp_path / "docker-calls").read_text()
-    assert "create --no-build" in calls
+    assert "stop sys-agent" in calls
+    assert calls.index("stop sys-agent") < calls.index("create --no-build")
     assert "up --no-build" not in calls
 
 
