@@ -50,3 +50,12 @@ def test_release_endpoint_rejects_wrong_source_before_listening(tmp_path):
     result = subprocess.run([sys.executable, str(SCRIPT), '--archive', str(package), '--sha256', hashlib.sha256(package.read_bytes()).hexdigest(), '--source', '2' * 40, '--version', '1.2.3', '--platform', 'linux-x64'], capture_output=True, text=True, timeout=3)
     assert result.returncode != 0
     assert not result.stdout
+
+
+def test_acceptance_runner_rejects_wrong_host_architecture_before_docker(tmp_path):
+    runner = SCRIPT.with_name('docker_acceptance.py')
+    result = subprocess.run([sys.executable, str(runner), '--bootstrap', str(tmp_path / 'bootstrap'), '--archive', str(tmp_path / 'sender'), '--sha256', '0' * 64, '--source', SOURCE, '--version', '1.2.3', '--platform', 'linux-arm64', '--output', str(tmp_path / 'out')], capture_output=True, text=True, timeout=5)
+    if __import__('platform').machine() in ('x86_64', 'amd64'):
+        assert result.returncode != 0
+        assert 'architecture' in result.stderr.lower()
+        assert not (tmp_path / 'out').exists()
