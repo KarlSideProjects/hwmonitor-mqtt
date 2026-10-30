@@ -154,3 +154,18 @@ def test_recovery_dispatch_rejects_untrusted_endpoints_and_invalid_sources():
         dispatch_sources(['a' * 40], 'token', test_api='https://example.com')
     with pytest.raises(ValueError):
         dispatch_sources(['not-a-sha'], 'token', test_api='http://127.0.0.1:1')
+
+
+def test_recovery_rotates_past_failing_sources(service, tmp_path):
+    from release_controller import pending_sources
+    api, _ = service
+    repo, assets, evidence = (tmp_path / name for name in ('repo', 'assets', 'evidence'))
+    first = setup(repo, assets, evidence)
+    commits = [first]
+    for index in range(3):
+        (repo / 'next').write_text(str(index))
+        subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True)
+        subprocess.run(['git', '-C', str(repo), '-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-qm', 'next'], check=True)
+        commits.append(subprocess.check_output(['git', '-C', str(repo), 'rev-parse', 'HEAD'], text=True).strip())
+    assert pending_sources(api, repo, commits[-1], first, 2, offset=2) == commits[2:]
+    assert pending_sources(api, repo, commits[-1], first, 2, offset=3) == [commits[3], commits[0]]

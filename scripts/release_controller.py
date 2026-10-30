@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 import subprocess
 import sys
+import time
 from urllib.parse import urlsplit
 from urllib.request import Request, build_opener
 
@@ -55,7 +56,7 @@ def prepare(api, repo, master, source, assets, evidence, inspector=inspect):
     return prepare_candidate(api, receipt, assets)
 
 
-def pending_sources(api, repo, master, start, limit):
+def pending_sources(api, repo, master, start, limit, offset=0):
     if type(limit) is not int or not 1 <= limit <= 100:
         raise ValueError('invalid recovery limit')
     version(repo, master, start)
@@ -70,7 +71,11 @@ def pending_sources(api, repo, master, start, limit):
             if remote_assets(api, release, receipt) != set(receipt['assets']):
                 raise ValueError('ready release incomplete')
             confirmed.add(source)
-    return [source for source in history[history.index(start):] if source not in confirmed][:limit]
+    pending = [source for source in history[history.index(start):] if source not in confirmed]
+    if not pending:
+        return []
+    offset %= len(pending)
+    return (pending[offset:] + pending[:offset])[:limit]
 
 
 def dispatch_sources(sources, token, test_api=None):
@@ -117,7 +122,8 @@ def main():
         elif args.command == 'drain':
             drain_ready(api)
         else:
-            sources = pending_sources(api, args.repo, args.master, args.start, args.limit)
+            offset = int(time.time() // 3600) if args.command == 'recover' else 0
+            sources = pending_sources(api, args.repo, args.master, args.start, args.limit, offset)
             if args.command == 'recover':
                 dispatch_sources(sources, os.environ.get('SOURCE_WORKFLOW_TOKEN'))
             print(json.dumps(sources))
