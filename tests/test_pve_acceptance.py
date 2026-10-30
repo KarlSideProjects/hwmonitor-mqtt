@@ -26,3 +26,10 @@ def test_cleanup_attempts_every_owned_resource_after_failure():
     errors = pve.cleanup([('container', lambda: action('container')), ('image', lambda: action('image')), ('listener', lambda: action('listener'))])
     assert attempted == ['container', 'image', 'listener']
     assert errors and 'container' in errors[0]
+
+
+def test_guest_seed_has_an_owned_marker_bound_to_the_run():
+    config = pve.guest_config('sender-pve-0123456789ab', 'ssh-ed25519 example')
+    assert '/etc/hwmonitor-pve-acceptance-owner' in config
+    assert 'sender-pve-0123456789ab' in config
+    assert 'ssh-ed25519 example' in config

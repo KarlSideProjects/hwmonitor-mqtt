@@ -26,6 +26,12 @@ def verify_file(path, expected, algorithm, label):
         raise ValueError(f'{label} checksum mismatch')
 
 
+def guest_config(name, public_key):
+    return ('#cloud-config\nhostname: pve-sandbox\nfqdn: pve-sandbox.local\nmanage_etc_hosts: false\n'
+            'write_files:\n  - path: /etc/hwmonitor-pve-acceptance-owner\n    permissions: \"0600\"\n    content: ' + name + '\n'
+            'users:\n  - name: debian\n    groups: sudo\n    shell: /bin/bash\n    sudo: ALL=(ALL) NOPASSWD:ALL\n    ssh_authorized_keys:\n      - ' + public_key + '\nssh_pwauth: false\n')
+
+
 def cleanup(actions):
     errors = []
     for name, action in actions:
@@ -85,7 +91,7 @@ def main():
         if port is None:
             return
         with (out / 'guest-evidence.tar').open('wb') as evidence:
-            subprocess.run(['ssh', '-i', str(out / 'id_ed25519'), '-o', 'StrictHostKeyChecking=yes', '-o', f'UserKnownHostsFile={out / "known_hosts"}', '-o', 'ConnectTimeout=5', '-p', str(port), 'debian@127.0.0.1', 'sudo tar -C /home/debian -cf - --ignore-failed-read full.ndjson denied.ndjson recovered.ndjson esp.ndjson rollback-before preserved endpoint.log direct-smart.txt sender-pids'], stdout=evidence, stderr=log, timeout=30, check=True)
+            subprocess.run(['ssh', '-i', str(out / 'id_ed25519'), '-o', 'StrictHostKeyChecking=yes', '-o', f'UserKnownHostsFile={out / "known_hosts"}', '-o', 'ConnectTimeout=5', '-p', str(port), 'debian@127.0.0.1', 'sudo tar -C /home/debian -cf - --ignore-failed-read full.ndjson denied.ndjson recovered.ndjson esp.ndjson rollback-before preserved endpoint.log direct-smart.txt sender-pids restored-old-full.ndjson restored-old-esp.ndjson fresh-new-full.ndjson fresh-new-esp.ndjson stopped-before stopped-after'], stdout=evidence, stderr=log, timeout=30, check=True)
         subprocess.run(['docker', 'logs', name], stdout=log, stderr=log, timeout=30)
 
     def absent_container():
@@ -117,12 +123,14 @@ def main():
     try:
         run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(out / 'id_ed25519')])
         pub = (out / 'id_ed25519.pub').read_text().strip()
-        (out / 'user-data').write_text('#cloud-config\nhostname: pve-sandbox\nfqdn: pve-sandbox.local\nmanage_etc_hosts: false\nusers:\n  - name: debian\n    groups: sudo\n    shell: /bin/bash\n    sudo: ALL=(ALL) NOPASSWD:ALL\n    ssh_authorized_keys:\n      - ' + pub + '\nssh_pwauth: false\n')
+        (out / 'user-data').write_text(guest_config(name, pub))
         (out / 'meta-data').write_text('instance-id: ' + name + '\nlocal-hostname: pve-sandbox\n')
         shutil.copyfile(a.cloud_image, out / 'base.qcow2')
         for source, target in ((a.bootstrap, 'bootstrap.sh'), (a.archive, 'archive.tar.gz'), (a.old_archive, 'old-archive.tar.gz'), (HERE / 'release_endpoint.py', 'release_endpoint.py'), (HERE / 'pve_guest.sh', 'pve_guest.sh'), (HERE / 'pve_provision.sh', 'pve_provision.sh')):
             shutil.copyfile(source, out / target)
         docker('build', '-t', image, '-f', str(HERE / 'Dockerfile.pve'), str(HERE), timeout=1200)
+        run(['docker', 'image', 'inspect', image, '--format', '{{.Id}}'])
+        docker('run', '--rm', '--name', name + '-prepare', image, 'qemu-system-x86_64', '--version')
         docker('run', '--rm', '--name', name + '-prepare', '-v', f'{out}:/work', image, 'sh', '-c', 'cd /work; qemu-img create -f qcow2 -F qcow2 -b base.qcow2 guest.qcow2 20G; qemu-img create -f qcow2 nvme.qcow2 128M; cloud-localds seed.img user-data meta-data')
         acceleration = ['--device', '/dev/kvm'] if os.access('/dev/kvm', os.R_OK | os.W_OK) else []
         cpu = ['-enable-kvm', '-cpu', 'host'] if acceleration else ['-accel', 'tcg', '-cpu', 'max']
@@ -156,7 +164,7 @@ def main():
         else:
             raise RuntimeError('PVE kernel did not boot')
         ssh('sudo bash /home/debian/pve_provision.sh packages', timeout=3600)
-        ssh('sudo bash /home/debian/pve_guest.sh ' + ' '.join((a.old_sha256, a.old_source, a.old_version, a.sha256, a.source, a.version)), timeout=1800)
+        ssh('sudo bash /home/debian/pve_guest.sh ' + ' '.join((a.old_sha256, a.old_source, a.old_version, a.sha256, a.source, a.version, name)), timeout=1800)
     finally:
         original = sys.exc_info()[1]
         errors = cleanup([('evidence', guest_evidence), ('container', absent_container), ('preparation', absent_preparation), ('image', absent_image), ('listener', absent_port)])
