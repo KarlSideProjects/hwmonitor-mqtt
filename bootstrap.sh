@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+[[ $(uname -m) == x86_64 ]] || { echo "Unsupported architecture; Linux x64 is required." >&2; exit 1; }
+
 repo=https://github.com/KarlSideProjects/hwmonitor-mqtt/archive/refs/heads/master.tar.gz
 root=${HWMONITOR_BOOTSTRAP_ROOT:-/opt/hwmonitor-mqtt}
 tmp=$(mktemp -d)

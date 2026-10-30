@@ -21,7 +21,7 @@ SYSTEMD_DIR = "/etc/systemd/system"
 
 
 def command(project_root, config_file=DEFAULT_CONFIG):
-    entry = [sys.executable, "--native-install"] if "__compiled__" in globals() else [sys.executable, "-m", "hwmonitor_mqtt.platforms.installers.pve"]
+    entry = [str(Path(sys.argv[0]).resolve()), "--native-install"] if "__compiled__" in globals() else [sys.executable, "-m", "hwmonitor_mqtt.platforms.installers.pve"]
     return entry + ["--project-root", str(Path(project_root).resolve()), "--config-file", str(Path(config_file).resolve())]
 
 

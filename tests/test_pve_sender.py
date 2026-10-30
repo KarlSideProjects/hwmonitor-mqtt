@@ -800,7 +800,7 @@ def test_compiled_pve_install_command_invokes_binary_dispatch(monkeypatch, tmp_p
     from hwmonitor_mqtt.platforms.installers import pve
 
     monkeypatch.setattr(pve, "__compiled__", True, raising=False)
-    monkeypatch.setattr(pve.sys, "executable", "/opt/package/sender")
+    monkeypatch.setattr(pve.sys, "argv", ["/opt/package/sender"])
     result = pve.command(tmp_path, tmp_path / "pve.env")
     assert result[:2] == ["/opt/package/sender", "--native-install"]
     assert result[2:] == ["--project-root", str(tmp_path.resolve()), "--config-file", str((tmp_path / "pve.env").resolve())]

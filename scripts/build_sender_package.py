@@ -41,6 +41,7 @@ def write_entrypoint(path, version, source):
         + "elif sys.argv[1:2] == [\"--pve-bootstrap\"]:\n    from hwmonitor_mqtt.platforms.pve_bootstrap import main\n    raise SystemExit(main(sys.argv[2:]))\n"
         + "elif sys.argv[1:2] == [\"--install\"]:\n    from hwmonitor_mqtt.platforms.install import main\n    raise SystemExit(main(sys.argv[2:]))\n"
         + "elif sys.argv[1:2] == [\"--native-install\"]:\n    from hwmonitor_mqtt.platforms.installers.pve import main\n    raise SystemExit(main(sys.argv[2:]))\n"
+        + "elif sys.argv[1:2] == [\"--stage\"]:\n    from hwmonitor_mqtt.platforms.sender_archive import main\n    raise SystemExit(main(sys.argv[2:]))\n"
         + "else:\n    from hwmonitor_mqtt.agents.agent_sender_async import run\n    run()\n",
         encoding="utf-8",
     )
@@ -94,6 +95,11 @@ def main():
         for name in ("python", "paho-mqtt", "psutil", "python-dotenv"):
             shutil.copy2(source_dir / "tests/fixtures/release-notices" / (name + ".txt"), notices)
         shutil.copy2(source_dir / "release-public/LICENSE-NOTICE.md", notices / "project.md")
+        for name in ("Dockerfile", "docker-compose.linux.yml", "docker-compose.pve.yml", "docs/configuration/pve.env.example"):
+            target = candidate / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_dir / name, target)
+        (candidate / ".dockerignore").write_text("*\n!Dockerfile\n!sender\n", encoding="utf-8")
         manifest = {"platform": "linux-x64", "source": source, "version": args.version,
                     "executable_sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
                     "compiler": "Nuitka 2.7.16", "runtime": {"python": platform.python_version(),

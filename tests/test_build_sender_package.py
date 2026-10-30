@@ -96,3 +96,17 @@ def test_entrypoint_passes_arguments_to_pve_bootstrap(tmp_path):
     result = subprocess.run([sys.executable, str(script), "--pve-bootstrap", "--config", "settings"], env={**os.environ, "PYTHONPATH": str(tmp_path)}, capture_output=True, text=True)
     assert result.returncode == 3
     assert result.stdout.strip() == "--config,settings"
+
+
+def test_entrypoint_dispatches_staging_command(tmp_path):
+    import os
+    from scripts.build_sender_package import write_entrypoint
+
+    package = tmp_path / "hwmonitor_mqtt" / "platforms"
+    package.mkdir(parents=True)
+    (package / "sender_archive.py").write_text("def main(argv):\n    print(','.join(argv))\n    return 4\n")
+    script = tmp_path / "entrypoint.py"
+    write_entrypoint(script, "1.2.3", "a" * 40)
+    result = subprocess.run([sys.executable, str(script), "--stage", "archive", "target"], env={**os.environ, "PYTHONPATH": str(tmp_path)}, capture_output=True, text=True)
+    assert result.returncode == 4
+    assert result.stdout.strip() == "archive,target"
