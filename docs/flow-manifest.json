@@ -12,7 +12,9 @@
       "release-public/LICENSE-NOTICE.md",
       "scripts/inspect_sender_candidate.py",
       "tests/test_release_candidate.py",
-      "docs/release/sender-candidate.md"
+      "docs/release/sender-candidate.md",
+      "hwmonitor_mqtt/collectors/smart.py",
+      "tests/test_smart_collector.py"
     ],
     "exclude": {}
   },
@@ -71,6 +73,16 @@
       "path": "docs/release/sender-candidate.md",
       "kind": "file",
       "md5": "ba1c671968956ed01018ae0ab8f1f06b"
+    },
+    {
+      "path": "hwmonitor_mqtt/collectors/smart.py",
+      "kind": "file",
+      "md5": "037f820f491874af24a226d0283e9cc3"
+    },
+    {
+      "path": "tests/test_smart_collector.py",
+      "kind": "file",
+      "md5": "fa5b551c0e4f0b0d4ff151da234bcc37"
     }
   ],
   "features": [
@@ -279,6 +291,49 @@
         {
           "node": "R",
           "path": "scripts/inspect_sender_candidate.py"
+        }
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "sender.smart-discovery",
+      "flow": "docs/flows/sender.smart-discovery.mmd",
+      "mappings": [
+        {
+          "node": "A",
+          "path": "hwmonitor_mqtt/collectors/smart.py"
+        },
+        {
+          "node": "B",
+          "path": "hwmonitor_mqtt/collectors/smart.py"
+        },
+        {
+          "node": "C",
+          "path": "hwmonitor_mqtt/collectors/smart.py"
+        },
+        {
+          "node": "D",
+          "path": "hwmonitor_mqtt/collectors/smart.py"
+        },
+        {
+          "node": "E",
+          "path": "hwmonitor_mqtt/collectors/smart.py"
+        },
+        {
+          "node": "F",
+          "path": "hwmonitor_mqtt/collectors/smart.py"
+        },
+        {
+          "node": "G",
+          "path": "hwmonitor_mqtt/collectors/smart.py"
+        },
+        {
+          "node": "H",
+          "path": "tests/test_smart_collector.py"
+        },
+        {
+          "node": "I",
+          "path": "tests/test_smart_collector.py"
         }
       ],
       "depends_on": []

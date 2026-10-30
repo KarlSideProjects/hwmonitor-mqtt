@@ -1,0 +1,19 @@
+flowchart TD
+    A{"Provider supplied"}
+    B{"smartctl executable found"}
+    C["Scan devices and read usable SMART data"]
+    D{"Discovery or read requires fallback"}
+    E["Try PVE when configured"]
+    F["Normalize devices and evaluate alerts"]
+    G["Return snapshot; unavailable when no devices or poll errors"]
+    H["Fixture mocks command execution for normalization"]
+    I["Missing executable test expects unavailable"]
+    A -->|yes| F
+    A -->|no| B
+    B -->|yes| C
+    B -->|no| D
+    C --> D
+    D -->|yes| E
+    D -->|no| F
+    E --> F
+    F --> G

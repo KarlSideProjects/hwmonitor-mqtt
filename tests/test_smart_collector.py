@@ -36,6 +36,7 @@ def test_smartctl_snapshot_normalizes_sata_and_nvme_and_tracks_crc_delta(monkeyp
             return Result({"devices": [{"name": "/dev/sda"}, {"name": "/dev/nvme0"}]})
         return Result(outputs[args[-1]])
 
+    monkeypatch.setattr("hwmonitor_mqtt.collectors.smart.shutil.which", lambda _: "/usr/sbin/smartctl")
     monkeypatch.setattr("hwmonitor_mqtt.collectors.smart.subprocess.run", run)
     collector = SmartCollector(monotonic=lambda: 1)
     first = collector.poll_once(now=100)

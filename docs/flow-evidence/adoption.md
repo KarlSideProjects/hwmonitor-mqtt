@@ -16,3 +16,5 @@ The source baseline covers `sender.distribution` and `sender.license`; the deliv
 | Hook and unattended generation | Not configured; delivery boundary is PR |
 
 The baseline comparison source is commit `86b074bc1aa6c38bbdb236f23546b1024ffc227a`. Its Git tree contains no `docs/flows/`, `docs/flow-manifest.json`, or `tools/flow-docs/` paths. Existing behavior and dependency declarations do not establish the contents or licensing compliance of any future compiled artifact.
+
+The `sender.smart-discovery` baseline covers executable discovery and its fixture seam only; SMART normalization and platform integration remain gaps. Independent review and candidate verification are pending.
