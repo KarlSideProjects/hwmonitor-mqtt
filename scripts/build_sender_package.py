@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+import io
 import importlib.metadata
 import json
 import os
@@ -9,6 +10,8 @@ from pathlib import Path
 import platform
 import subprocess
 import sys
+import tarfile
+import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +23,13 @@ DEPENDENCIES = {
     "psutil": "7.1.1",
     "python-dotenv": "1.1.1",
 }
+
+
+def source_snapshot(repo, destination, source="HEAD"):
+    archive = subprocess.check_output(["git", "archive", source], cwd=repo)
+    destination.mkdir(parents=True)
+    with tarfile.open(fileobj=io.BytesIO(archive)) as contents:
+        contents.extractall(destination, filter="data")
 
 
 def main():
@@ -42,9 +52,12 @@ def main():
             parser.error(f"{package} {version} is required")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    environment = os.environ.copy()
-    environment["PYTHONPATH"] = str(ROOT)
-    subprocess.run([sys.executable, "-m", "nuitka", "--onefile", "--output-filename=sender", f"--output-dir={output}", str(ROOT / "hwmonitor_mqtt/agents/agent_sender_async.py")], cwd=ROOT, env=environment, check=True)
+    with tempfile.TemporaryDirectory(prefix="sender-source-") as directory:
+        source_dir = Path(directory) / "source"
+        source_snapshot(ROOT, source_dir, source)
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(source_dir)
+        subprocess.run([sys.executable, "-m", "nuitka", "--onefile", "--output-filename=sender", f"--output-dir={output}", str(source_dir / "hwmonitor_mqtt/agents/agent_sender_async.py")], cwd=source_dir, env=environment, check=True)
     executable = output / "sender"
     manifest = {"platform": "linux-x64", "source": source, "version": args.version,
                 "executable_sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
