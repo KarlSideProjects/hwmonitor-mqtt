@@ -2,10 +2,14 @@
 """Check a proposed unpacked Sender layout; this is not a release approval."""
 
 import argparse
+import bz2
+import gzip
+import lzma
 import hashlib
 import json
 import io
 import stat
+import struct
 import tarfile
 import zipfile
 import xml.etree.ElementTree as ET
@@ -389,6 +393,85 @@ def check_image_config(data, platform='linux-x64'):
         raise ValueError('unsafe image configuration')
 
 
+def windows_runtime_architecture(data):
+    try:
+        def u16(offset):
+            return struct.unpack_from('<H', data, offset)[0]
+
+        def u32(offset):
+            return struct.unpack_from('<I', data, offset)[0]
+
+        if len(data) < 64 or data[:2] != b'MZ':
+            return False
+        pe = u32(60)
+        if data[pe:pe + 4] != b'PE\0\0':
+            return False
+        machine, sections, optional_size = u16(pe + 4), u16(pe + 6), u16(pe + 20)
+        opt = pe + 24
+        if not sections or sections > 96 or opt + optional_size + sections * 40 > len(data):
+            return False
+        magic = u16(opt)
+        section_table = opt + optional_size
+        for index in range(sections):
+            section = section_table + index * 40
+            if u32(section + 20) + u32(section + 16) > len(data):
+                return False
+        if machine == 0x8664:
+            return magic == 0x20b and optional_size >= 112
+        if machine != 0x14c or magic != 0x10b or optional_size < 216 or u32(opt + 92) <= 14:
+            return False
+        clr_rva, clr_size = u32(opt + 96 + 14 * 8), u32(opt + 100 + 14 * 8)
+
+        def rva_offset(rva, size):
+            for index in range(sections):
+                section = section_table + index * 40
+                virtual = u32(section + 12)
+                raw_size, raw = u32(section + 16), u32(section + 20)
+                if virtual <= rva and rva - virtual + size <= raw_size and raw + rva - virtual + size <= len(data):
+                    return raw + rva - virtual
+            raise ValueError('unmapped CLR metadata')
+
+        if clr_size < 72:
+            return False
+        clr = rva_offset(clr_rva, 72)
+        if u32(clr) < 72:
+            return False
+        metadata, metadata_size, flags = u32(clr + 8), u32(clr + 12), u32(clr + 16)
+        if not (flags & 1) or flags & (2 | 0x20000) or metadata_size < 16:
+            return False
+        meta = rva_offset(metadata, metadata_size)
+        end = meta + metadata_size
+        if data[meta:meta + 4] != b'BSJB' or u32(meta + 12) > metadata_size - 20:
+            return False
+        cursor = meta + 16 + u32(meta + 12)
+        if cursor + 4 > end:
+            return False
+        streams = u16(cursor + 2)
+        cursor += 4
+        if not 1 <= streams <= 32:
+            return False
+        names = set()
+        for _ in range(streams):
+            if cursor + 8 > end:
+                return False
+            offset, size = u32(cursor), u32(cursor + 4)
+            name_start = cursor + 8
+            name_end = data.find(b'\0', name_start, min(name_start + 32, end))
+            if name_end < 0 or offset + size > metadata_size or size == 0:
+                return False
+            name = bytes(data[name_start:name_end])
+            if name in names:
+                return False
+            names.add(name)
+            cursor = (name_end + 4) & ~3
+            if cursor > end:
+                return False
+        return bool(names & {b'#~', b'#-'}) and b'#Strings' in names
+
+    except (struct.error, ValueError, OverflowError):
+        return False
+
+
 def inspect_runtime_files(root, entries, platform=None):
     if root.is_symlink() or not root.is_dir():
         raise ValueError('invalid runtime directory')
@@ -410,6 +493,10 @@ def inspect_runtime_files(root, entries, platform=None):
         content = path.read_bytes()
         if hashlib.sha256(content).hexdigest() != item['sha256']:
             raise ValueError(f'runtime inventory hash mismatch: {name}')
+        if SECRET.search(content):
+            raise ValueError(f'potential secret in runtime: {name}')
+        if platform == 'windows-x64' and not windows_runtime_architecture(content):
+            raise ValueError(f'wrong runtime architecture: {name}')
         if platform in ('linux-x64', 'linux-arm64') and (len(content) < 20 or content[:6] != b'\x7fELF\x02\x01'
                 or int.from_bytes(content[18:20], 'little') != (62 if platform == 'linux-x64' else 183)):
             raise ValueError(f'wrong runtime architecture: {name}')
@@ -456,16 +543,40 @@ def inspect_image_layers(image, expected, expected_sender, platform='linux-x64')
         if config_name.startswith('blobs/sha256/') and config_name != 'blobs/sha256/' + hashlib.sha256(config_data).hexdigest():
             raise ValueError('image configuration digest mismatch')
         check_image_config(config_data, platform)
+        rootfs = strict_json(config_data).get('rootfs')
         layers = manifest[0].get('Layers')
         if not isinstance(layers, list) or not layers or any(not isinstance(name, str) for name in layers) or len(set(layers)) != len(layers):
             raise ValueError('invalid image layers')
+        if not isinstance(rootfs, dict) or rootfs.get('type') != 'layers' or not isinstance(rootfs.get('diff_ids'), list) or len(rootfs['diff_ids']) != len(layers):
+            raise ValueError('invalid image diff IDs')
         sender_count = 0
         member_count = 0
         expanded_size = 0
-        for name in layers:
+        for index, name in enumerate(layers):
             entry = outer.getmember(name)
             if not entry.isfile() or entry.size > 1024 * 1024 * 1024:
                 raise ValueError('invalid image layer')
+            stream = outer.extractfile(entry)
+            prefix = stream.read(6)
+            stream.seek(0)
+            if prefix.startswith(b'\x1f\x8b'):
+                uncompressed = gzip.GzipFile(fileobj=stream)
+            elif prefix.startswith(b'BZh'):
+                uncompressed = bz2.BZ2File(stream)
+            elif prefix.startswith(b'\xfd7zXZ\x00'):
+                uncompressed = lzma.LZMAFile(stream)
+            else:
+                uncompressed = stream
+            layer_digest = hashlib.sha256()
+            uncompressed_size = 0
+            with uncompressed:
+                for chunk in iter(lambda: uncompressed.read(1024 * 1024), b''):
+                    uncompressed_size += len(chunk)
+                    if uncompressed_size > MAX_IMAGE_EXPANDED:
+                        raise ValueError('image expanded size exceeded')
+                    layer_digest.update(chunk)
+            if rootfs['diff_ids'][index] != 'sha256:' + layer_digest.hexdigest():
+                raise ValueError('image diff ID mismatch')
             with tarfile.open(fileobj=outer.extractfile(entry), mode='r:*') as layer:
                 for item in layer:
                     member_count += 1

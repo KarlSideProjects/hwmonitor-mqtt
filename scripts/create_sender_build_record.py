@@ -8,9 +8,11 @@ import re
 import stat
 import subprocess
 import tarfile
+import tempfile
 import zipfile
 from pathlib import Path
 
+from capture_sender_build import capture
 from inspect_sender_candidate import (LINUX_ARCHIVE_PATHS, MAX_ARCHIVE_MEMBERS, PLATFORMS, WINDOWS_ARCHIVE_PATHS,
                                       inspect_build_evidence, inspect_runtime_files, strict_json)
 
@@ -63,6 +65,7 @@ def main():
     parser.add_argument('--archive', type=Path, required=True)
     parser.add_argument('--executable', type=Path, required=True)
     parser.add_argument('--report', type=Path, required=True)
+    parser.add_argument('--provenance', type=Path, required=True)
     parser.add_argument('--inventory', type=Path, required=True)
     parser.add_argument('--runtime-dir', type=Path, required=True)
     parser.add_argument('--assets', type=Path, required=True)
@@ -104,7 +107,16 @@ def main():
         if args.image is None:
             parser.error('Linux image archive required')
         record['image_sha256'] = digest(args.image)
+    if args.provenance.is_symlink() or not args.provenance.is_file() or args.provenance.stat().st_size > 4096:
+        parser.error('invalid compiler invocation provenance')
+    provenance = strict_json(args.provenance.read_bytes())
+    if provenance != {key: record[key] for key in ('executable_sha256', 'report_sha256', 'inventory_sha256')}:
+        parser.error('compiler invocation provenance mismatch')
     entries = inspect_build_evidence(args.platform, args.report, args.inventory, record)
+    with tempfile.TemporaryDirectory(prefix='sender-record-') as directory:
+        captured = capture([str(args.executable.resolve())], args.runtime_dir, Path(directory) / 'runtime')
+        if captured != entries:
+            parser.error('extracted runtime differs from inventory')
     inspect_runtime_files(args.runtime_dir, entries, args.platform)
     args.output.write_text(json.dumps(record, indent=2, sort_keys=True) + '\n', encoding='utf-8')
 
