@@ -117,7 +117,7 @@ ARCHIVE_NOTICE_HASHES = {'linux-x64': {'licenses/paho-mqtt.txt': '3c3ce20f2f04eb
                  'licenses/epl-v20': '8c349f80764d0648e645f41ef23772a70c995a0924b5235f735f4a3d09df127c',
                  'licenses/openssl-3.5.9-LICENSE.txt': '7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a',
                  'licenses/paho-mqtt-0.txt': '66408b049249c3bdb0ba1ed285f5422ce67e371d40151bebd4d806af454ffe7c',
-                 'licenses/project.txt': 'ea9d84a35fc6bbf837ae8b26f8a219fda94fbd75e5752880131c91466702a2d5',
+                 'licenses/project.txt': 'ffa814dce11f3be832bacb7dc2511c36c935b77845c4f16a7c9d8cfd3ae8ce36',
                  'licenses/psutil-0.txt': 'c7adc4d5d1337a548b967421f1fbe258b93033a0417708fd6f4e38f8ecbceb80',
                  'licenses/pycparser-0.txt': '0c846399369ea76ddd7b5c44fe6d16497415fcf015f5cbb508c24bf98b81c5b1',
                  'licenses/python-dotenv-0.txt': '80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9',
@@ -472,7 +472,7 @@ def windows_runtime_architecture(data):
         return False
 
 
-# Exact upstream strings: CPython getpass/SSL and Paho 2.1.0 docstrings.
+# Exact upstream strings: CPython getpass/SSL, Paho 2.1.0 and WMI 1.5.1.
 RUNTIME_SECRET_CONTEXTS = {
     'sender.bin': (
         b'\xfa\nPassword: c\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x03\x00\x00\x00\xf3\x08\x05',
@@ -480,6 +480,14 @@ RUNTIME_SECRET_CONTEXTS = {
         b':param str password: The password to authenticate with.',
     ),
     'libpython3.11.so.1.0': (b'load_cert_chain($self, /, certfile, keyfile=None, password=None)\n--\n\n',),
+    '_ssl.pyd': (b'load_cert_chain($self, /, certfile, keyfile=None, password=None)\n--\n\n',),
+    'agent_sender_windows.dll': (
+        b')\x02z\nPassword: N)\x03r=\x00\x00\x00NN',
+        b':param proxy_password: password for SOCKS5 proxy',
+        b':param str password: The password to authenticate with.',
+        b':param password: leave blank to use current context',
+        b'server="remote_machine", user="myname", password="mypassword"\n        )',
+    ),
 }
 
 
@@ -505,7 +513,7 @@ def inspect_runtime_files(root, entries, platform=None):
         if hashlib.sha256(content).hexdigest() != item['sha256']:
             raise ValueError(f'runtime inventory hash mismatch: {name}')
         scanned = content
-        for context in RUNTIME_SECRET_CONTEXTS.get(name, ()) if platform in ('linux-x64', 'linux-arm64') else ():
+        for context in RUNTIME_SECRET_CONTEXTS.get(name, ()):
             scanned = scanned.replace(context, b'\x00' * len(context))
         if SECRET.search(scanned):
             raise ValueError(f'potential secret in runtime: {name}')
@@ -633,6 +641,11 @@ APPROVED_NOTICE_SETS = frozenset()
 def check_release_notice_readiness(platform, record):
     descriptor = {'platform': platform, 'compiler': record.get('compiler'),
                   'runtime': record.get('runtime'), 'notices': ARCHIVE_NOTICE_HASHES.get(platform)}
+    if platform in ('linux-x64', 'linux-arm64'):
+        source_files = record.get('source_files')
+        if not isinstance(source_files, dict) or not isinstance(source_files.get('Dockerfile'), str) or not re.fullmatch(r'[a-f0-9]{64}', source_files['Dockerfile']):
+            raise ValueError('runtime image recipe not established')
+        descriptor['runtime_image_recipe'] = source_files['Dockerfile']
     fingerprint = hashlib.sha256(json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     if fingerprint not in APPROVED_NOTICE_SETS:
         raise ValueError('runtime notice and source obligations not established for this exact input set')

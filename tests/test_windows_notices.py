@@ -168,3 +168,18 @@ def test_exact_cpython_binary_license_adds_versioned_native_notices(tmp_path):
     for name in ('openssl-3.5.9-LICENSE.txt', 'xz-5.2.5-COPYING', 'cpython-3.13.17-expat-COPYING'):
         assert (out / name).read_bytes() == (inputs / name).read_bytes()
         assert json.loads(inventory.read_text())['native_notices'][name] == hashlib.sha256((out / name).read_bytes()).hexdigest()
+
+
+def test_windows_checkout_preserves_native_notice_bytes(tmp_path):
+    import subprocess
+    root = Path(__file__).resolve().parents[1]
+    names = [f'release-notices/windows-x64-cpython-3.13.17/{name}' for name in ('openssl-3.5.9-LICENSE.txt', 'xz-5.2.5-COPYING', 'cpython-3.13.17-expat-COPYING', 'LICENSE.cpython-binary.txt')]
+    names += [p.relative_to(root).as_posix() for p in (root / 'tests/fixtures/release-notices').iterdir() if p.is_file()]
+    names += ['release-public/LICENSE-NOTICE.md']
+    names += [f'scripts/windows/{name}' for name in ('validate_sender_package.ps1', 'activate_sender_package.ps1', 'install_windows_sender_task.ps1', 'start_windows_sender.ps1')]
+    checkout = tmp_path / 'checkout'
+    checkout.mkdir()
+    subprocess.run(['git', '-C', str(root), '-c', 'core.autocrlf=true', 'checkout-index', f'--prefix={checkout}/', '--', *names], check=True)
+    for name in names:
+        expected = subprocess.check_output(['git', '-C', str(root), 'show', f'HEAD:{name}'])
+        assert (checkout / name).read_bytes() == expected

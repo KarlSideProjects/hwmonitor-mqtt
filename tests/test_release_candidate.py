@@ -775,3 +775,58 @@ def test_image_limits_total_uncompressed_layer_streams(tmp_path, monkeypatch):
             tar.addfile(item, io.BytesIO(content))
     with pytest.raises(ValueError, match='expanded'):
         checker.inspect_image_layers(image, hashlib.sha256(image.read_bytes()).hexdigest(), hashlib.sha256(b'sender').hexdigest())
+
+
+def test_windows_runtime_scans_around_source_proven_docstrings(tmp_path):
+    import importlib.util
+    import struct
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    pe = bytearray(512)
+    pe[:2] = b'MZ'
+    struct.pack_into('<I', pe, 60, 128)
+    pe[128:132] = b'PE\0\0'
+    struct.pack_into('<HH', pe, 132, 0x8664, 1)
+    struct.pack_into('<H', pe, 148, 112)
+    struct.pack_into('<H', pe, 152, 0x20b)
+    data = bytes(pe) + b':param password: leave blank to use current context\n'
+    path = tmp_path / 'agent_sender_windows.dll'
+    def scan(content):
+        path.write_bytes(content)
+        checker.inspect_runtime_files(tmp_path, [{'path': path.name, 'size': len(content), 'sha256': hashlib.sha256(content).hexdigest()}], 'windows-x64')
+    scan(data)
+    with pytest.raises(ValueError, match='secret'):
+        scan(data + b'MQTT_PASS=actual-secret')
+    path.unlink()
+    other = tmp_path / 'other.dll'
+    other.write_bytes(data)
+    with pytest.raises(ValueError, match='secret'):
+        checker.inspect_runtime_files(tmp_path, [{'path': other.name, 'size': len(data), 'sha256': hashlib.sha256(data).hexdigest()}], 'windows-x64')
+
+
+def test_windows_project_notice_hash_matches_git_blob():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    notice = subprocess.check_output(['git', '-C', str(CHECKER.parents[1]), 'show', 'HEAD:release-public/LICENSE-NOTICE.md'])
+    assert checker.ARCHIVE_NOTICE_HASHES['windows-x64']['licenses/project.txt'] == hashlib.sha256(notice).hexdigest()
+
+
+def test_notice_readiness_binds_runtime_image_recipe(monkeypatch):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    recipe = 'a' * 64
+    record = {'compiler': 'Nuitka test', 'runtime': {'python': '3.11.15'}, 'source_files': {'Dockerfile': recipe}}
+    descriptor = {'platform': 'linux-x64', 'compiler': record['compiler'], 'runtime': record['runtime'], 'notices': checker.ARCHIVE_NOTICE_HASHES['linux-x64'], 'runtime_image_recipe': recipe}
+    fingerprint = hashlib.sha256(json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    monkeypatch.setattr(checker, 'APPROVED_NOTICE_SETS', frozenset({fingerprint}))
+    checker.check_release_notice_readiness('linux-x64', record)
+    record['executable_sha256'] = 'c' * 64
+    checker.check_release_notice_readiness('linux-x64', record)
+    record['source_files']['Dockerfile'] = 'b' * 64
+    with pytest.raises(ValueError, match='not established'):
+        checker.check_release_notice_readiness('linux-x64', record)

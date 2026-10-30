@@ -199,6 +199,7 @@ def test_dockerfile_installs_intel_tools_only_on_amd64(tmp_path):
     bin_dir.mkdir()
     for name, body in {
         "dpkg": 'printf "%s\\n" "$TEST_ARCH"',
+        "sed": ":",
         "apt-get": 'printf "%s\\n" "$*" >> "$TEST_CALLS"',
         "rm": ":",
     }.items():
@@ -211,3 +212,12 @@ def test_dockerfile_installs_intel_tools_only_on_amd64(tmp_path):
         subprocess.run(["sh", "-c", instruction], env=env, check=True)
         assert ("intel-gpu-tools" in calls.read_text()) == (arch == "amd64")
         assert "smartmontools" in calls.read_text()
+
+
+def test_runtime_image_uses_authenticated_dated_snapshot():
+    dockerfile = (BUILDER.parents[1] / 'Dockerfile').read_text()
+    assert '# syntax=' not in dockerfile
+    assert 'snapshot.debian.org/archive/debian/20261027T000000Z' in dockerfile
+    assert 'snapshot.debian.org/archive/debian-security/20261027T000000Z' in dockerfile
+    assert 'Check-Valid-Until: no' in dockerfile
+    assert 'trusted=yes' not in dockerfile and '--allow-unauthenticated' not in dockerfile

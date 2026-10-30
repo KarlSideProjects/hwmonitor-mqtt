@@ -140,6 +140,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Copy-Item -LiteralPath python-embed/LICENSE.txt -Destination python-license.txt
           if ((Get-FileHash python-license.txt -Algorithm SHA256).Hash -ne '62BEC384DF47B0328307DB41455FF6EA2559E5546B394AC69148561B21703120') { throw 'Python license SHA-256 mismatch' }
+          Get-FileHash -Algorithm SHA256 release-notices/windows-x64-cpython-3.13.17/openssl-3.5.9-LICENSE.txt
           .venv/Scripts/python.exe scripts/windows/collect_notices.py --output notices --inventory notice-inventory.json --python-license python-license.txt --report build/windows/nuitka-report.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Copy-Item capture-evidence/inventory.json dist-inventory.json
