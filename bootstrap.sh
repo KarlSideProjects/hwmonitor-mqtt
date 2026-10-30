@@ -148,7 +148,7 @@ for file in "${files[@]}"; do
     mkdir -p "$root/$(dirname "$file")" "$backup/$(dirname "$file")"
     if [[ -e $root/$file ]]; then cp -p "$root/$file" "$backup/$file"; else touch "$backup/$file.absent"; fi
 done
-old_image= old_ref= old_state= docker_attempted=0
+old_image= old_ref= old_state= old_pin= pin_id= pin_owned=0 docker_attempted=0
 if [[ $target == linux ]]; then
     if docker inspect sys-agent >/dev/null 2>"$scratch/docker-error"; then
         old_image=$(docker inspect --format '{{.Image}}' sys-agent)
@@ -160,6 +160,11 @@ if [[ $target == linux ]]; then
         exit 1
     fi
 fi
+pin_matches() {
+    local current
+    current=$(docker image inspect --format '{{.Id}}' "$old_pin") || return 1
+    [[ $current == "$pin_id" ]]
+}
 rollback() {
     local file
     for file in "${files[@]}"; do
@@ -167,7 +172,8 @@ rollback() {
     done
     if [[ $target == linux && $docker_attempted == 1 ]]; then
         if [[ -n $old_image && -n $old_ref ]]; then
-            docker tag "$old_image" "$old_ref" || return 1
+            pin_matches || return 1
+            docker tag "$old_pin" "$old_ref" || return 1
             local compose=(-f "$root/docker-compose.linux.yml")
             [[ ! -f $root/docker-compose.override.yml ]] || compose+=(-f "$root/docker-compose.override.yml")
             if [[ $old_state == running ]]; then
@@ -181,17 +187,34 @@ rollback() {
         fi
     fi
 }
+drop_pin() {
+    [[ $pin_owned == 1 ]] || return 0
+    pin_matches || return 1
+    docker image rm "$old_pin" >/dev/null
+}
 transaction=1
 finish() {
     local status=$?
     trap - EXIT
     if [[ $transaction == 1 && $status != 0 ]]; then
-        if rollback; then rm -rf "$backup"; else echo "Rollback failed; backup retained at $backup" >&2; fi
+        if rollback; then
+            if drop_pin; then rm -rf "$backup"; else echo "Rollback image retained at $old_pin; backup retained at $backup" >&2; fi
+        else
+            echo "Rollback failed; backup retained at $backup; rollback image: ${old_pin:-none}" >&2
+        fi
     fi
     rm -rf "$scratch"
     exit "$status"
 }
 trap finish EXIT
+if [[ $target == linux && -n $old_image ]]; then
+    old_pin="hwmonitor-mqtt-rollback:$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+    if docker image inspect "$old_pin" >/dev/null 2>&1; then echo 'Rollback image reference already exists.' >&2; exit 1; fi
+    pin_id=$(docker image inspect --format '{{.Id}}' "$old_image")
+    [[ -n $pin_id ]] || { echo 'Cannot identify rollback image.' >&2; exit 1; }
+    docker tag "$old_image" "$old_pin"
+    pin_owned=1
+fi
 for file in "${files[@]}"; do cp -p "$scratch/root-staged/$file" "$root/$file"; done
 docker_attempted=1
 "$root/sender" --install --project-root "$root" --pve-config "$pve_config"
@@ -207,5 +230,6 @@ if [[ $target == linux ]]; then
 fi
 touch "$root/.hwmonitor-mqtt-bootstrap"
 transaction=0
+if ! drop_pin; then echo "Could not remove rollback image reference: $old_pin" >&2; fi
 rm -rf "$backup"
 echo "Sender $version installed."
