@@ -116,8 +116,9 @@ def main():
         parser.error("a Nuitka report or packages are required")
     args.output.mkdir(parents=True, exist_ok=False)
     python_notice = args.output / "python.txt"
+    raw_python_license_sha256 = hashlib.sha256(args.python_license.read_bytes()).hexdigest()
     if args.python_bundle:
-        if hashlib.sha256(args.python_license.read_bytes()).hexdigest() != CPYTHON_BINARY_LICENSE:
+        if raw_python_license_sha256 != CPYTHON_BINARY_LICENSE:
             parser.error('Python binary license differs from pinned upstream bytes')
         if hashlib.sha256(args.python_bundle.read_bytes()).hexdigest() != '359d4441518f0522a43adb96b48856ccba3fedef355fd9fd7d4f571c57367bda':
             parser.error('Python notice bundle differs from pinned bytes')
@@ -125,7 +126,7 @@ def main():
     if not python_notice.stat().st_size:
         parser.error("Python license is empty")
     inventory = {"python_license_sha256": hashlib.sha256(python_notice.read_bytes()).hexdigest(), "distributions": {}}
-    if inventory["python_license_sha256"] == CPYTHON_BINARY_LICENSE:
+    if raw_python_license_sha256 == CPYTHON_BINARY_LICENSE:
         native_dir = Path(__file__).resolve().parents[2] / "release-notices/windows-x64-cpython-3.13.17"
         inventory["native_notices"] = {}
         for name, expected_hash in NATIVE_INPUTS.items():
