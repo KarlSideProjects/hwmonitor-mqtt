@@ -80,6 +80,27 @@ jobs:
             --provenance "$RUNNER_TEMP/private/evidence/$TARGET/provenance.json" --runtime-dir "$RUNNER_TEMP/private/evidence/$TARGET/runtime" \
             --assets "$RUNNER_TEMP/private/assets" --image "$RUNNER_TEMP/private/evidence/$TARGET/image.tar" \
             --version "$VERSION" --python-version 3.11.15 --output "$RUNNER_TEMP/private/evidence/$TARGET/record.json"
+      - uses: astral-sh/setup-uv@22695119d769bdb6f7032ad67b9bca0ef8c4a174 # v5.4.0
+        with:
+          version: '0.13.6'
+      - name: Exercise compiled installer failure cases
+        env:
+          HWMONITOR_TEST_ARCHIVE: ${{ runner.temp }}/private/assets/sender-${{ inputs.platform }}.tar.gz
+        run: |
+          set -eu
+          docker build -t protected21-bootstrap-test:local -f scripts/release-tests/Dockerfile.installer-double scripts/release-tests
+          cd source
+          uv run --locked pytest -q tests/test_compiled_bootstrap_integration.py --junitxml="$RUNNER_TEMP/compiled-tests.xml"
+          python3 -c '
+          import os, xml.etree.ElementTree as ET
+          suites = ET.parse(os.path.join(os.environ["RUNNER_TEMP"], "compiled-tests.xml")).getroot().iter("testsuite")
+          tests, skipped = 0, 0
+          for suite in suites:
+              tests += int(suite.get("tests", "0"))
+              skipped += int(suite.get("skipped", "0"))
+          expected_skips = 1 if os.environ["TARGET"] == "linux-arm64" else 0
+          assert tests > expected_skips and skipped == expected_skips, (tests, skipped, expected_skips)
+          '
       - name: Verify distinct baseline archive checksum
         run: (cd "$RUNNER_TEMP/old-result"; sha256sum -c "sender-$TARGET.tar.gz.sha256")
       - name: Exercise compiled Docker install, upgrade, MQTT and rollback

@@ -119,3 +119,12 @@ def test_pve_gate_uses_pinned_guest_and_distinct_archives():
     assert '20261026-2643/debian-13-generic-amd64-20261026-2643.qcow2' in linux
     assert '5bd891c6e62d01639f52a5587b72a4607421e445732214be787dba6043cf9797a6ff90bed982aada6a6c7e619f1f956d961c4fad76757171abd607920aac098a' in linux
     assert '--old-source "$OLD_SOURCE" --old-version 0.0.1' in linux
+
+
+def test_linux_compiled_failure_integration_uses_candidate_and_enforces_skips():
+    linux = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
+    assert 'protected21-bootstrap-test:local' in linux
+    assert 'HWMONITOR_TEST_ARCHIVE:' in linux
+    assert 'tests/test_compiled_bootstrap_integration.py' in linux
+    assert 'expected_skips = 1 if' in linux
+    assert 'scripts/release-tests/docker_acceptance.py' in linux
