@@ -5,6 +5,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     intel-gpu-tools pciutils procps smartmontools \
     && rm -rf /var/lib/apt/lists/*
 
+ENV LANG=C.UTF-8
+
 WORKDIR /app
 COPY sender /app/sender
 CMD ["/app/sender"]

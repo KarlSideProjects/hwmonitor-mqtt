@@ -8,6 +8,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 
 from hwmonitor_mqtt.clients.pve import PveApiClient, PveConfig, PveError
 
@@ -21,7 +22,7 @@ SYSTEMD_DIR = "/etc/systemd/system"
 
 
 def command(project_root, config_file=DEFAULT_CONFIG):
-    entry = [str(Path(sys.argv[0]).resolve()), "--native-install"] if "__compiled__" in globals() else [sys.executable, "-m", "hwmonitor_mqtt.platforms.installers.pve"]
+    entry = [str(Path(shutil.which(sys.argv[0]) or sys.argv[0]).resolve()), "--native-install"] if "__compiled__" in globals() else [sys.executable, "-m", "hwmonitor_mqtt.platforms.installers.pve"]
     return entry + ["--project-root", str(Path(project_root).resolve()), "--config-file", str(Path(config_file).resolve())]
 
 
@@ -134,6 +135,8 @@ def install_compiled(project_root, config_file, systemctl, run):
     unit = Path(SYSTEMD_DIR) / SERVICE_NAME
     if app.is_symlink() or app.parent.is_symlink() or unit.is_symlink() or unit.parent.is_symlink():
         raise RuntimeError("installer runtime or unit path must not be a symbolic link")
+    app.parent.mkdir(parents=True, exist_ok=True)
+    app.parent.chmod(0o755)
     app.mkdir(parents=True, exist_ok=True)
     app.chmod(0o755)
     unit.parent.mkdir(parents=True, exist_ok=True)
@@ -158,10 +161,19 @@ def install_compiled(project_root, config_file, systemctl, run):
         unit.write_text(unit_text(project_root, str(target), config_file, compiled=True))
         for args in ([systemctl, "daemon-reload"],
                      *([[systemctl, "enable", SERVICE_NAME]] if not existed else []),
-                     [systemctl, "restart", SERVICE_NAME],
-                     [systemctl, "is-active", "--quiet", SERVICE_NAME]):
+                     [systemctl, "restart", SERVICE_NAME]):
             if run(args, check=False).returncode:
                 raise RuntimeError("compiled sender startup failed")
+        previous_pid = None
+        for _ in range(3):
+            time.sleep(1)
+            if run([systemctl, "is-active", "--quiet", SERVICE_NAME], check=False).returncode:
+                raise RuntimeError("compiled sender did not remain active")
+            status = run([systemctl, "show", "--property=MainPID", "--value", SERVICE_NAME], check=False, capture_output=True, text=True)
+            pid = status.stdout.strip()
+            if status.returncode or not pid.isdigit() or int(pid) == 0 or previous_pid is not None and pid != previous_pid:
+                raise RuntimeError("compiled sender did not remain stable")
+            previous_pid = pid
     except (OSError, RuntimeError):
         try:
             if (backup / "sender").exists():

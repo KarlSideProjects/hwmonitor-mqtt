@@ -18,7 +18,7 @@ def test_builder_rejects_uncommitted_source(tmp_path):
     subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
     subprocess.run(["git", "-C", str(repo), "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "base"], check=True)
     (repo / "scripts" / BUILDER.name).write_text((repo / "scripts" / BUILDER.name).read_text() + "\n# modified\n")
-    result = subprocess.run([sys.executable, str(repo / "scripts" / BUILDER.name), "--output", str(tmp_path / "out")], capture_output=True, text=True)
+    result = subprocess.run([sys.executable, str(repo / "scripts" / BUILDER.name), "--output", str(tmp_path / "out"), "--version", "1.2.3"], capture_output=True, text=True)
     assert result.returncode != 0
     assert "uncommitted" in result.stderr.lower()
     assert not (tmp_path / "out").exists()
@@ -110,3 +110,24 @@ def test_entrypoint_dispatches_staging_command(tmp_path):
     result = subprocess.run([sys.executable, str(script), "--stage", "archive", "target"], env={**os.environ, "PYTHONPATH": str(tmp_path)}, capture_output=True, text=True)
     assert result.returncode == 4
     assert result.stdout.strip() == "archive,target"
+
+
+def test_builder_rejects_missing_or_invalid_release_version_before_build(tmp_path):
+    repo = tmp_path / "repo"
+    (repo / "scripts").mkdir(parents=True)
+    shutil.copyfile(BUILDER, repo / "scripts" / BUILDER.name)
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(repo), "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "base"], check=True)
+    for extra, message in (([], "required"), (["--version", "development"], "invalid release version")):
+        result = subprocess.run([sys.executable, str(repo / "scripts" / BUILDER.name), "--output", str(tmp_path / "out"), *extra], capture_output=True, text=True)
+        assert result.returncode != 0
+        assert message in result.stderr.lower()
+        assert not (tmp_path / "out").exists()
+
+
+def test_build_host_libc_is_compatible_with_supported_linux_baseline():
+    from scripts.build_sender_package import compatible_libc
+    assert compatible_libc("glibc", "2.31")
+    assert not compatible_libc("glibc", "2.38")
+    assert not compatible_libc("unknown", "")

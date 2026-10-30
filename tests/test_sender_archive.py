@@ -71,3 +71,43 @@ def test_stage_accepts_deployment_files_for_compiled_installation(tmp_path):
     package = archive(tmp_path)
     stage(package, tmp_path / "install", VERSION, SOURCE, hashlib.sha256(package.read_bytes()).hexdigest())
     assert (tmp_path / "install" / "Dockerfile").read_text() == "FROM image\n"
+
+
+def test_stage_uses_same_archive_after_checksum_if_path_is_replaced(tmp_path, monkeypatch):
+    import os
+    package = archive(tmp_path)
+    original_checksum = hashlib.sha256(package.read_bytes()).hexdigest()
+    replacement = tmp_path / "replacement"
+    replacement.write_bytes(b"not an archive")
+    real_digest = hashlib.sha256
+    first = True
+    def swap_after_digest(data=b""):
+        nonlocal first
+        result = real_digest(data)
+        if first:
+            first = False
+            os.replace(replacement, package)
+        return result
+    monkeypatch.setattr(hashlib, "sha256", swap_after_digest)
+    destination = tmp_path / "install"
+    stage(package, destination, VERSION, SOURCE, original_checksum)
+    assert (destination / "sender").read_bytes() == ELF
+
+
+def test_stage_uses_verified_bytes_if_archive_is_modified_in_place(tmp_path, monkeypatch):
+    package = archive(tmp_path)
+    expected = hashlib.sha256(package.read_bytes()).hexdigest()
+    real_hash = hashlib.sha256
+    changed = False
+    def mutate_after_hash(data=b''):
+        nonlocal changed
+        result = real_hash(data)
+        if not changed:
+            changed = True
+            package.write_bytes(b"not an archive")
+        return result
+    monkeypatch.setattr(hashlib, "sha256", mutate_after_hash)
+    destination = tmp_path / "install"
+    stage(package, destination, VERSION, SOURCE, expected)
+    assert changed
+    assert (destination / "sender").read_bytes() == ELF

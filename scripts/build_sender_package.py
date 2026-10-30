@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -24,6 +25,10 @@ DEPENDENCIES = {
     "psutil": "7.1.1",
     "python-dotenv": "1.1.1",
 }
+
+
+def compatible_libc(name, version):
+    return name == "glibc" and bool(re.fullmatch(r"[0-9]+\.[0-9]+", version)) and tuple(map(int, version.split("."))) <= (2, 31)
 
 
 def source_snapshot(repo, destination, source="HEAD"):
@@ -61,14 +66,18 @@ def create_archive(candidate, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--version", default="development")
+    parser.add_argument("--version", required=True)
     args = parser.parse_args()
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", args.version):
+        parser.error("invalid release version")
     status = subprocess.run(["git", "status", "--porcelain", "--untracked-files=all"], cwd=ROOT, check=True, capture_output=True, text=True)
     if status.stdout:
         parser.error("uncommitted source changes are not allowed")
     source = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     if sys.version_info[:3] != (3, 11, 15) or platform.system() != "Linux" or platform.machine() != "x86_64":
         parser.error("Linux x64 and CPython 3.11.15 are required")
+    if not compatible_libc(*platform.libc_ver()):
+        parser.error("glibc 2.31 or older is required for portable Linux builds")
     for package, version in DEPENDENCIES.items():
         try:
             installed = importlib.metadata.version(package)
@@ -86,7 +95,7 @@ def main():
         build_dir = Path(directory) / "build"
         entrypoint = source_dir / "sender_entrypoint.py"
         write_entrypoint(entrypoint, args.version, source)
-        subprocess.run([sys.executable, "-m", "nuitka", "--onefile", "--include-module=hwmonitor_mqtt.agents.agent_sender_async", "--output-filename=sender", f"--output-dir={build_dir}", str(entrypoint)], cwd=source_dir, env=environment, check=True)
+        subprocess.run([sys.executable, "-m", "nuitka", "--onefile", "--include-module=hwmonitor_mqtt.agents.agent_sender_async", f"--report={output / 'build-report.xml'}", "--output-filename=sender", f"--output-dir={build_dir}", str(entrypoint)], cwd=source_dir, env=environment, check=True)
         candidate = Path(directory) / "candidate"
         notices = candidate / "licenses"
         notices.mkdir(parents=True)

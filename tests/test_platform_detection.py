@@ -389,3 +389,10 @@ def test_shared_mqtt_transport_supports_anonymous_publish(monkeypatch):
     assert client.published[0][0] == config["topic"]
     assert stats["publish_ok"] == 1
     assert stats["publish_err"] == 0
+
+
+def test_linux_install_command_preserves_compose_override(tmp_path):
+    from hwmonitor_mqtt.platforms.installers.linux import command
+    (tmp_path / "docker-compose.override.yml").write_text("services: {}\n")
+    args = command(tmp_path)
+    assert str(tmp_path / "docker-compose.override.yml") in args
