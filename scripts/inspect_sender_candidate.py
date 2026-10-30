@@ -392,6 +392,12 @@ DEBIAN_SECRET_PATTERN_FILES = {'usr/bin/gpasswd': 'f5ddf4ff327b07c2e1109645d35b0
  'usr/share/perl5/Debconf/DbDriver/LDAP.pm': '633a36005440e5101b822a293751d63e0574787fe2b13157aacc2bc00fb0ef02'}
 
 
+# Debian libgnutls30 3.7.9-2+deb12u7 arm64; includes public self-test keys.
+DEBIAN_ARM_SECRET_PATTERN_FILES = {
+    'usr/lib/aarch64-linux-gnu/libgnutls.so.30.34.3': 'a28310df0a36465608473face05bf89b87759804bd0df83b161d564b9804b3fc',
+}
+
+
 def check_image_config(data, platform='linux-x64'):
     config = strict_json(data)
     if not isinstance(config, dict) or config.get('os') != 'linux' or config.get('architecture') != {'linux-x64': 'amd64', 'linux-arm64': 'arm64'}.get(platform) or SECRET.search(data):
@@ -631,8 +637,8 @@ def inspect_image_layers(image, expected, expected_sender, platform='linux-x64')
                         if item.size > 128 * 1024 * 1024:
                             raise ValueError(f'image layer file too large: {item.name}')
                         content = layer.extractfile(item).read()
-                        known_vendor = (platform == 'linux-x64' and hashlib.sha256(content).hexdigest()
-                                        == DEBIAN_SECRET_PATTERN_FILES.get(str(path)))
+                        vendor_files = DEBIAN_SECRET_PATTERN_FILES if platform == 'linux-x64' else DEBIAN_ARM_SECRET_PATTERN_FILES if platform == 'linux-arm64' else {}
+                        known_vendor = hashlib.sha256(content).hexdigest() == vendor_files.get(str(path))
                         if SECRET.search(content) and not known_vendor:
                             raise ValueError(f'potential secret in image layer: {item.name}')
         if sender_count != 1:
