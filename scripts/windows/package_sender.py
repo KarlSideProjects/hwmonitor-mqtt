@@ -33,7 +33,7 @@ def main():
     if not re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", args.version):
         parser.error("version must have three numeric components")
     notices = sorted(args.notices.iterdir())
-    if not notices or any(not p.is_file() or p.is_symlink() or not re.fullmatch(r"[a-zA-Z0-9_-][a-zA-Z0-9._-]*", p.name) or not p.stat().st_size for p in notices):
+    if not notices or any(not p.is_file() or p.is_symlink() or p.name.lower() == "project.txt" or not re.fullmatch(r"[a-zA-Z0-9_-][a-zA-Z0-9._-]*", p.name) or not p.stat().st_size for p in notices):
         parser.error("notices must contain nonempty, safely named regular files")
     runtime = {"python": platform.python_version()}
     for name in ("paho-mqtt", "psutil", "python-dotenv", "pythonnet", "clr-loader", "cffi", "pycparser", "pywin32", "WMI"):
@@ -50,6 +50,7 @@ def main():
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as package:
         package.write(args.executable, "sender.exe")
         package.writestr("manifest.json", json.dumps(manifest, sort_keys=True, indent=2) + "\n")
+        package.write(ROOT / "release-public/LICENSE-NOTICE.md", "licenses/project.txt")
         for notice in notices:
             package.write(notice, f"licenses/{notice.name}")
         for name in ("install_windows_sender_task.ps1", "start_windows_sender.ps1"):

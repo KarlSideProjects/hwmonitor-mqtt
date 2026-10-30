@@ -25,6 +25,7 @@ def test_windows_package_contains_exact_binary_and_installer_scripts(tmp_path):
         assert package.read("scripts/windows/start_windows_sender.ps1") == (root / "scripts/windows/start_windows_sender.ps1").read_bytes()
         assert package.read("scripts/windows/install_windows_sender_task.ps1") == (root / "scripts/windows/install_windows_sender_task.ps1").read_bytes()
         assert package.read("licenses/python.txt") == b"test notice"
+        assert package.read("licenses/project.txt") == (root / "release-public/LICENSE-NOTICE.md").read_bytes()
     assert (output / "sender-windows-x64.zip.sha256").read_text().strip() == hashlib.sha256(archive.read_bytes()).hexdigest() + "  sender-windows-x64.zip"
 
 

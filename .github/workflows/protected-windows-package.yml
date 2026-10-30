@@ -21,10 +21,13 @@ jobs:
           python-version: '3.13.17'
           architecture: x64
       - uses: astral-sh/setup-uv@22695119d769bdb6f7032ad67b9bca0ef8c4a174 # v5.4.0
+        with:
+          version: '0.13.6'
       - name: Install locked application and pinned compiler dependencies
         run: |
           uv sync --locked --python (Get-Command python).Source
-          uv pip install --python .venv/Scripts/python.exe --no-deps Nuitka==2.8.9 ordered-set==4.1.0 zstandard==0.25.0
+          uv pip install --python .venv/Scripts/python.exe --no-deps --require-hashes -r scripts/windows/requirements-build-backend.txt
+          uv pip install --python .venv/Scripts/python.exe --no-build-isolation --no-deps --require-hashes -r scripts/windows/requirements-build.txt
           .venv/Scripts/python.exe -c "import sys; print(sys.version); assert sys.version_info[:3] == (3, 13, 17)"
       - name: Build Windows x64 executable
         shell: pwsh
