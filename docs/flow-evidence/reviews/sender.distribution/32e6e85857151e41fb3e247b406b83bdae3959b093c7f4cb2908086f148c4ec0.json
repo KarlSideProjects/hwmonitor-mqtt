@@ -1,0 +1,17 @@
+{
+  "feature": "sender.distribution",
+  "fingerprint": "32e6e85857151e41fb3e247b406b83bdae3959b093c7f4cb2908086f148c4ec0",
+  "reviewer": "orca_session_id:5234f8cb-3a92-4a79-a515-0dbd3d21b24c / task_891af0aad40d / ctx_9fe77167a1b9",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "Candidate 0311722b3a98e9a4351e85d439b80eba47c949a3; authoritative base 86b074bc1aa6c38bbdb236f23546b1024ffc227a; clean candidate worktree; base has no flow baseline and the six mapped sources are unchanged. Checker fingerprint reproduced the supplied value.",
+    "Candidate docs/flow-manifest.json:1-196, docs/flows/README.md:1-14, contracts.md:1-5, sender.distribution.mmd:1-48 and docs/flow-evidence/adoption.md:1-18; bootstrap.sh:1-142, bootstrap.ps1:1-87 and Dockerfile:1-26. Linux failure, refresh and setup boundaries, existing Windows installation and installer failure, and separate image build/default container execution are represented at the stated bounded level.",
+    "Candidate tests/test_remote_bootstrap.py:1-388, tests/test_install_sh.py:1-71, tests/_pwsh.py:1-26, tests/test_powershell_syntax.py:1-25; install.sh:1-17, scripts/windows/install_windows_sender_task.ps1:1-390, hwmonitor_mqtt/platforms/detect.py:1-94, pve_bootstrap.py, pve_token.py, clients/pve.py, PVE template, installation documentation and docker-compose.linux.yml read as boundary context. Bootstrap tests use mocks; the Compose round-trip uses real Compose where available.",
+    "Evidence envelope /tmp/sender20-evidence/before.json and after.json are identical and record candidate HEAD, index tree 2b58d4b2613a99a7eb114dd3961207a003d27991, clean status, 117 tracked SHA-256 digests, dependency freeze, Linux platform, uv 0.12.7, Python 3.11.15, PowerShell 7.6.7 and Compose 2.40.3; all 117 recorded digests independently match candidate Git blobs. result.json records make check exit 0 and make-check.log reports 196 passed in 6.68s. Makefile and .github/workflows/ci.yml define the command and additional CI matrices."
+  ],
+  "limitations": [
+    "Downstream installer behavior, service lifecycle, sender runtime and dependency resolution are explicitly outside the bounded flow; no target application, real host installation, hardware, image build or visual rendering was executed in this review.",
+    "The recorded Linux test run does not establish execution of CI's Windows 5.1/7 installer jobs or physical host tests; its pre/post identity does not prove every external or transient environment input."
+  ]
+}
