@@ -6,6 +6,7 @@ param(
 $ErrorActionPreference = 'Stop'
 if (Test-Path -LiteralPath $Destination) { throw 'Destination already exists.' }
 if ($Sha256 -notmatch '^[a-fA-F0-9]{64}$') { throw 'Package SHA-256 mismatch.' }
+Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $file = [IO.File]::Open($Archive, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
 try {
