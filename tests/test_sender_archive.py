@@ -13,11 +13,11 @@ VERSION = "1.2.3"
 ELF = b"\x7fELF\x02\x01" + bytes(12) + b"\x3e\x00" + b"test"
 
 
-def archive(tmp_path, extra=()):
+def archive(tmp_path, extra=(), omit_typing=False):
     path = tmp_path / "candidate.tar.gz"
     manifest = json.dumps({"platform": "linux-x64", "version": VERSION, "source": SOURCE, "executable_sha256": hashlib.sha256(ELF).hexdigest()}).encode()
     with tarfile.open(path, "w:gz") as out:
-        for name, body in [("sender", ELF), ("manifest.json", manifest), *(("licenses/" + n, b"notice") for n in ("python.txt", "paho-mqtt.txt", "psutil.txt", "python-dotenv.txt", "project.md")), ("Dockerfile", b"FROM image\n"), ("docker-compose.linux.yml", b"services: {}\n"), ("docker-compose.pve.yml", b"services: {}\n"), ("docs/configuration/pve.env.example", b"PVE_ENABLED=1\n"), (".dockerignore", b"*\n!sender\n"), *extra]:
+        for name, body in [("sender", ELF), ("manifest.json", manifest), *(("licenses/" + n, b"notice") for n in ("python.txt", "paho-mqtt.txt", "psutil.txt", "python-dotenv.txt", "project.md")), ("Dockerfile", b"FROM image\n"), ("docker-compose.linux.yml", b"services: {}\n"), ("docker-compose.pve.yml", b"services: {}\n"), ("docs/configuration/pve.env.example", b"PVE_ENABLED=1\n"), (".dockerignore", b"*\n!sender\n"), *(([] if omit_typing else [("licenses/typing-extensions.txt", b"notice")])), *extra]:
             info = tarfile.TarInfo(name)
             info.size = len(body)
             out.addfile(info, io.BytesIO(body))
@@ -111,3 +111,10 @@ def test_stage_uses_verified_bytes_if_archive_is_modified_in_place(tmp_path, mon
     stage(package, destination, VERSION, SOURCE, expected)
     assert changed
     assert (destination / "sender").read_bytes() == ELF
+
+
+def test_stage_requires_typing_extensions_notice(tmp_path):
+    package = archive(tmp_path, omit_typing=True)
+    with pytest.raises(ValueError):
+        stage(package, tmp_path / "install", VERSION, SOURCE, hashlib.sha256(package.read_bytes()).hexdigest())
+    assert not (tmp_path / "install").exists()

@@ -13,7 +13,7 @@ import tempfile
 
 
 REQUIRED = {"sender", "manifest.json", "licenses/python.txt", "licenses/paho-mqtt.txt",
-            "licenses/psutil.txt", "licenses/python-dotenv.txt", "licenses/project.md",
+            "licenses/psutil.txt", "licenses/python-dotenv.txt", "licenses/typing-extensions.txt", "licenses/project.md",
             "Dockerfile", "docker-compose.linux.yml", "docker-compose.pve.yml",
             "docs/configuration/pve.env.example", ".dockerignore"}
 MAX_MEMBER = 128 * 1024 * 1024

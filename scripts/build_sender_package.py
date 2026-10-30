@@ -19,11 +19,14 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 DEPENDENCIES = {
     "Nuitka": "2.7.16",
+    "pip": "24.0",
+    "setuptools": "79.0.1",
     "ordered-set": "4.1.0",
     "zstandard": "0.23.0",
     "paho-mqtt": "2.1.0",
     "psutil": "7.1.1",
     "python-dotenv": "1.1.1",
+    "typing-extensions": "4.15.0",
 }
 
 
@@ -103,6 +106,10 @@ def main():
         shutil.copy2(build_dir / "sender", executable)
         for name in ("python", "paho-mqtt", "psutil", "python-dotenv"):
             shutil.copy2(source_dir / "tests/fixtures/release-notices" / (name + ".txt"), notices)
+        typing_notice = importlib.metadata.distribution("typing-extensions").read_text("licenses/LICENSE")
+        if not typing_notice:
+            raise RuntimeError("typing-extensions license is missing")
+        (notices / "typing-extensions.txt").write_text(typing_notice, encoding="utf-8")
         shutil.copy2(source_dir / "release-public/LICENSE-NOTICE.md", notices / "project.md")
         for name in ("Dockerfile", "docker-compose.linux.yml", "docker-compose.pve.yml", "docs/configuration/pve.env.example"):
             target = candidate / name
@@ -112,7 +119,7 @@ def main():
         manifest = {"platform": "linux-x64", "source": source, "version": args.version,
                     "executable_sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
                     "compiler": "Nuitka 2.7.16", "runtime": {"python": platform.python_version(),
-                    **{name: DEPENDENCIES[name] for name in ("paho-mqtt", "psutil", "python-dotenv")}}}
+                    **{name: DEPENDENCIES[name] for name in ("paho-mqtt", "psutil", "python-dotenv", "typing-extensions")}}}
         (candidate / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
         create_archive(candidate, output)
 
