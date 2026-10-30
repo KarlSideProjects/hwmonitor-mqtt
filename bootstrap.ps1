@@ -123,15 +123,19 @@ try {
             "MQTT_USER=$(Quote-EnvValue $user)",
             "MQTT_PASS=$(Quote-EnvValue $password)"
         ) -join "`n"
-        New-Item -ItemType File -Path $envFile | Out-Null
-        $acl = [Security.AccessControl.FileSecurity]::new()
-        $acl.SetAccessRuleProtection($true, $false)
-        foreach ($sid in @('S-1-5-32-544', 'S-1-5-18')) {
-            $rule = [Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new($sid), 'FullControl', 'Allow')
-            $acl.AddAccessRule($rule)
-        }
-        Set-Acl -Path $envFile -AclObject $acl
-        [IO.File]::WriteAllText($envFile, $content + "`n", [Text.UTF8Encoding]::new($false))
+        $envTemp = Join-Path $root ('.env-' + [guid]::NewGuid().ToString('N'))
+        try {
+            New-Item -ItemType File -Path $envTemp | Out-Null
+            $acl = [Security.AccessControl.FileSecurity]::new()
+            $acl.SetAccessRuleProtection($true, $false)
+            foreach ($sid in @('S-1-5-32-544', 'S-1-5-18')) {
+                $rule = [Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new($sid), 'FullControl', 'Allow')
+                $acl.AddAccessRule($rule)
+            }
+            Set-Acl -Path $envTemp -AclObject $acl
+            [IO.File]::WriteAllText($envTemp, $content + "`n", [Text.UTF8Encoding]::new($false))
+            [IO.File]::Move($envTemp, $envFile)
+        } finally { Remove-Item -LiteralPath $envTemp -Force -ErrorAction SilentlyContinue }
         Remove-Variable password, securePassword
     }
 

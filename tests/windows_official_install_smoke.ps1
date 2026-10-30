@@ -4,6 +4,7 @@ param(
     [Parameter(Mandatory = $true)][string]$WrongArchCandidate,
     [Parameter(Mandatory = $true)][string]$BrokerExe,
     [Parameter(Mandatory = $true)][string]$OldSource,
+    [Parameter(Mandatory = $true)][string]$OldSha256,
     [Parameter(Mandatory = $true)][string]$Source
 )
 $ErrorActionPreference = 'Stop'
@@ -128,7 +129,7 @@ try {
 
     [IO.File]::AppendAllText((Join-Path $root '.env'), "SENDER_PROFILE=esp`n", [Text.UTF8Encoding]::new($false))
     $oldExe = (Get-FileHash (Join-Path $root 'package/sender.exe') -Algorithm SHA256).Hash
-    if ($oldExe -ne 'B64D67E5D004ED31C69C733ACB0867AD008E8288CB3A263DDFAC220F61FCFFB8') { throw 'The prior compiled sender is not the expected artifact.' }
+    if ($oldExe -ne $OldSha256) { throw 'The prior compiled sender is not the expected artifact.' }
     $oldEnv = (Get-FileHash (Join-Path $root '.env') -Algorithm SHA256).Hash
     $oldAcl = (Get-Acl (Join-Path $root '.env')).Sddl
     $global:SmokeRelease = '0.0.1'

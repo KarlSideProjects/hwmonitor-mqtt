@@ -25,6 +25,7 @@ if ($previousTask) {
 $previousXml = if ($previousTask) { Export-ScheduledTask -TaskName $taskName } else { $null }
 $wasRunning = $previousTask -and $previousTask.State -eq 'Running'
 $stopped = $false
+$stopIssued = $false
 $movedOld = $false
 $movedNew = $false
 $marker = Join-Path $ProjectRoot '.hwmonitor-mqtt-bootstrap'
@@ -33,7 +34,9 @@ $markerBackup = Join-Path $ProjectRoot ('.marker-backup-' + [guid]::NewGuid().To
 $markerCommitted = $false
 [IO.File]::WriteAllText($markerTemp, $Source + "`n", [Text.UTF8Encoding]::new($false))
 function Stop-TaskAndWait {
+    param([switch]$TrackPrevious)
     Stop-ScheduledTask -TaskName $taskName
+    if ($TrackPrevious) { $script:stopIssued = $true }
     for ($attempt = 0; $attempt -lt 20; $attempt++) {
         if ((Get-ScheduledTask -TaskName $taskName).State -ne 'Running') { return }
         Start-Sleep -Milliseconds 500
@@ -41,7 +44,7 @@ function Stop-TaskAndWait {
     throw 'Scheduled task did not stop.'
 }
 try {
-    if ($wasRunning) { Stop-TaskAndWait; $stopped = $true }
+    if ($wasRunning) { Stop-TaskAndWait -TrackPrevious; $stopped = $true }
     if (Test-Path -LiteralPath $package) { Move-Item -LiteralPath $package -Destination $backup; $movedOld = $true }
     Move-Item -LiteralPath $StagedPackage -Destination $package
     $movedNew = $true
@@ -66,6 +69,10 @@ try {
 catch {
     $failure = $_
     try {
+        if ($stopIssued -and -not $stopped) {
+            if ((Get-ScheduledTask -TaskName $taskName).State -eq 'Running') { throw 'The stop request may still complete; check the previous task before restarting it.' }
+            $stopped = $true
+        }
         if ($movedNew) {
             $current = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
             if ($current -and $current.State -eq 'Running') { Stop-TaskAndWait }

@@ -378,3 +378,55 @@ function powershell.exe { $global:LASTEXITCODE = 0 }
     assert result.returncode == 0, result.stdout + result.stderr
     assert (root / ".hwmonitor-mqtt-bootstrap").read_text() == "a" * 40 + "\n"
     assert (root / "package/sender.exe").read_text() == "new"
+
+
+def test_late_completed_stop_restarts_previous_sender(tmp_path):
+    root = tmp_path / 'installed'
+    old = root / 'package'
+    old.mkdir(parents=True)
+    (old / 'sender.exe').write_text('old')
+    stage = tmp_path / 'stage'
+    scripts = stage / 'scripts/windows'
+    scripts.mkdir(parents=True)
+    (stage / 'sender.exe').write_text('new')
+    (scripts / 'install_windows_sender_task.ps1').write_text('')
+    script = Path(__file__).resolve().parents[1] / 'scripts/windows/activate_sender_package.ps1'
+    shell = r'''
+$global:checks = 0
+function Get-ScheduledTask { param($TaskName, $ErrorAction) $global:checks++; [pscustomobject]@{State=$(if ($global:checks -le 21) {'Running'} else {'Ready'});Actions=@([pscustomobject]@{Execute='powershell.exe';Arguments=('-File "' + (Join-Path $env:ROOT 'package/scripts/windows/start_windows_sender.ps1') + '" -ProjectRoot "' + $env:ROOT + '"')})} }
+function Export-ScheduledTask { param($TaskName) '<Task />' }
+function Stop-ScheduledTask { param($TaskName) }
+function Start-ScheduledTask { param($TaskName) [IO.File]::WriteAllText((Join-Path $env:ROOT 'restarted'), 'yes') }
+function Start-Sleep { param($Milliseconds) }
+try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE -Source ('a' * 40); exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
+'''
+    result = run_pwsh(shell, env={'ACTIVATOR': str(script), 'ROOT': str(root), 'STAGE': str(stage)})
+    assert result.returncode != 0
+    assert 'did not stop' in result.stdout
+    assert (root / 'restarted').read_text() == 'yes'
+    assert (old / 'sender.exe').read_text() == 'old'
+
+
+def test_settings_write_failure_cleans_partial_and_retry_succeeds(tmp_path):
+    source = (Path(__file__).resolve().parents[1] / 'bootstrap.ps1').read_text()
+    start = source.index("        $envTemp = Join-Path $root ('.env-'")
+    end = source.index('        Remove-Variable password, securePassword', start)
+    block = source[start:end]
+    acl_start = block.index('            $acl = ')
+    acl_end = block.index('            [IO.File]::WriteAllText', acl_start)
+    block = block[:acl_start] + block[acl_end:]
+    write = '            [IO.File]::WriteAllText($envTemp, $content + "`n", [Text.UTF8Encoding]::new($false))'
+    assert write in block
+    failure = block.replace(write, "            [IO.File]::WriteAllText($envTemp, 'partial'); throw 'injected settings write failure'")
+    prelude = "$root = $env:ROOT; $envFile = Join-Path $root '.env'; $content = 'BROKER_HOST=preserved'\n"
+    result = run_pwsh(prelude + failure, env={'ROOT': str(tmp_path)})
+    assert result.returncode != 0
+    assert not (tmp_path / '.env').exists()
+    assert not list(tmp_path.glob('.env-*'))
+    result = run_pwsh(prelude + block + '\nexit 0', env={'ROOT': str(tmp_path)})
+    assert result.returncode == 0, result.stderr
+    assert (tmp_path / '.env').read_text() == 'BROKER_HOST=preserved\n'
+    result = run_pwsh(prelude.replace('preserved', 'replacement') + block, env={'ROOT': str(tmp_path)})
+    assert result.returncode != 0
+    assert (tmp_path / '.env').read_text() == 'BROKER_HOST=preserved\n'
+    assert not list(tmp_path.glob('.env-*'))

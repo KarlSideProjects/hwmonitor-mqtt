@@ -13,6 +13,8 @@ jobs:
   build:
     runs-on: windows-2022
     timeout-minutes: 60
+    env:
+      OLD_SENDER_SHA256: '50292A12CDAA2AE894D95168A49D1D8DAB612F33BE3418BCA456DFDD996A20A6'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -97,7 +99,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .venv/Scripts/python.exe scripts/windows/package_sender.py --executable build/windows/sender.exe --notices notices --output candidate --source $source --version 0.0.1 --compiler 'Nuitka 2.8.9' --python-version '3.13.17' --report build/windows/nuitka-report.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if ((Get-FileHash old-binary/build/windows/sender.exe -Algorithm SHA256).Hash -ne '50292A12CDAA2AE894D95168A49D1D8DAB612F33BE3418BCA456DFDD996A20A6') { throw 'Prior native executable SHA-256 mismatch' }
+          if ((Get-FileHash old-binary/build/windows/sender.exe -Algorithm SHA256).Hash -ne $env:OLD_SENDER_SHA256) { throw 'Prior native executable SHA-256 mismatch' }
           New-Item -ItemType Directory -Path old-source | Out-Null
           git archive --output old-source.tar 46bcc40d232cc2720b188c795d87e33d0894ea73 scripts/windows/install_windows_sender_task.ps1 scripts/windows/start_windows_sender.ps1 release-public/LICENSE-NOTICE.md
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -114,11 +116,11 @@ jobs:
       - name: Rehearse official bootstrap with Windows PowerShell 5.1
         shell: powershell
         run: |
-          & tests/windows_official_install_smoke.ps1 -Candidate (Resolve-Path old-candidate).Path -UpgradeCandidate (Resolve-Path candidate).Path -WrongArchCandidate (Resolve-Path wrong-arch).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource 46bcc40d232cc2720b188c795d87e33d0894ea73 -Source $env:GITHUB_SHA
+          & tests/windows_official_install_smoke.ps1 -Candidate (Resolve-Path old-candidate).Path -UpgradeCandidate (Resolve-Path candidate).Path -WrongArchCandidate (Resolve-Path wrong-arch).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource 46bcc40d232cc2720b188c795d87e33d0894ea73 -OldSha256 $env:OLD_SENDER_SHA256 -Source $env:GITHUB_SHA
       - name: Rehearse official bootstrap with PowerShell 7
         shell: pwsh
         run: |
-          & tests/windows_official_install_smoke.ps1 -Candidate (Resolve-Path old-candidate).Path -UpgradeCandidate (Resolve-Path candidate).Path -WrongArchCandidate (Resolve-Path wrong-arch).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource 46bcc40d232cc2720b188c795d87e33d0894ea73 -Source $env:GITHUB_SHA
+          & tests/windows_official_install_smoke.ps1 -Candidate (Resolve-Path old-candidate).Path -UpgradeCandidate (Resolve-Path candidate).Path -WrongArchCandidate (Resolve-Path wrong-arch).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource 46bcc40d232cc2720b188c795d87e33d0894ea73 -OldSha256 $env:OLD_SENDER_SHA256 -Source $env:GITHUB_SHA
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
