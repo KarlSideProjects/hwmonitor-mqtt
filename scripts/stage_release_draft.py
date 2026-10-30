@@ -16,12 +16,12 @@ from check_release_assets import check
 REPO = '/repos/KarlSideProjects/hwmonitor-mqtt-releases'
 
 
-def request(base, path, data=None):
+def request(base, path, data=None, method=None):
     request = Request(base + path, data=data, headers={'Accept': 'application/vnd.github+json',
-                      'Content-Type': 'application/octet-stream' if data else 'application/json'})
+                      'Content-Type': 'application/octet-stream' if data else 'application/json'}, method=method)
     try:
         with urlopen(request, timeout=10) as response:
-            return response.status, json.load(response)
+            return response.status, json.load(response) if response.status != 204 else None
     except HTTPError as error:
         return error.code, json.load(error)
 
@@ -38,6 +38,8 @@ def stage(base, directory):
             status, releases = request(base, REPO + f'/releases?per_page=100&page={page}')
             if status != 200 or not isinstance(releases, list):
                 raise ValueError('cannot enumerate releases')
+            if any(item.get('body') == body and item.get('tag_name') != tag for item in releases):
+                raise ValueError('source identity already assigned another tag')
             matches.extend(item for item in releases if item.get('tag_name') == tag)
             if len(releases) < 100:
                 break
@@ -71,6 +73,18 @@ def stage(base, directory):
             name = asset.get('name')
             if name not in expected or name in names:
                 raise ValueError('unexpected or duplicate draft asset')
+            if asset.get('state') == 'starter':
+                status, fresh = request(base, REPO + f"/releases/{release['id']}")
+                if (status != 200 or not isinstance(fresh, dict) or fresh.get('draft') is not True
+                        or fresh.get('body') != body or fresh.get('tag_name') != tag
+                        or fresh.get('id') != release['id']):
+                    raise ValueError('draft identity changed before recovery')
+                if not isinstance(asset.get('id'), int):
+                    raise ValueError('invalid starter asset ID')
+                status, _ = request(base, REPO + f"/releases/assets/{asset['id']}", method='DELETE')
+                if status != 204:
+                    raise ValueError('starter asset deletion failed')
+                continue
             names.add(name)
             data = expected[name].read_bytes()
             if (asset.get('state') != 'uploaded' or asset.get('size') != len(data)

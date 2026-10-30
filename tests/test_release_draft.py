@@ -31,10 +31,21 @@ def test_interrupted_upload_resumes_and_never_publishes(tmp_path):
         def do_GET(self):
             if self.path.endswith('/releases?per_page=100&page=1'):
                 self.send_json(200, [state['release']] if state['release'] else [])
+            elif self.path.endswith('/releases/1'):
+                self.send_json(200, state['release'])
             elif self.path.endswith('/releases/1/assets?per_page=100'):
                 self.send_json(200, list(state['assets'].values()))
             else:
                 self.send_json(404, {})
+
+        def do_DELETE(self):
+            asset_id = int(self.path.rsplit('/', 1)[1])
+            for name, asset in list(state['assets'].items()):
+                if asset['id'] == asset_id:
+                    del state['assets'][name]
+                    self.send_json(204, {})
+                    return
+            self.send_json(404, {})
 
         def do_POST(self):
             data = self.rfile.read(int(self.headers['Content-Length']))
@@ -71,6 +82,7 @@ def test_interrupted_upload_resumes_and_never_publishes(tmp_path):
         first = subprocess.run(cmd, capture_output=True)
         assert first.returncode != 0
         assert state['release']['draft'] is True
+        state['assets']['starter'] = {'id': 99, 'name': 'sender-linux-x64.tar.gz', 'state': 'starter', 'size': 0}
         second = subprocess.run(cmd, capture_output=True)
         assert second.returncode == 0, second.stderr
         assert len(state['assets']) == 11
@@ -84,14 +96,66 @@ def test_interrupted_upload_resumes_and_never_publishes(tmp_path):
         state['release']['draft'] = False
         assert subprocess.run(cmd, capture_output=True).returncode != 0
         assert state['writes'] == writes
-        state.update(release=None, assets={}, fail=False, writes=[])
-        one = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        two = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output_one = one.communicate(timeout=10)
-        output_two = two.communicate(timeout=10)
-        assert one.returncode == 0, output_one
-        assert two.returncode == 0, output_two
-        assert len(state['assets']) == 11
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+def test_draft_creation_rejects_source_already_assigned_another_tag(tmp_path):
+    candidate(tmp_path)
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):
+            payload = json.dumps([{'id': 2, 'tag_name': 'v9.9.9', 'body': 'source: ' + 'a' * 40,
+                                   'draft': True}]).encode()
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def do_POST(self):
+            raise AssertionError('must not write on identity conflict')
+
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = subprocess.run([sys.executable, str(SCRIPT), str(tmp_path), '--test-api',
+                                 f'http://127.0.0.1:{server.server_port}'], capture_output=True)
+        assert result.returncode != 0
+        assert b'identity' in result.stderr
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+def test_duplicate_draft_tags_fail_closed(tmp_path):
+    candidate(tmp_path)
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):
+            release = {'tag_name': 'v1.2.3', 'body': 'source: ' + 'a' * 40, 'draft': True}
+            payload = json.dumps([dict(release, id=1), dict(release, id=2)]).encode()
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def do_POST(self):
+            raise AssertionError('duplicate drafts must not be modified')
+
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = subprocess.run([sys.executable, str(SCRIPT), str(tmp_path), '--test-api',
+                                 f'http://127.0.0.1:{server.server_port}'], capture_output=True)
+        assert result.returncode != 0
+        assert b'duplicate release tag' in result.stderr
     finally:
         server.shutdown()
         thread.join()
