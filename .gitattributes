@@ -1,3 +1,4 @@
 release-notices/** -text
 tests/fixtures/release-notices/** -text
 scripts/windows/*.ps1 text eol=lf
+release-public/LICENSE-NOTICE.md text eol=lf

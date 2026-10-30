@@ -117,7 +117,7 @@ ARCHIVE_NOTICE_HASHES = {'linux-x64': {'licenses/paho-mqtt.txt': '3c3ce20f2f04eb
                  'licenses/epl-v20': '8c349f80764d0648e645f41ef23772a70c995a0924b5235f735f4a3d09df127c',
                  'licenses/openssl-3.5.9-LICENSE.txt': '7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a',
                  'licenses/paho-mqtt-0.txt': '66408b049249c3bdb0ba1ed285f5422ce67e371d40151bebd4d806af454ffe7c',
-                 'licenses/project.txt': 'ea9d84a35fc6bbf837ae8b26f8a219fda94fbd75e5752880131c91466702a2d5',
+                 'licenses/project.txt': 'ffa814dce11f3be832bacb7dc2511c36c935b77845c4f16a7c9d8cfd3ae8ce36',
                  'licenses/psutil-0.txt': 'c7adc4d5d1337a548b967421f1fbe258b93033a0417708fd6f4e38f8ecbceb80',
                  'licenses/pycparser-0.txt': '0c846399369ea76ddd7b5c44fe6d16497415fcf015f5cbb508c24bf98b81c5b1',
                  'licenses/python-dotenv-0.txt': '80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9',

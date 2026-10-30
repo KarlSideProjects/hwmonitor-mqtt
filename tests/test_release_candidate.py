@@ -803,3 +803,12 @@ def test_windows_runtime_scans_around_source_proven_docstrings(tmp_path):
     other.write_bytes(data)
     with pytest.raises(ValueError, match='secret'):
         checker.inspect_runtime_files(tmp_path, [{'path': other.name, 'size': len(data), 'sha256': hashlib.sha256(data).hexdigest()}], 'windows-x64')
+
+
+def test_windows_project_notice_hash_matches_git_blob():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    notice = subprocess.check_output(['git', '-C', str(CHECKER.parents[1]), 'show', 'HEAD:release-public/LICENSE-NOTICE.md'])
+    assert checker.ARCHIVE_NOTICE_HASHES['windows-x64']['licenses/project.txt'] == hashlib.sha256(notice).hexdigest()

@@ -175,6 +175,7 @@ def test_windows_checkout_preserves_native_notice_bytes(tmp_path):
     root = Path(__file__).resolve().parents[1]
     names = [f'release-notices/windows-x64-cpython-3.13.17/{name}' for name in ('openssl-3.5.9-LICENSE.txt', 'xz-5.2.5-COPYING', 'cpython-3.13.17-expat-COPYING', 'LICENSE.cpython-binary.txt')]
     names += [p.relative_to(root).as_posix() for p in (root / 'tests/fixtures/release-notices').iterdir() if p.is_file()]
+    names += ['release-public/LICENSE-NOTICE.md']
     names += [f'scripts/windows/{name}' for name in ('validate_sender_package.ps1', 'activate_sender_package.ps1', 'install_windows_sender_task.ps1', 'start_windows_sender.ps1')]
     checkout = tmp_path / 'checkout'
     checkout.mkdir()
