@@ -33,6 +33,16 @@ def source_snapshot(repo, destination, source="HEAD"):
         contents.extractall(destination, filter="data")
 
 
+def write_entrypoint(path, version, source):
+    path.write_text(
+        "import runpy, sys\n"
+        + "if sys.argv[1:] == [\"--version\"]:\n"
+        + f"    print({version!r}, {source!r})\n"
+        + "else:\n    runpy.run_module(\"hwmonitor_mqtt.agents.agent_sender_async\", run_name=\"__main__\")\n",
+        encoding="utf-8",
+    )
+
+
 def create_archive(candidate, output):
     name = "sender-linux-x64.tar.gz"
     archive = output / name
@@ -70,7 +80,9 @@ def main():
         environment = os.environ.copy()
         environment["PYTHONPATH"] = str(source_dir)
         build_dir = Path(directory) / "build"
-        subprocess.run([sys.executable, "-m", "nuitka", "--onefile", "--output-filename=sender", f"--output-dir={build_dir}", str(source_dir / "hwmonitor_mqtt/agents/agent_sender_async.py")], cwd=source_dir, env=environment, check=True)
+        entrypoint = source_dir / "sender_entrypoint.py"
+        write_entrypoint(entrypoint, args.version, source)
+        subprocess.run([sys.executable, "-m", "nuitka", "--onefile", "--include-module=hwmonitor_mqtt.agents.agent_sender_async", "--output-filename=sender", f"--output-dir={build_dir}", str(entrypoint)], cwd=source_dir, env=environment, check=True)
         candidate = Path(directory) / "candidate"
         notices = candidate / "licenses"
         notices.mkdir(parents=True)

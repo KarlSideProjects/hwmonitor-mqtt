@@ -59,3 +59,12 @@ def test_archive_contains_only_candidate_files_and_checksum(tmp_path):
         assert set(contents.getnames()) == {"sender", "manifest.json", "licenses/python.txt"}
     expected = hashlib.sha256(archive.read_bytes()).hexdigest()
     assert (output / "sender-linux-x64.tar.gz.sha256").read_text() == f"{expected}  sender-linux-x64.tar.gz\n"
+
+
+def test_entrypoint_reports_embedded_release_and_source(tmp_path):
+    from scripts.build_sender_package import write_entrypoint
+
+    script = tmp_path / "entrypoint.py"
+    write_entrypoint(script, "1.2.3", "a" * 40)
+    result = subprocess.run([sys.executable, str(script), "--version"], capture_output=True, text=True, check=True)
+    assert result.stdout.strip() == "1.2.3 " + "a" * 40
