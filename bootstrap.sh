@@ -55,7 +55,9 @@ runuser -u nobody -- bash -c 'ulimit -f 262144; exec tar -xOzf "$1" sender' _ "$
 [[ $(od -An -tx1 -N6 "$scratch/sender" | tr -d ' \n') == 7f454c460201 && $(od -An -tu2 -j18 -N2 "$scratch/sender" | tr -d ' ') == 62 ]] || { echo 'Sender architecture mismatch' >&2; exit 1; }
 chmod 0555 "$scratch/sender"
 runuser -u nobody -- "$scratch/sender" --stage "$archive" "$scratch/worker/staged" "$version" "$source" "$checksum"
-[[ $(runuser -u nobody -- "$scratch/worker/staged/sender" --version) == "$version $source" ]] || { echo 'Sender version mismatch' >&2; exit 1; }
+chmod 0700 "$scratch"
+"$scratch/sender" --stage "$archive" "$scratch/root-staged" "$version" "$source" "$checksum"
+[[ $("$scratch/root-staged/sender" --version) == "$version $source" ]] || { echo 'Sender version mismatch' >&2; exit 1; }
 
 if command -v pveversion >/dev/null 2>&1 && dpkg-query -W -f='${Status}' pve-manager 2>/dev/null | grep -qx 'install ok installed' && pveversion | grep -q '^pve-manager/'; then
     target=pve
@@ -86,7 +88,7 @@ if [[ $target == pve ]]; then
             exit 2
         fi
     fi
-    "$scratch/worker/staged/sender" --pve-bootstrap --config "$pve_config" --template "$scratch/worker/staged/docs/configuration/pve.env.example"
+    "$scratch/root-staged/sender" --pve-bootstrap --config "$pve_config" --template "$scratch/root-staged/docs/configuration/pve.env.example"
 else
     if ! command -v docker >/dev/null 2>&1; then
         installed=$(dpkg-query -W -f='${db:Status-Status}\n' containerd.io containerd docker-ce docker-ce-cli moby-engine runc 2>/dev/null || true)
@@ -167,7 +169,7 @@ finish() {
     exit "$status"
 }
 trap finish EXIT
-for file in "${files[@]}"; do cp -p "$scratch/worker/staged/$file" "$root/$file"; done
+for file in "${files[@]}"; do cp -p "$scratch/root-staged/$file" "$root/$file"; done
 docker_attempted=1
 "$root/sender" --install --project-root "$root" --pve-config "$pve_config"
 if [[ $target == linux ]]; then
