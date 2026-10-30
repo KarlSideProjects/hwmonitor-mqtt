@@ -312,6 +312,13 @@
       "reviewer": "orca_session_id:379f6de4-fda4-4823-bcb8-dbd21fb20270 / task_68dcae2b33b9 / ctx_41d6ce5e067f",
       "verdict": "pass",
       "evidence": "docs/flow-evidence/reviews/sender.license/78a8158872effe2481393ad0e76bb7fd1cfe8bfdf103f3fcf8499a0b04b5f736.json"
+    },
+    {
+      "feature": "sender.release-inspection",
+      "fingerprint": "c59de418dfebcdaba9c320228c0d52638f3e41f41270d64abc0627440f825a77",
+      "reviewer": "orca_session_id:e14349ec-b616-491b-b7f1-b068ac18369e / task_9c74f91a9cd2 / ctx_fb3d3a70cc76",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.release-inspection/c59de418dfebcdaba9c320228c0d52638f3e41f41270d64abc0627440f825a77.json"
     }
   ],
   "policy_inputs": [
