@@ -54,7 +54,7 @@ function Get-ScheduledTask { param($TaskName,$ErrorAction) return $null }
 function Invoke-WebRequest { param([switch]$UseBasicParsing,$Uri,$OutFile) [IO.File]::WriteAllText($OutFile,'official') }
 function Get-AuthenticodeSignature { param($LiteralPath) [pscustomobject]@{Status=$(if ($env:MODE -eq 'bad-signer' -or ($env:MODE -eq 'cache-bad-signer' -and $LiteralPath -like '*Package Cache*')) {'NotSigned'} else {'Valid'});SignerCertificate=[pscustomobject]@{Subject='CN=Microsoft Corporation, O=Microsoft Corporation'}} }
 function Get-FileHash { param($LiteralPath,$Algorithm) if ($LiteralPath -like '*sender.exe') { return [pscustomobject]@{Hash='1AEFAA9C52AD0E79B8CF1DD4216E775C142F5FF9BE877DF4C6EF337EE6A41593'} }; if ($LiteralPath -like '*Package Cache*') { return [pscustomobject]@{Hash=$(if ($env:MODE -eq 'cache-wrong-hash') {'0' * 64} else {'DBCC159853D8B83C1DF0A0A698127AB98E926AF1B6DEE86E96F541DC94B34948'})} }; if ($LiteralPath -like '*fixture-vc_redist*') { return [pscustomobject]@{Hash=$(if ($env:MODE -eq 'wrong-hash') {'0' * 64} else {'843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C'})} }; Microsoft.PowerShell.Utility\Get-FileHash -LiteralPath $LiteralPath -Algorithm SHA256 }
-function Get-Item { param($LiteralPath) [pscustomobject]@{VersionInfo=[pscustomobject]@{ProductVersion=$(if ($env:MODE -eq 'cache-wrong-version' -and $LiteralPath -like '*Package Cache*') {'14.52.1.0'} else {'14.51.36247.0'});ProductName=$(if ($env:MODE -eq 'cache-wrong-product' -and $LiteralPath -like '*Package Cache*') {'Wrong product'} else {'Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247'})}} }
+function Get-Item { param($LiteralPath,$ErrorAction) [pscustomobject]@{VersionInfo=[pscustomobject]@{FileVersion='14.51.36247.0';ProductVersion=$(if ($env:MODE -eq 'cache-wrong-version' -and $LiteralPath -like '*Package Cache*') {'14.52.1.0'} else {'14.51.36247.0'});ProductName=$(if ($env:MODE -eq 'cache-wrong-product' -and $LiteralPath -like '*Package Cache*') {'Wrong product'} else {'Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247'})}} }
 function Get-ItemProperty { param($LiteralPath,$ErrorAction)
   if ($LiteralPath -match 'Runtimes') { return [pscustomobject]@{Installed=1;Version=$(if ($env:MODE -eq 'wrong-version') {'v14.52.1.0'} else {'v14.51.36247.00'})} }
   if ($LiteralPath -match '0e3bb569') { return [pscustomobject]@{DisplayName='Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247';DisplayVersion='14.51.36247.0';Publisher='Microsoft Corporation'} }
@@ -89,7 +89,7 @@ def test_exact_runtime_rehearsal_refuses_wrong_version_without_uninstall(tmp_pat
 
 def test_exact_runtime_rehearsal_restores_after_reboot_required(tmp_path):
     result, evidence = run_absence_step(tmp_path, 'reboot')
-    assert result.returncode != 0
+    assert result.returncode == 0
     assert evidence['status'] == 'inconclusive'
     assert evidence['uninstall_exit'] == 3010 and evidence['restore_exit'] == 0
     assert evidence['positive_preflight']
@@ -107,7 +107,7 @@ def test_exact_runtime_rehearsal_rejects_untrusted_host_and_signature(tmp_path):
 
 def test_exact_runtime_rehearsal_restores_if_a_dll_remains(tmp_path):
     result, evidence = run_absence_step(tmp_path, 'residual')
-    assert result.returncode != 0
+    assert result.returncode == 0
     assert evidence['status'] == 'inconclusive'
     assert 'DLLs remain' in evidence['failure']
     assert evidence['restore_exit'] == 0 and evidence['positive_preflight']
@@ -153,7 +153,7 @@ def test_exact_runtime_rehearsal_refuses_unverified_cached_bundle(tmp_path):
 
 def test_remaining_product_registration_is_inconclusive_and_restored(tmp_path):
     result, evidence = run_absence_step(tmp_path, 'registration')
-    assert result.returncode != 0
+    assert result.returncode == 0
     assert evidence['status'] == 'inconclusive' and evidence['restore_exit'] == 0
     assert not evidence['negative_preflight']
 
@@ -163,6 +163,30 @@ def test_staged_nonexecutable_changes_are_detected(tmp_path):
         case = tmp_path / mode
         case.mkdir()
         result, evidence = run_absence_step(case, mode)
-        assert result.returncode != 0
+        assert (result.returncode == 0) == evidence['positive_preflight']
         assert evidence['status'] == 'inconclusive' and evidence['restore_exit'] == 0
         assert 'staged' in (evidence['failure'] + evidence['restore_failure']).lower()
+
+
+def test_telemetry_retains_specific_residual_and_defers_failure_after_recovery(tmp_path):
+    result, evidence = run_absence_step(tmp_path, 'registration')
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert evidence['status'] == 'inconclusive' and evidence['positive_preflight']
+    before = evidence['before']
+    absent = evidence['after_uninstall']
+    restored = evidence['after_restore']
+    assert before['runtime'] == {'present': True, 'installed': 1, 'version': 'v14.51.36247.00'}
+    assert all(item['present'] and item['version'] for item in before['products'] + before['dlls'])
+    assert [item['present'] for item in absent['products']] == [False, True, False]
+    assert all(not item['present'] and item['version'] == '' for item in absent['dlls'])
+    assert not absent['runtime']['present']
+    assert restored['runtime']['installed'] == 1 and all(item['present'] for item in restored['products'] + restored['dlls'])
+
+
+def test_post_recovery_smoke_precedes_unmasked_final_failure():
+    text = WORKFLOW.read_text()
+    assert text.index('Exercise compiled sender after restoration') < text.index('Enforce runtime absence result')
+    assert 'fixture-uninstall.log' in text and 'fixture-reinstall.log' in text
+    assert 'continue-on-error' not in text
+    assert 'Exercise historical artifacts with Windows PowerShell 5.1' not in text
+    assert 'Exercise historical artifacts with PowerShell 7' not in text

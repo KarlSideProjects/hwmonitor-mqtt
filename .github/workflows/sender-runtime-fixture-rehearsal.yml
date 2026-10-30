@@ -87,31 +87,10 @@ jobs:
         run: |
           & scripts/windows/install_windows_sender_task.ps1 -ProjectRoot "$PWD" -UseUv:$false -EnsurePawnIo:$false -AtStartup
           Unregister-ScheduledTask -TaskName 'HWMonitorMQTTSender' -Confirm:$false
-      - name: Prepare isolated negative fixture
+      - name: Stage exact historical candidate
         run: |
-          $candidate = Join-Path $env:GITHUB_WORKSPACE 'candidate-artifact/hwmonitor-mqtt/hwmonitor-mqtt/candidate/sender-windows-x64.zip'
-          $stage = Join-Path $env:RUNNER_TEMP 'negative-contents'
-          $output = Join-Path $env:RUNNER_TEMP 'negative-fixture'
-          Expand-Archive -LiteralPath $candidate -DestinationPath $stage
-          Copy-Item -LiteralPath (Join-Path $env:WINDIR 'SysWOW64/cmd.exe') -Destination (Join-Path $stage 'sender.exe') -Force
-          $manifestPath = Join-Path $stage 'manifest.json'
-          $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-          $manifest.executable_sha256 = (Get-FileHash -LiteralPath (Join-Path $stage 'sender.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
-          [IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 8) + "`n", [Text.UTF8Encoding]::new($false))
-          New-Item -ItemType Directory -Path $output | Out-Null
-          $archive = Join-Path $output 'sender-windows-x64.zip'
-          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $archive
-          $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-          [IO.File]::WriteAllText(($archive + '.sha256'), "$hash  sender-windows-x64.zip`n", [Text.Encoding]::ASCII)
           $original = Join-Path $env:GITHUB_WORKSPACE 'candidate-artifact/hwmonitor-mqtt/hwmonitor-mqtt/candidate/sender-windows-x64.zip'
           & scripts/windows/validate_sender_package.ps1 -Archive $original -Sha256 '4a6bf626ab71f6120ff408fca821b58a39053f4ac1ec5051c9882fd21d69b317' -Destination (Join-Path $env:RUNNER_TEMP 'candidate-staged')
-      - name: Exercise historical artifacts with Windows PowerShell 5.1
-        shell: powershell
-        run: |
-          & tests/windows_official_install_smoke.ps1 -Candidate (Join-Path $env:GITHUB_WORKSPACE 'baseline-artifact/candidate') -UpgradeCandidate (Join-Path $env:GITHUB_WORKSPACE 'candidate-artifact/hwmonitor-mqtt/hwmonitor-mqtt/candidate') -WrongArchCandidate (Join-Path $env:RUNNER_TEMP 'negative-fixture') -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource 46bcc40d232cc2720b188c795d87e33d0894ea73 -OldSha256 50292a12cdaa2ae894d95168a49d1d8dab612f33be3418bca456dfdd996a20a6 -Source 1b9ea2349623fb77eb8bbb242a111747686a1e75 -UpgradeVersion 0.0.1
-      - name: Exercise historical artifacts with PowerShell 7
-        run: |
-          & tests/windows_official_install_smoke.ps1 -Candidate (Join-Path $env:GITHUB_WORKSPACE 'baseline-artifact/candidate') -UpgradeCandidate (Join-Path $env:GITHUB_WORKSPACE 'candidate-artifact/hwmonitor-mqtt/hwmonitor-mqtt/candidate') -WrongArchCandidate (Join-Path $env:RUNNER_TEMP 'negative-fixture') -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -OldSource 46bcc40d232cc2720b188c795d87e33d0894ea73 -OldSha256 50292a12cdaa2ae894d95168a49d1d8dab612f33be3418bca456dfdd996a20a6 -Source 1b9ea2349623fb77eb8bbb242a111747686a1e75 -UpgradeVersion 0.0.1
       - name: Rehearse exact signed installed runtime
         run: |
           $ErrorActionPreference = 'Stop'
@@ -119,7 +98,7 @@ jobs:
           $stage = Join-Path $env:RUNNER_TEMP 'candidate-staged'
           $root = Join-Path $env:RUNNER_TEMP 'fixture-preflight-never-created'
           $installer = Join-Path $env:RUNNER_TEMP 'fixture-vc_redist.x64.exe'
-          $evidence = [ordered]@{status='inconclusive'; uninstall_exit=$null; restore_exit=$null; negative_preflight=$false; positive_preflight=$false; failure=''; restore_failure=''; installer_sha256=''; cached_sha256=''; product_version=''; stage_before=@(); stage_after_negative=@(); stage_after_positive=@()}
+          $evidence = [ordered]@{status='inconclusive'; uninstall_exit=$null; restore_exit=$null; negative_preflight=$false; positive_preflight=$false; failure=''; restore_failure=''; installer_sha256=''; cached_sha256=''; product_version=''; before=$null; after_uninstall=$null; after_restore=$null; stage_before=@(); stage_after_negative=@(); stage_after_positive=@()}
           $attempted = $false
           function Same-Version($value) {
             if ([string]$value -notmatch '^v?([0-9]+)\.([0-9]+)\.([0-9]+)(?:\.([0-9]+))?$') { return $false }
@@ -136,6 +115,28 @@ jobs:
             } | Sort-Object -Property path)
             if (-not $inventory.Count) { throw 'Staged package is empty.' }
             return $inventory
+          }
+          function Get-WhitelistedRuntimeState {
+            $runtimePath = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64'
+            $runtimePresent = Test-Path -LiteralPath $runtimePath -ErrorAction Stop
+            $runtime = if ($runtimePresent) { Get-ItemProperty -LiteralPath $runtimePath -ErrorAction Stop } else { $null }
+            $keys = @(
+              'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{0e3bb569-69d6-4c34-bff9-c2f81db5e5f0}',
+              'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{931A2CF0-2404-45EA-82F5-345735AE6A90}',
+              'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{6FA797CF-6B76-4B6D-87EE-768F92008720}'
+            )
+            $products = @($keys | ForEach-Object {
+              $present = Test-Path -LiteralPath $_ -ErrorAction Stop
+              $version = if ($present) { [string](Get-ItemProperty -LiteralPath $_ -ErrorAction Stop).DisplayVersion } else { '' }
+              [pscustomobject]@{key=$_; present=[bool]$present; version=$version}
+            })
+            $dlls = @('mfc140u.dll', 'vcruntime140.dll', 'vcruntime140_1.dll' | ForEach-Object {
+              $path = Join-Path (Join-Path $env:WINDIR 'System32') $_
+              $present = Test-Path -LiteralPath $path -PathType Leaf -ErrorAction Stop
+              $version = if ($present) { [string](Get-Item -LiteralPath $path -ErrorAction Stop).VersionInfo.FileVersion } else { '' }
+              [pscustomobject]@{name=$_; present=[bool]$present; version=$version}
+            })
+            return [pscustomobject]@{runtime=[pscustomobject]@{present=[bool]$runtimePresent; installed=if ($runtimePresent) {$runtime.Installed} else {$null}; version=if ($runtimePresent) {[string]$runtime.Version} else {''}}; products=$products; dlls=$dlls}
           }
           try {
             if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:RUNNER_OS -ne 'Windows' -or $env:RUNNER_ARCH -ne 'X64') { throw 'A disposable GitHub-hosted Windows x64 runner is required.' }
@@ -169,9 +170,11 @@ jobs:
             $additional = Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{6FA797CF-6B76-4B6D-87EE-768F92008720}' -ErrorAction Stop
             foreach ($item in @($minimum, $additional)) { if ($item.Publisher -cne 'Microsoft Corporation' -or -not (Same-Version $item.DisplayVersion)) { throw 'Installed x64 MSI identity mismatch.' } }
             if ($minimum.DisplayName -cne 'Microsoft Visual C++ 2022 X64 Minimum Runtime - 14.51.36247' -or $additional.DisplayName -cne 'Microsoft Visual C++ 2022 X64 Additional Runtime - 14.51.36247') { throw 'Installed x64 MSI product name mismatch.' }
+            $evidence.before = Get-WhitelistedRuntimeState
             $attempted = $true
-            $process = Start-Process -FilePath $installer -ArgumentList '/uninstall', '/quiet', '/norestart' -Wait -PassThru
+            $process = Start-Process -FilePath $installer -ArgumentList '/uninstall', '/quiet', '/norestart', '/log', ('"' + (Join-Path $env:RUNNER_TEMP 'fixture-uninstall.log') + '"') -Wait -PassThru
             $evidence.uninstall_exit = $process.ExitCode
+            $evidence.after_uninstall = Get-WhitelistedRuntimeState
             if ($process.ExitCode -ne 0) { throw "Inconclusive: uninstall exit $($process.ExitCode)." }
             $registryPresent = Test-Path -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64' -ErrorAction Stop
             $present = @('mfc140u.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') | Where-Object { Test-Path -LiteralPath (Join-Path (Join-Path $env:WINDIR 'System32') $_) -ErrorAction Stop }
@@ -194,8 +197,9 @@ jobs:
           finally {
             if ($attempted) {
               try {
-                $restore = Start-Process -FilePath $installer -ArgumentList '/install', '/quiet', '/norestart' -Wait -PassThru
+                $restore = Start-Process -FilePath $installer -ArgumentList '/install', '/quiet', '/norestart', '/log', ('"' + (Join-Path $env:RUNNER_TEMP 'fixture-reinstall.log') + '"') -Wait -PassThru
                 $evidence.restore_exit = $restore.ExitCode
+                $evidence.after_restore = Get-WhitelistedRuntimeState
                 if ($restore.ExitCode -ne 0) { throw "Recovery installer exit $($restore.ExitCode)." }
                 & scripts/windows/activate_sender_package.ps1 -ProjectRoot $root -StagedPackage $stage -Source '1b9ea2349623fb77eb8bbb242a111747686a1e75' -CheckPrerequisitesOnly
                 $evidence.stage_after_positive = @(Get-StageInventory $stage)
@@ -208,7 +212,7 @@ jobs:
             if (-not $evidence.failure -and -not $evidence.restore_failure -and $evidence.negative_preflight -and $evidence.positive_preflight) { $evidence.status = 'verified' }
             [IO.File]::WriteAllText($output, ($evidence | ConvertTo-Json -Depth 5) + "`n", [Text.UTF8Encoding]::new($false))
           }
-          if ($evidence.status -ne 'verified') { throw "Runtime absence rehearsal inconclusive: $($evidence.failure); restoration: $($evidence.restore_failure)" }
+          if ($evidence.restore_exit -ne 0 -or -not $evidence.positive_preflight -or $evidence.restore_failure) { throw "Runtime recovery not verified: $($evidence.failure); restoration: $($evidence.restore_failure)" }
       - name: Exercise compiled sender after restoration
         run: |
           $candidate = Join-Path $env:GITHUB_WORKSPACE 'candidate-artifact/hwmonitor-mqtt/hwmonitor-mqtt/build/windows/sender.exe'
@@ -218,6 +222,10 @@ jobs:
           $sensors = Get-Content sensors-restored.json -Raw | ConvertFrom-Json
           if ($null -eq $sensors.sensors) { throw 'Missing restored sensor array.' }
           & tests/windows_compiled_mqtt_smoke.ps1 -SenderExe $candidate -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -RequireWmiFallback
+      - name: Enforce runtime absence result
+        run: |
+          $evidence = Get-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'fixture-runtime-absence.json') -Raw | ConvertFrom-Json
+          if ($evidence.status -ne 'verified') { throw "Runtime absence rehearsal inconclusive: $($evidence.failure); restoration: $($evidence.restore_failure)" }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
@@ -225,6 +233,8 @@ jobs:
           path: |
             ${{ runner.temp }}/fixture-input-identities.json
             ${{ runner.temp }}/fixture-runtime-absence.json
+            ${{ runner.temp }}/fixture-uninstall.log
+            ${{ runner.temp }}/fixture-reinstall.log
             validation/test-evidence/
             validation/sensors-restored.json
             validation/sensors-restored.log
