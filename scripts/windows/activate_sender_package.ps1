@@ -9,6 +9,18 @@ $backup = Join-Path $ProjectRoot ('package-backup-' + [guid]::NewGuid().ToString
 $installer = Join-Path $StagedPackage 'scripts/windows/install_windows_sender_task.ps1'
 if (-not (Test-Path -LiteralPath (Join-Path $StagedPackage 'sender.exe') -PathType Leaf) -or -not (Test-Path -LiteralPath $installer -PathType Leaf)) { throw 'Validated package is incomplete.' }
 $previousTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+if ($previousTask) {
+    $actions = @($previousTask.Actions)
+    $recognized = $false
+    if ($actions.Count -eq 1 -and (Split-Path -Leaf $actions[0].Execute) -ieq 'powershell.exe' -and $actions[0].Arguments) {
+        foreach ($launcher in @((Join-Path $ProjectRoot 'scripts/windows/start_windows_sender.ps1'), (Join-Path $package 'scripts/windows/start_windows_sender.ps1'))) {
+            $filePattern = '(?i)(?:^|\s)-File\s+"?' + [regex]::Escape($launcher) + '"?(?:\s|$)'
+            $rootPattern = '(?i)(?:^|\s)-ProjectRoot\s+"?' + [regex]::Escape($ProjectRoot) + '"?(?:\s|$)'
+            if ($actions[0].Arguments -match $filePattern -and $actions[0].Arguments -match $rootPattern) { $recognized = $true }
+        }
+    }
+    if (-not $recognized) { throw "Refusing to replace unrecognized scheduled task: $taskName" }
+}
 $previousXml = if ($previousTask) { Export-ScheduledTask -TaskName $taskName } else { $null }
 $wasRunning = $previousTask -and $previousTask.State -eq 'Running'
 $stopped = $false

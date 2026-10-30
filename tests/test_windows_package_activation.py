@@ -17,7 +17,7 @@ def test_start_failure_restores_previous_package_and_settings(tmp_path):
     script = Path(__file__).resolve().parents[1] / "scripts/windows/activate_sender_package.ps1"
     shell = r'''
 $global:state = 'Running'
-function Get-ScheduledTask { param($TaskName, $ErrorAction) [pscustomobject]@{State=$global:state} }
+function Get-ScheduledTask { param($TaskName, $ErrorAction) [pscustomobject]@{State=$global:state;Actions=@([pscustomobject]@{Execute='powershell.exe';Arguments=('-File "' + (Join-Path $env:ROOT 'package/scripts/windows/start_windows_sender.ps1') + '" -ProjectRoot "' + $env:ROOT + '"')})} }
 function Export-ScheduledTask { param($TaskName) '<Task />' }
 function Stop-ScheduledTask { param($TaskName) $global:state = 'Ready' }
 function Register-ScheduledTask { param($TaskName, $Xml, [switch]$Force) }
@@ -53,7 +53,7 @@ def test_sender_that_exits_after_initial_running_rolls_back(tmp_path):
     shell = r'''
 $global:state = 'Running'
 $global:newChecks = 0
-function Get-ScheduledTask { param($TaskName, $ErrorAction) if ($global:state -eq 'New') { $global:newChecks++; return [pscustomobject]@{State= $(if ($global:newChecks -eq 1) {'Running'} else {'Ready'})} }; [pscustomobject]@{State=$global:state} }
+function Get-ScheduledTask { param($TaskName, $ErrorAction) if ($global:state -eq 'New') { $global:newChecks++; return [pscustomobject]@{State= $(if ($global:newChecks -eq 1) {'Running'} else {'Ready'});Actions=@([pscustomobject]@{Execute='powershell.exe';Arguments=('-File "' + (Join-Path $env:ROOT 'package/scripts/windows/start_windows_sender.ps1') + '" -ProjectRoot "' + $env:ROOT + '"')})} }; [pscustomobject]@{State=$global:state;Actions=@([pscustomobject]@{Execute='powershell.exe';Arguments=('-File "' + (Join-Path $env:ROOT 'package/scripts/windows/start_windows_sender.ps1') + '" -ProjectRoot "' + $env:ROOT + '"')})} }
 function Export-ScheduledTask { param($TaskName) '<Task />' }
 function Stop-ScheduledTask { param($TaskName) $global:state = 'Ready' }
 function Register-ScheduledTask { param($TaskName, $Xml, [switch]$Force) }
@@ -80,7 +80,7 @@ def test_task_installer_nonzero_restores_previous_package(tmp_path):
     (scripts / "install_windows_sender_task.ps1").write_text('exit 23\n')
     script = Path(__file__).resolve().parents[1] / "scripts/windows/activate_sender_package.ps1"
     shell = r'''
-function Get-ScheduledTask { param($TaskName, $ErrorAction) [pscustomobject]@{State='Ready'} }
+function Get-ScheduledTask { param($TaskName, $ErrorAction) [pscustomobject]@{State='Ready';Actions=@([pscustomobject]@{Execute='powershell.exe';Arguments=('-File "' + (Join-Path $env:ROOT 'package/scripts/windows/start_windows_sender.ps1') + '" -ProjectRoot "' + $env:ROOT + '"')})} }
 function Export-ScheduledTask { param($TaskName) '<Task />' }
 function Stop-ScheduledTask { param($TaskName) }
 function Register-ScheduledTask { param($TaskName, $Xml, [switch]$Force) }
@@ -135,7 +135,7 @@ def test_failed_rollback_preserves_backup_and_reports_original_error(tmp_path):
     script = Path(__file__).resolve().parents[1] / "scripts/windows/activate_sender_package.ps1"
     shell = r'''
 $global:checks = 0
-function Get-ScheduledTask { param($TaskName, $ErrorAction) $global:checks++; [pscustomobject]@{State= $(if ($global:checks -eq 1) {'Ready'} else {'Running'})} }
+function Get-ScheduledTask { param($TaskName, $ErrorAction) $global:checks++; [pscustomobject]@{State= $(if ($global:checks -eq 1) {'Ready'} else {'Running'});Actions=@([pscustomobject]@{Execute='powershell.exe';Arguments=('-File "' + (Join-Path $env:ROOT 'package/scripts/windows/start_windows_sender.ps1') + '" -ProjectRoot "' + $env:ROOT + '"')})} }
 function Export-ScheduledTask { param($TaskName) '<Task />' }
 function Stop-ScheduledTask { param($TaskName) throw 'injected rollback stop failure' }
 function Start-ScheduledTask { param($TaskName) throw 'injected start failure' }
@@ -199,7 +199,7 @@ def test_running_task_that_does_not_stop_keeps_old_package(tmp_path):
     (scripts / "install_windows_sender_task.ps1").write_text('param($ProjectRoot, $SenderExe, [switch]$AtStartup)\n')
     script = Path(__file__).resolve().parents[1] / "scripts/windows/activate_sender_package.ps1"
     shell = r'''
-function Get-ScheduledTask { param($TaskName, $ErrorAction) [pscustomobject]@{State='Running'} }
+function Get-ScheduledTask { param($TaskName, $ErrorAction) [pscustomobject]@{State='Running';Actions=@([pscustomobject]@{Execute='powershell.exe';Arguments=('-File "' + (Join-Path $env:ROOT 'package/scripts/windows/start_windows_sender.ps1') + '" -ProjectRoot "' + $env:ROOT + '"')})} }
 function Export-ScheduledTask { param($TaskName) '<Task />' }
 function Stop-ScheduledTask { param($TaskName) }
 function Register-ScheduledTask { param($TaskName, $Xml, [switch]$Force) }
@@ -299,3 +299,26 @@ Assert-TrustedItem $env:ITEM $true
 '''
     result = run_pwsh(shell, env={"ITEM": str(tmp_path)})
     assert result.returncode == 0, result.stderr
+
+
+def test_unrecognized_task_is_not_stopped_or_replaced(tmp_path):
+    root = tmp_path / "installed"
+    old = root / "package"
+    old.mkdir(parents=True)
+    (old / "sender.exe").write_text("old")
+    stage = tmp_path / "stage"
+    scripts = stage / "scripts/windows"
+    scripts.mkdir(parents=True)
+    (stage / "sender.exe").write_text("new")
+    (scripts / "install_windows_sender_task.ps1").write_text('param($ProjectRoot, $SenderExe, [switch]$AtStartup)\n')
+    script = Path(__file__).resolve().parents[1] / "scripts/windows/activate_sender_package.ps1"
+    shell = r'''
+function Get-ScheduledTask { param($TaskName, $ErrorAction) [pscustomobject]@{State='Running';Actions=@([pscustomobject]@{Execute='other.exe';Arguments=''})} }
+function Stop-ScheduledTask { param($TaskName) throw 'unexpected stop' }
+try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedPackage $env:STAGE; exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }
+'''
+    result = run_pwsh(shell, env={"ACTIVATOR": str(script), "ROOT": str(root), "STAGE": str(stage)})
+    assert result.returncode != 0
+    assert "unrecognized" in result.stdout.lower()
+    assert (old / "sender.exe").read_text() == "old"
+    assert (stage / "sender.exe").read_text() == "new"
