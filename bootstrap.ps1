@@ -15,6 +15,7 @@ function Assert-TrustedItem([string]$Path, [bool]$Ancestor, [bool]$Secret = $fal
     if (-not $Ancestor) { $mask = $mask -bor [int][Security.AccessControl.FileSystemRights]::Write }
     if ($Secret) { $mask = $mask -bor [int][Security.AccessControl.FileSystemRights]::ReadData }
     foreach ($rule in $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
+        if ($Ancestor -and (($rule.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly) -ne 0)) { continue }
         if ($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin $trustedSids -and (([int]$rule.FileSystemRights -band $mask) -ne 0)) { throw "Untrusted write access: $Path" }
     }
 }

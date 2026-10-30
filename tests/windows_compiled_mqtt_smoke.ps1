@@ -1,5 +1,6 @@
 param([Parameter(Mandatory = $true)][string]$SenderExe, [Parameter(Mandatory = $true)][string]$BrokerExe)
 $ErrorActionPreference = 'Stop'
+Remove-Item Env:BROKER_HOST, Env:BROKER_PORT, Env:MQTT_USER, Env:MQTT_PASS, Env:SENDER_PROFILE -ErrorAction SilentlyContinue
 $testRoot = Join-Path $env:RUNNER_TEMP ('sender-mqtt-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $testRoot | Out-Null
 $broker = $null
