@@ -50,6 +50,27 @@ catch {
         }
         elseif ($movedNew) { Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue }
     }
-    catch { throw "Activation failed: $failure. Rollback failed: $_. Preserve $backup and recover the scheduled task manually." }
+    catch {
+        $rollbackFailure = $_
+        $recoveryPath = Join-Path $ProjectRoot ('task-recovery-' + [guid]::NewGuid().ToString('N') + '.xml')
+        try {
+            if ($previousXml) {
+                New-Item -ItemType File -Path $recoveryPath | Out-Null
+                if ($env:OS -eq 'Windows_NT') {
+                    $acl = [Security.AccessControl.FileSecurity]::new()
+                    $acl.SetAccessRuleProtection($true, $false)
+                    foreach ($sid in @('S-1-5-32-544', 'S-1-5-18')) {
+                        $rule = [Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new($sid), 'FullControl', 'Allow')
+                        $acl.AddAccessRule($rule)
+                    }
+                    Set-Acl -Path $recoveryPath -AclObject $acl
+                }
+                [IO.File]::WriteAllText($recoveryPath, $previousXml, [Text.UTF8Encoding]::new($false))
+            }
+            else { $recoveryPath = 'no previous task' }
+        }
+        catch { $recoveryPath = 'task XML could not be saved' }
+        throw "Activation failed: $failure. Rollback failed: $rollbackFailure. Preserve $backup; task recovery: $recoveryPath."
+    }
     throw $failure
 }
