@@ -111,3 +111,11 @@ def test_linux_harness_uses_workflow_checkout_and_exact_source_checkout():
     assert 'git -C source rev-parse HEAD' in linux
     assert '--source-root source' in linux
     assert '--bootstrap "$GITHUB_WORKSPACE/source/bootstrap.sh"' in linux
+
+
+def test_pve_gate_uses_pinned_guest_and_distinct_archives():
+    linux = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
+    assert 'scripts/release-tests/pve_acceptance.py' in linux
+    assert '20261026-2643/debian-13-generic-amd64-20261026-2643.qcow2' in linux
+    assert '5bd891c6e62d01639f52a5587b72a4607421e445732214be787dba6043cf9797a6ff90bed982aada6a6c7e619f1f956d961c4fad76757171abd607920aac098a' in linux
+    assert '--old-source "$OLD_SOURCE" --old-version 0.0.1' in linux
