@@ -41,7 +41,9 @@ jobs:
         shell: pwsh
         run: |
           .venv/Scripts/python.exe -m nuitka --version
-          .venv/Scripts/python.exe -m nuitka --onefile --msvc=latest --assume-yes-for-downloads --output-dir=build/windows --report=build/windows/nuitka-report.xml --output-filename=sender.exe --include-package=pythonnet --include-package=clr_loader --include-module=clr --include-package=win32com hwmonitor_mqtt/agents/agent_sender_windows.py
+          .venv/Scripts/python.exe -m nuitka --onefile --msvc=latest --assume-yes-for-downloads --output-dir=build/windows --report=build/windows/nuitka-report.xml --output-filename=sender.exe --include-package=pythonnet --include-package=clr_loader --include-module=clr --include-module=win32com.client --nofollow-import-to=win32com.test --nofollow-import-to=win32com.demos hwmonitor_mqtt/agents/agent_sender_windows.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv/Scripts/python.exe -c "import xml.etree.ElementTree as E; r=E.parse('build/windows/nuitka-report.xml').getroot(); bad=[m.get('name') for m in r.findall('module') if (m.get('name') or '').startswith(('win32com.test', 'win32com.demos'))]; assert not bad, bad; print('win32com test/demo modules excluded')"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Get-FileHash build/windows/sender.exe -Algorithm SHA256
       - name: Install pinned LibreHardwareMonitor in the disposable runner
@@ -118,5 +120,6 @@ jobs:
             build/windows/nuitka-report.xml
             test-evidence/process-tree-ps*.json
             test-evidence/direct-*.log
+            test-evidence/wmi-baseline.json
           if-no-files-found: warn
           retention-days: 3

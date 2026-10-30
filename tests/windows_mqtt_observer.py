@@ -12,7 +12,7 @@ from paho.mqtt import client as mqtt
 STATUSES = {"ok", "warning", "critical", "unknown", "unavailable"}
 
 
-def matches(payload, profile):
+def matches(payload, profile, min_devices=0):
     if not isinstance(payload, dict) or not isinstance(payload.get("host"), str):
         return False
     if not isinstance(payload.get("cpu"), dict) or not isinstance(payload.get("memory"), dict):
@@ -21,13 +21,15 @@ def matches(payload, profile):
         return payload.get("disk_health") in STATUSES and "disk_smart" not in payload
     smart = payload.get("disk_smart")
     return (isinstance(smart, dict) and smart.get("status") in STATUSES
-            and isinstance(smart.get("alerts"), list) and isinstance(smart.get("devices"), dict))
+            and isinstance(smart.get("alerts"), list) and isinstance(smart.get("devices"), dict)
+            and len(smart["devices"]) >= min_devices)
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--profile", choices=("full", "esp"), required=True)
     parser.add_argument("--port", type=int, required=True)
+    parser.add_argument("--min-devices", type=int, default=0)
     args = parser.parse_args()
     received = threading.Event()
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
@@ -44,7 +46,7 @@ def main():
             payload = json.loads(message.payload)
         except (ValueError, UnicodeDecodeError):
             return
-        if matches(payload, args.profile):
+        if matches(payload, args.profile, args.min_devices):
             received.set()
 
     client.on_connect = on_connect

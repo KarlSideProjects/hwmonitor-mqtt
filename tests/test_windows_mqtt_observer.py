@@ -13,3 +13,6 @@ def test_observer_checks_full_and_esp_payload_shapes():
     assert observer.matches(esp, "esp")
     assert not observer.matches(esp, "full")
     assert not observer.matches(full, "esp")
+    assert not observer.matches(full, "full", min_devices=1)
+    full["disk_smart"]["devices"] = {"disk": {}}
+    assert observer.matches(full, "full", min_devices=1)
