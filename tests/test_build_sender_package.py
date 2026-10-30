@@ -179,3 +179,26 @@ def test_builder_main_packages_both_platforms(tmp_path, monkeypatch):
             manifest = json.load(package.extractfile("manifest.json"))
         assert manifest["platform"] == target
         assert manifest["source"] == "a" * 40
+
+
+def test_dockerfile_installs_intel_tools_only_on_amd64(tmp_path):
+    import os
+
+    dockerfile = (BUILDER.parents[1] / "Dockerfile").read_text()
+    instruction = dockerfile.split("RUN ", 1)[1].split("\n\n", 1)[0].replace("\\\n", " ")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for name, body in {
+        "dpkg": 'printf "%s\\n" "$TEST_ARCH"',
+        "apt-get": 'printf "%s\\n" "$*" >> "$TEST_CALLS"',
+        "rm": ":",
+    }.items():
+        script = bin_dir / name
+        script.write_text("#!/bin/sh\n" + body + "\n")
+        script.chmod(0o755)
+    for arch in ("amd64", "arm64"):
+        calls = tmp_path / arch
+        env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "TEST_ARCH": arch, "TEST_CALLS": str(calls)}
+        subprocess.run(["sh", "-c", instruction], env=env, check=True)
+        assert ("intel-gpu-tools" in calls.read_text()) == (arch == "amd64")
+        assert "smartmontools" in calls.read_text()
