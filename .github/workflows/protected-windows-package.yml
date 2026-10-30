@@ -63,11 +63,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pip download --no-cache-dir --no-deps --no-build-isolation --require-hashes -r scripts/windows/requirements-build.txt -d selected-packages
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          uv sync --locked --no-dev --no-cache --no-index --find-links selected-packages --python (Get-Command python).Source
+          uv venv --python (Get-Command python).Source
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          uv pip install --python .venv/Scripts/python.exe --no-index --find-links selected-packages --no-cache --no-deps --require-hashes -r scripts/windows/requirements-build-backend.txt
+          uv pip install --python .venv/Scripts/python.exe --offline --no-index --find-links selected-packages --no-cache --no-deps --require-hashes -r selected-requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          uv pip install --python .venv/Scripts/python.exe --no-index --find-links selected-packages --no-cache --no-build-isolation --no-deps --require-hashes -r scripts/windows/requirements-build.txt
+          uv pip install --python .venv/Scripts/python.exe --offline --no-index --find-links selected-packages --no-cache --no-deps --require-hashes -r scripts/windows/requirements-build-backend.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv pip install --python .venv/Scripts/python.exe --offline --no-index --find-links selected-packages --no-cache --no-build-isolation --no-deps --require-hashes -r scripts/windows/requirements-build.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .venv/Scripts/python.exe -c "import sys; print(sys.version); assert sys.version_info[:3] == (3, 13, 17)"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
