@@ -5,7 +5,6 @@ import hashlib
 import io
 import importlib.metadata
 import json
-import os
 from pathlib import Path
 import platform
 import re
@@ -14,6 +13,11 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+
+if __package__:
+    from .capture_sender_build import compile_and_capture
+else:
+    from capture_sender_build import compile_and_capture
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -91,21 +95,28 @@ def main():
             parser.error(f"{package} {version} is required")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
+    evidence = output / "evidence"
+    if evidence.exists():
+        parser.error("evidence directory must be fresh")
+    evidence.mkdir()
     with tempfile.TemporaryDirectory(prefix="sender-source-") as directory:
         source_dir = Path(directory) / "source"
         source_snapshot(ROOT, source_dir, source)
-        environment = os.environ.copy()
-        environment["PYTHONPATH"] = str(source_dir)
         build_dir = Path(directory) / "build"
         entrypoint = source_dir / "sender_entrypoint.py"
         write_entrypoint(entrypoint, args.version, source)
-        subprocess.run([sys.executable, "-m", "nuitka", "--onefile", "--include-module=hwmonitor_mqtt.agents.agent_sender_async", f"--report={output / 'build-report.xml'}", "--output-filename=sender", f"--output-dir={build_dir}", str(entrypoint)], cwd=source_dir, env=environment, check=True)
+        report = build_dir / "build-report.xml"
+        command = [sys.executable, "-m", "nuitka", "--onefile", "--include-module=hwmonitor_mqtt.agents.agent_sender_async", f"--report={report}", "--output-filename=sender", f"--output-dir={build_dir}", str(entrypoint)]
+        compile_and_capture(command, source_dir, build_dir, build_dir / "sender", report, build_dir / "sender_entrypoint.dist", evidence / "runtime", evidence / "inventory.json", evidence / "provenance.json", [])
+        shutil.copy2(report, output / "build-report.xml")
+        shutil.copy2(report, evidence / "report.xml")
         candidate = Path(directory) / "candidate"
         notices = candidate / "licenses"
         notices.mkdir(parents=True)
         executable = candidate / "sender"
         shutil.copy2(build_dir / "sender", executable)
-        for name in ("python", "paho-mqtt", "psutil", "python-dotenv"):
+        shutil.copyfile(source_dir / "release-notices" / f"{target_platform}-cpython-3.11.15-pbs-20260728" / "runtime-bundle.txt", notices / "python.txt")
+        for name in ("paho-mqtt", "psutil", "python-dotenv"):
             shutil.copy2(source_dir / "tests/fixtures/release-notices" / (name + ".txt"), notices)
         typing_notice = importlib.metadata.distribution("typing-extensions").read_text("licenses/LICENSE")
         if not typing_notice:

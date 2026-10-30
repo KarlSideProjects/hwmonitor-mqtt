@@ -14,6 +14,7 @@ def test_builder_rejects_uncommitted_source(tmp_path):
     repo = tmp_path / "repo"
     (repo / "scripts").mkdir(parents=True)
     shutil.copyfile(BUILDER, repo / "scripts" / BUILDER.name)
+    shutil.copyfile(BUILDER.parent / "capture_sender_build.py", repo / "scripts" / "capture_sender_build.py")
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
     subprocess.run(["git", "-C", str(repo), "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "base"], check=True)
@@ -116,6 +117,7 @@ def test_builder_rejects_missing_or_invalid_release_version_before_build(tmp_pat
     repo = tmp_path / "repo"
     (repo / "scripts").mkdir(parents=True)
     shutil.copyfile(BUILDER, repo / "scripts" / BUILDER.name)
+    shutil.copyfile(BUILDER.parent / "capture_sender_build.py", repo / "scripts" / "capture_sender_build.py")
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
     subprocess.run(["git", "-C", str(repo), "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "base"], check=True)
@@ -157,7 +159,7 @@ def test_builder_main_packages_both_platforms(tmp_path, monkeypatch):
     monkeypatch.setattr(builder.importlib.metadata, "distribution", lambda name: SimpleNamespace(read_text=lambda _: "license"))
     monkeypatch.setattr(builder.subprocess, "check_output", lambda *args, **kwargs: "a" * 40)
     def snapshot(repo, destination, source):
-        for name in ("tests/fixtures/release-notices", "release-public", "docs/configuration"):
+        for name in ("tests/fixtures/release-notices", "release-public", "docs/configuration", "release-notices"):
             shutil.copytree(repo / name, destination / name)
         for name in ("Dockerfile", "docker-compose.linux.yml", "docker-compose.pve.yml"):
             shutil.copyfile(repo / name, destination / name)
@@ -170,6 +172,11 @@ def test_builder_main_packages_both_platforms(tmp_path, monkeypatch):
         (build_dir / "sender").write_bytes(b"compiled executable")
         return SimpleNamespace(returncode=0)
     monkeypatch.setattr(builder.subprocess, "run", run)
+    def capture(command, source, build_dir, executable, report, dist, runtime, inventory, provenance, smoke_args):
+        build_dir.mkdir(parents=True)
+        executable.write_bytes(b"compiled executable")
+        report.write_text("report")
+    monkeypatch.setattr(builder, "compile_and_capture", capture)
     for machine, target in (("x86_64", "linux-x64"), ("aarch64", "linux-arm64")):
         monkeypatch.setattr(builder.platform, "machine", lambda: machine)
         output = tmp_path / target
@@ -177,6 +184,8 @@ def test_builder_main_packages_both_platforms(tmp_path, monkeypatch):
         builder.main()
         with tarfile.open(output / f"sender-{target}.tar.gz") as package:
             manifest = json.load(package.extractfile("manifest.json"))
+            bundle = builder.ROOT / "release-notices" / f"{target}-cpython-3.11.15-pbs-20260728" / "runtime-bundle.txt"
+            assert package.extractfile("licenses/python.txt").read() == bundle.read_bytes()
         assert manifest["platform"] == target
         assert manifest["source"] == "a" * 40
 
@@ -190,6 +199,7 @@ def test_dockerfile_installs_intel_tools_only_on_amd64(tmp_path):
     bin_dir.mkdir()
     for name, body in {
         "dpkg": 'printf "%s\\n" "$TEST_ARCH"',
+        "sed": ":",
         "apt-get": 'printf "%s\\n" "$*" >> "$TEST_CALLS"',
         "rm": ":",
     }.items():
@@ -202,3 +212,12 @@ def test_dockerfile_installs_intel_tools_only_on_amd64(tmp_path):
         subprocess.run(["sh", "-c", instruction], env=env, check=True)
         assert ("intel-gpu-tools" in calls.read_text()) == (arch == "amd64")
         assert "smartmontools" in calls.read_text()
+
+
+def test_runtime_image_uses_authenticated_dated_snapshot():
+    dockerfile = (BUILDER.parents[1] / 'Dockerfile').read_text()
+    assert '# syntax=' not in dockerfile
+    assert 'snapshot.debian.org/archive/debian/20261027T000000Z' in dockerfile
+    assert 'snapshot.debian.org/archive/debian-security/20261027T000000Z' in dockerfile
+    assert 'Check-Valid-Until: no' in dockerfile
+    assert 'trusted=yes' not in dockerfile and '--allow-unauthenticated' not in dockerfile
