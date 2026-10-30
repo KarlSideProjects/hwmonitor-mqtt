@@ -4,12 +4,15 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
+from urllib.parse import urlsplit
+from urllib.request import Request, build_opener
 
 from check_release_assets import check
-from release_backend import GitHub, drain_ready, parse, prepare_candidate, releases, remote_assets
+from release_backend import GitHub, NoRedirect, drain_ready, parse, prepare_candidate, releases, remote_assets
 from release_version import version
 
 PLATFORMS = ('linux-x64', 'linux-arm64', 'windows-x64')
@@ -70,6 +73,26 @@ def pending_sources(api, repo, master, start, limit):
     return [source for source in history[history.index(start):] if source not in confirmed][:limit]
 
 
+def dispatch_sources(sources, token, test_api=None):
+    if not token or len(sources) > 100 or any(not re.fullmatch(r'[0-9a-f]{40}', source) for source in sources):
+        raise ValueError('invalid recovery dispatch')
+    base = 'https://api.github.com'
+    if test_api is not None:
+        url = urlsplit(test_api)
+        if url.scheme != 'http' or url.hostname != '127.0.0.1' or url.username or url.path or url.query or url.fragment:
+            raise ValueError('test API must be loopback')
+        base = test_api
+    path = '/repos/KarlSideProjects/hwmonitor-mqtt/actions/workflows/sender-release.yml/dispatches'
+    for source in sources:
+        data = json.dumps({'ref': 'master', 'inputs': {'source': source}}).encode()
+        request = Request(base + path, data=data, method='POST', headers={
+            'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json'})
+        with build_opener(NoRedirect()).open(request, timeout=30) as response:
+            if response.status != 204:
+                raise ValueError('recovery dispatch failed')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -80,11 +103,12 @@ def main():
     stage.add_argument('--assets', type=Path, required=True)
     stage.add_argument('--evidence', type=Path, required=True)
     sub.add_parser('drain')
-    pending = sub.add_parser('pending')
-    pending.add_argument('--repo', type=Path, default=Path('.'))
-    pending.add_argument('--master', required=True)
-    pending.add_argument('--start', required=True)
-    pending.add_argument('--limit', type=int, default=20)
+    for command in ('pending', 'recover'):
+        pending = sub.add_parser(command)
+        pending.add_argument('--repo', type=Path, default=Path('.'))
+        pending.add_argument('--master', required=True)
+        pending.add_argument('--start', required=True)
+        pending.add_argument('--limit', type=int, default=20)
     args = parser.parse_args()
     try:
         api = GitHub(token=os.environ.get('SENDER_RELEASE_TOKEN'))
@@ -93,7 +117,10 @@ def main():
         elif args.command == 'drain':
             drain_ready(api)
         else:
-            print(json.dumps(pending_sources(api, args.repo, args.master, args.start, args.limit)))
+            sources = pending_sources(api, args.repo, args.master, args.start, args.limit)
+            if args.command == 'recover':
+                dispatch_sources(sources, os.environ.get('SOURCE_WORKFLOW_TOKEN'))
+            print(json.dumps(sources))
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f'release controller rejected: {error}', file=sys.stderr)
         return 1

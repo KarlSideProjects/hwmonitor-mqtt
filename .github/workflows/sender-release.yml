@@ -4,6 +4,11 @@ on:
   push:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      source:
+        description: 'First-parent master source to recover'
+        required: false
+        type: string
   schedule:
     - cron: '17 * * * *'
 
@@ -21,10 +26,11 @@ jobs:
           persist-credentials: false
       - name: Check source identity and derive version
         env:
-          SOURCE: ${{ github.sha }}
+          SOURCE: ${{ inputs.source || github.sha }}
+          MASTER: ${{ github.sha }}
         run: |
-          test "$(git rev-parse HEAD)" = "$SOURCE"
-          python3 scripts/release_version.py --master "$SOURCE" "$SOURCE"
+          test "$(git rev-parse HEAD)" = "$MASTER"
+          python3 scripts/release_version.py --master "$MASTER" "$SOURCE"
       - name: Keep release blocked until producer and legal gates exist
         run: |
           echo 'publication is disabled: platform evidence and independent legal inspection are not wired'
@@ -36,14 +42,14 @@ jobs:
     needs: version
     runs-on: ubuntu-latest
     concurrency:
-      group: sender-prepare-${{ github.sha }}
+      group: sender-prepare-${{ inputs.source || github.sha }}
       queue: max
     steps:
       - run: exit 1
 
   # A scheduled or manual drain can recover READY drafts after interrupted runs.
   publisher:
-    if: github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    if: github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.source == ''))
     runs-on: ubuntu-latest
     environment: sender-release-publisher
     concurrency:

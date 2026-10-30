@@ -14,3 +14,10 @@ def test_release_workflow_is_master_only_and_has_no_publisher_credentials():
     assert 'schedule:' in workflow
     assert 'scripts/release_version.py' in workflow
     assert 'publication is disabled' in workflow
+
+
+def test_recovery_dispatch_accepts_source_only_as_data():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    assert 'source:' in workflow
+    assert 'SOURCE: ${{ inputs.source || github.sha }}' in workflow
+    assert 'scripts/release_version.py --master "$MASTER" "$SOURCE"' in workflow

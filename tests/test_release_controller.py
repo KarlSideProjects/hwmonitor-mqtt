@@ -120,3 +120,37 @@ def test_pending_history_rejects_corrupt_ready_assets(service, tmp_path):
     state['assets'][release['id']].pop()
     with pytest.raises(ValueError):
         pending_sources(api, repo, source, source, 10)
+
+
+def test_recovery_dispatches_each_bounded_source_to_master_only():
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import threading
+    from release_controller import dispatch_sources
+    requests = []
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+        def do_POST(self):
+            body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+            requests.append((self.path, body))
+            self.send_response(204)
+            self.end_headers()
+    server = HTTPServer(('127.0.0.1', 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        dispatch_sources(['a' * 40, 'b' * 40], 'test', test_api=f'http://127.0.0.1:{server.server_port}')
+        assert [r[1] for r in requests] == [{'ref': 'master', 'inputs': {'source': 'a' * 40}}, {'ref': 'master', 'inputs': {'source': 'b' * 40}}]
+        assert all(r[0] == '/repos/KarlSideProjects/hwmonitor-mqtt/actions/workflows/sender-release.yml/dispatches' for r in requests)
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+def test_recovery_dispatch_rejects_untrusted_endpoints_and_invalid_sources():
+    from release_controller import dispatch_sources
+    with pytest.raises(ValueError):
+        dispatch_sources(['a' * 40], 'token', test_api='https://example.com')
+    with pytest.raises(ValueError):
+        dispatch_sources(['not-a-sha'], 'token', test_api='http://127.0.0.1:1')
