@@ -119,11 +119,23 @@ jobs:
           $stage = Join-Path $env:RUNNER_TEMP 'candidate-staged'
           $root = Join-Path $env:RUNNER_TEMP 'fixture-preflight-never-created'
           $installer = Join-Path $env:RUNNER_TEMP 'fixture-vc_redist.x64.exe'
-          $evidence = [ordered]@{status='inconclusive'; uninstall_exit=$null; restore_exit=$null; negative_preflight=$false; positive_preflight=$false; failure=''; restore_failure=''; installer_sha256=''; product_version=''}
+          $evidence = [ordered]@{status='inconclusive'; uninstall_exit=$null; restore_exit=$null; negative_preflight=$false; positive_preflight=$false; failure=''; restore_failure=''; installer_sha256=''; cached_sha256=''; product_version=''; stage_before=@(); stage_after_negative=@(); stage_after_positive=@()}
           $attempted = $false
           function Same-Version($value) {
             if ([string]$value -notmatch '^v?([0-9]+)\.([0-9]+)\.([0-9]+)(?:\.([0-9]+))?$') { return $false }
             return ([int]$Matches[1] -eq 14 -and [int]$Matches[2] -eq 51 -and [int]$Matches[3] -eq 36247 -and (-not $Matches[4] -or [int]$Matches[4] -eq 0))
+          }
+          function Get-StageInventory([string]$Path) {
+            $base = [IO.Path]::GetFullPath($Path)
+            $items = @(Get-ChildItem -LiteralPath $base -Force -Recurse)
+            if (@($items | Where-Object { ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 }).Count -ne 0) { throw 'Staged package contains a reparse point.' }
+            $inventory = @($items | ForEach-Object {
+              $type = if ($_.PSIsContainer) { 'directory' } else { 'file' }
+              $hash = if ($_.PSIsContainer) { '' } else { (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
+              [pscustomobject]@{path=[IO.Path]::GetRelativePath($base, $_.FullName).Replace('\', '/'); type=$type; sha256=$hash}
+            } | Sort-Object -Property path)
+            if (-not $inventory.Count) { throw 'Staged package is empty.' }
+            return $inventory
           }
           try {
             if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:RUNNER_OS -ne 'Windows' -or $env:RUNNER_ARCH -ne 'X64') { throw 'A disposable GitHub-hosted Windows x64 runner is required.' }
@@ -131,6 +143,8 @@ jobs:
             if (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue) { throw 'Unexpected existing sender task.' }
             $stageHash = (Get-FileHash -LiteralPath (Join-Path $stage 'sender.exe') -Algorithm SHA256).Hash
             if ($stageHash.ToLowerInvariant() -cne '1aefaa9c52ad0e79b8cf1dd4216e775c142f5ff9be877df4c6ef337ee6a41593') { throw 'Staged historical executable mismatch.' }
+            $evidence.stage_before = @(Get-StageInventory $stage)
+            $stageBefore = ConvertTo-Json -InputObject $evidence.stage_before -Depth 4 -Compress
             Invoke-WebRequest -UseBasicParsing -Uri 'https://aka.ms/vc14/vc_redist.x64.exe' -OutFile $installer
             $signature = Get-AuthenticodeSignature -LiteralPath $installer
             if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notlike 'CN=Microsoft Corporation,*') { throw 'Official runtime installer signature is invalid.' }
@@ -143,6 +157,14 @@ jobs:
             if ($runtime.Installed -ne 1 -or -not (Same-Version $runtime.Version)) { throw 'Installed x64 runtime version differs from the signed installer.' }
             $bundle = Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{0e3bb569-69d6-4c34-bff9-c2f81db5e5f0}' -ErrorAction Stop
             if ($bundle.DisplayName -cne 'Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247' -or $bundle.Publisher -cne 'Microsoft Corporation' -or -not (Same-Version $bundle.DisplayVersion)) { throw 'Installed x64 bundle identity mismatch.' }
+            $cached = Join-Path (Join-Path (Join-Path $env:ProgramData 'Package Cache') '{0e3bb569-69d6-4c34-bff9-c2f81db5e5f0}') 'VC_redist.x64.exe'
+            if (-not (Test-Path -LiteralPath $cached -PathType Leaf -ErrorAction Stop)) { throw 'Installed x64 bundle cache is missing.' }
+            $cachedSignature = Get-AuthenticodeSignature -LiteralPath $cached
+            if ($cachedSignature.Status -ne 'Valid' -or $cachedSignature.SignerCertificate.Subject -notlike 'CN=Microsoft Corporation,*') { throw 'Installed x64 bundle cache signature is invalid.' }
+            $evidence.cached_sha256 = (Get-FileHash -LiteralPath $cached -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($evidence.cached_sha256 -cne 'dbcc159853d8b83c1df0a0a698127ab98e926af1b6dee86e96f541dc94b34948') { throw 'Installed x64 bundle cache hash mismatch.' }
+            $cachedFile = Get-Item -LiteralPath $cached
+            if (-not (Same-Version $cachedFile.VersionInfo.ProductVersion) -or $cachedFile.VersionInfo.ProductName -cne 'Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247') { throw 'Installed x64 bundle cache product identity mismatch.' }
             $minimum = Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{931A2CF0-2404-45EA-82F5-345735AE6A90}' -ErrorAction Stop
             $additional = Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{6FA797CF-6B76-4B6D-87EE-768F92008720}' -ErrorAction Stop
             foreach ($item in @($minimum, $additional)) { if ($item.Publisher -cne 'Microsoft Corporation' -or -not (Same-Version $item.DisplayVersion)) { throw 'Installed x64 MSI identity mismatch.' } }
@@ -153,11 +175,19 @@ jobs:
             if ($process.ExitCode -ne 0) { throw "Inconclusive: uninstall exit $($process.ExitCode)." }
             $registryPresent = Test-Path -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64' -ErrorAction Stop
             $present = @('mfc140u.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') | Where-Object { Test-Path -LiteralPath (Join-Path (Join-Path $env:WINDIR 'System32') $_) -ErrorAction Stop }
-            if ($registryPresent -or @($present).Count -ne 0) { throw 'Inconclusive: x64 runtime registration or DLLs remain.' }
+            $productKeys = @(
+              'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{0e3bb569-69d6-4c34-bff9-c2f81db5e5f0}',
+              'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{931A2CF0-2404-45EA-82F5-345735AE6A90}',
+              'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{6FA797CF-6B76-4B6D-87EE-768F92008720}'
+            )
+            $remainingProducts = @($productKeys | Where-Object { Test-Path -LiteralPath $_ -ErrorAction Stop })
+            if ($registryPresent -or @($present).Count -ne 0 -or $remainingProducts.Count -ne 0) { throw 'Inconclusive: x64 runtime or product registration or DLLs remain.' }
             $negative = $false
             try { & scripts/windows/activate_sender_package.ps1 -ProjectRoot $root -StagedPackage $stage -Source '1b9ea2349623fb77eb8bbb242a111747686a1e75' -CheckPrerequisitesOnly }
             catch { if ($_.Exception.Message -match 'Visual C\+\+') { $negative = $true } else { throw } }
-            if (-not $negative -or (Test-Path -LiteralPath $root) -or (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue) -or (Get-FileHash -LiteralPath (Join-Path $stage 'sender.exe') -Algorithm SHA256).Hash -ne $stageHash) { throw 'Inconclusive: missing-runtime preflight or preservation failed.' }
+            $evidence.stage_after_negative = @(Get-StageInventory $stage)
+            $stageAfterNegative = ConvertTo-Json -InputObject $evidence.stage_after_negative -Depth 4 -Compress
+            if (-not $negative -or (Test-Path -LiteralPath $root) -or (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue) -or $stageAfterNegative -cne $stageBefore) { throw 'Inconclusive: missing-runtime preflight or staged package preservation failed.' }
             $evidence.negative_preflight = $true
           }
           catch { $evidence.failure = $_.Exception.Message }
@@ -168,7 +198,9 @@ jobs:
                 $evidence.restore_exit = $restore.ExitCode
                 if ($restore.ExitCode -ne 0) { throw "Recovery installer exit $($restore.ExitCode)." }
                 & scripts/windows/activate_sender_package.ps1 -ProjectRoot $root -StagedPackage $stage -Source '1b9ea2349623fb77eb8bbb242a111747686a1e75' -CheckPrerequisitesOnly
-                if ((Test-Path -LiteralPath $root) -or (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue) -or (Get-FileHash -LiteralPath (Join-Path $stage 'sender.exe') -Algorithm SHA256).Hash -ne $stageHash) { throw 'Preflight changed the staged sender or task.' }
+                $evidence.stage_after_positive = @(Get-StageInventory $stage)
+                $stageAfterPositive = ConvertTo-Json -InputObject $evidence.stage_after_positive -Depth 4 -Compress
+                if ((Test-Path -LiteralPath $root) -or (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue) -or $stageAfterPositive -cne $stageBefore) { throw 'Preflight changed the staged package or task.' }
                 $evidence.positive_preflight = $true
               }
               catch { $evidence.restore_failure = $_.Exception.Message }

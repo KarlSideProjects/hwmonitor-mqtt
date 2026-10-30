@@ -29,30 +29,46 @@ def run_absence_step(tmp_path, mode):
     body = '\n'.join(line[10:] for line in lines[start:end])
     activator = tmp_path / 'scripts/windows/activate_sender_package.ps1'
     activator.parent.mkdir(parents=True)
-    activator.write_text("param($ProjectRoot,$StagedPackage,$Source,[switch]$CheckPrerequisitesOnly)\nif (-not $global:installed) { throw 'Visual C++ runtime missing' }\n")
-    (tmp_path / 'candidate-staged').mkdir()
+    activator.write_text("""param($ProjectRoot,$StagedPackage,$Source,[switch]$CheckPrerequisitesOnly)
+if (-not $global:installed) {
+  if ($env:MODE -eq 'stage-added-dir') { New-Item -ItemType Directory -Path (Join-Path $StagedPackage 'added-dir') | Out-Null }
+  if ($env:MODE -eq 'stage-added') { [IO.File]::WriteAllText((Join-Path $StagedPackage 'added.txt'),'added') }
+  if ($env:MODE -eq 'stage-deleted') { Remove-Item -LiteralPath (Join-Path $StagedPackage 'manifest.json') }
+  if ($env:MODE -eq 'stage-changed') { [IO.File]::WriteAllText((Join-Path $StagedPackage 'manifest.json'),'changed') }
+  throw 'Visual C++ runtime missing'
+}
+if ($env:MODE -eq 'stage-positive') { [IO.File]::WriteAllText((Join-Path $StagedPackage 'manifest.json'),'changed') }
+""")
+    stage = tmp_path / 'candidate-staged'
+    stage.mkdir()
+    (stage / 'sender.exe').write_bytes(b'executable')
+    (stage / 'manifest.json').write_text('original')
+    cached = tmp_path / 'programdata/Package Cache/{0e3bb569-69d6-4c34-bff9-c2f81db5e5f0}/VC_redist.x64.exe'
+    cached.parent.mkdir(parents=True)
+    if mode != 'cache-missing':
+        cached.write_bytes(b'cached Microsoft bundle')
     mocks = r'''
 Set-Location $env:RUNNER_TEMP
 $global:installed = $true
 function Get-ScheduledTask { param($TaskName,$ErrorAction) return $null }
 function Invoke-WebRequest { param([switch]$UseBasicParsing,$Uri,$OutFile) [IO.File]::WriteAllText($OutFile,'official') }
-function Get-AuthenticodeSignature { param($LiteralPath) [pscustomobject]@{Status=$(if ($env:MODE -eq 'bad-signer') {'NotSigned'} else {'Valid'});SignerCertificate=[pscustomobject]@{Subject='CN=Microsoft Corporation, O=Microsoft Corporation'}} }
-function Get-FileHash { param($LiteralPath,$Algorithm) if ($LiteralPath -like '*sender.exe') { return [pscustomobject]@{Hash='1AEFAA9C52AD0E79B8CF1DD4216E775C142F5FF9BE877DF4C6EF337EE6A41593'} }; return [pscustomobject]@{Hash=$(if ($env:MODE -eq 'wrong-hash') {'0' * 64} else {'843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C'})} }
-function Get-Item { param($LiteralPath) [pscustomobject]@{VersionInfo=[pscustomobject]@{ProductVersion='14.51.36247.0';ProductName='Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247'}} }
+function Get-AuthenticodeSignature { param($LiteralPath) [pscustomobject]@{Status=$(if ($env:MODE -eq 'bad-signer' -or ($env:MODE -eq 'cache-bad-signer' -and $LiteralPath -like '*Package Cache*')) {'NotSigned'} else {'Valid'});SignerCertificate=[pscustomobject]@{Subject='CN=Microsoft Corporation, O=Microsoft Corporation'}} }
+function Get-FileHash { param($LiteralPath,$Algorithm) if ($LiteralPath -like '*sender.exe') { return [pscustomobject]@{Hash='1AEFAA9C52AD0E79B8CF1DD4216E775C142F5FF9BE877DF4C6EF337EE6A41593'} }; if ($LiteralPath -like '*Package Cache*') { return [pscustomobject]@{Hash=$(if ($env:MODE -eq 'cache-wrong-hash') {'0' * 64} else {'DBCC159853D8B83C1DF0A0A698127AB98E926AF1B6DEE86E96F541DC94B34948'})} }; if ($LiteralPath -like '*fixture-vc_redist*') { return [pscustomobject]@{Hash=$(if ($env:MODE -eq 'wrong-hash') {'0' * 64} else {'843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C'})} }; Microsoft.PowerShell.Utility\Get-FileHash -LiteralPath $LiteralPath -Algorithm SHA256 }
+function Get-Item { param($LiteralPath) [pscustomobject]@{VersionInfo=[pscustomobject]@{ProductVersion=$(if ($env:MODE -eq 'cache-wrong-version' -and $LiteralPath -like '*Package Cache*') {'14.52.1.0'} else {'14.51.36247.0'});ProductName=$(if ($env:MODE -eq 'cache-wrong-product' -and $LiteralPath -like '*Package Cache*') {'Wrong product'} else {'Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247'})}} }
 function Get-ItemProperty { param($LiteralPath,$ErrorAction)
   if ($LiteralPath -match 'Runtimes') { return [pscustomobject]@{Installed=1;Version=$(if ($env:MODE -eq 'wrong-version') {'v14.52.1.0'} else {'v14.51.36247.00'})} }
   if ($LiteralPath -match '0e3bb569') { return [pscustomobject]@{DisplayName='Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247';DisplayVersion='14.51.36247.0';Publisher='Microsoft Corporation'} }
   if ($LiteralPath -match '931A2CF0') { return [pscustomobject]@{DisplayName='Microsoft Visual C++ 2022 X64 Minimum Runtime - 14.51.36247';DisplayVersion='14.51.36247';Publisher='Microsoft Corporation'} }
   return [pscustomobject]@{DisplayName='Microsoft Visual C++ 2022 X64 Additional Runtime - 14.51.36247';DisplayVersion='14.51.36247';Publisher='Microsoft Corporation'}
 }
-function Test-Path { param($LiteralPath,$Path,$PathType,$ErrorAction) $p=if ($LiteralPath) {$LiteralPath} else {$Path}; if ($p -like 'Registry::*' -or $p -match 'System32[\\/](mfc140u|vcruntime140|vcruntime140_1)\.dll$') { return ($global:installed -or $env:MODE -eq 'residual') }; Microsoft.PowerShell.Management\Test-Path -LiteralPath $p }
+function Test-Path { param($LiteralPath,$Path,$PathType,$ErrorAction) $p=if ($LiteralPath) {$LiteralPath} else {$Path}; if ($env:MODE -eq 'registration' -and $p -match '931A2CF0') { return $true }; if ($p -like 'Registry::*' -or $p -match 'System32[\\/](mfc140u|vcruntime140|vcruntime140_1)\.dll$') { return ($global:installed -or $env:MODE -eq 'residual') }; Microsoft.PowerShell.Management\Test-Path -LiteralPath $p }
 function Start-Process { param($FilePath,$ArgumentList,[switch]$Wait,[switch]$PassThru)
   if ($ArgumentList -contains '/uninstall') { $global:installed=$false; return [pscustomobject]@{ExitCode=$(if ($env:MODE -in @('reboot', 'both-fail')) {3010} else {0})} }
   $global:installed=$true; return [pscustomobject]@{ExitCode=$(if ($env:MODE -eq 'both-fail') {99} else {0})}
 }
 '''
     result = run_pwsh(mocks + body, env={'GITHUB_ACTIONS':'true', 'RUNNER_ENVIRONMENT':('self-hosted' if mode == 'self-hosted' else 'github-hosted'),
-        'RUNNER_OS':'Windows', 'RUNNER_ARCH':'X64', 'RUNNER_TEMP':str(tmp_path), 'WINDIR':str(tmp_path), 'MODE':mode})
+        'RUNNER_OS':'Windows', 'RUNNER_ARCH':'X64', 'RUNNER_TEMP':str(tmp_path), 'WINDIR':str(tmp_path), 'ProgramData':str(tmp_path / 'programdata'), 'MODE':mode})
     return result, json.loads((tmp_path / 'fixture-runtime-absence.json').read_text())
 
 
@@ -123,3 +139,30 @@ def test_exact_runtime_rehearsal_preserves_both_failure_messages(tmp_path):
     assert result.returncode != 0
     assert '3010' in evidence['failure'] and '99' in evidence['restore_failure']
     assert evidence['status'] == 'inconclusive'
+
+
+def test_exact_runtime_rehearsal_refuses_unverified_cached_bundle(tmp_path):
+    for mode in ('cache-missing', 'cache-wrong-hash', 'cache-bad-signer', 'cache-wrong-version', 'cache-wrong-product'):
+        case = tmp_path / mode
+        case.mkdir()
+        result, evidence = run_absence_step(case, mode)
+        assert result.returncode != 0
+        assert evidence['status'] == 'inconclusive'
+        assert evidence['uninstall_exit'] is None and evidence['restore_exit'] is None
+
+
+def test_remaining_product_registration_is_inconclusive_and_restored(tmp_path):
+    result, evidence = run_absence_step(tmp_path, 'registration')
+    assert result.returncode != 0
+    assert evidence['status'] == 'inconclusive' and evidence['restore_exit'] == 0
+    assert not evidence['negative_preflight']
+
+
+def test_staged_nonexecutable_changes_are_detected(tmp_path):
+    for mode in ('stage-added', 'stage-added-dir', 'stage-deleted', 'stage-changed', 'stage-positive'):
+        case = tmp_path / mode
+        case.mkdir()
+        result, evidence = run_absence_step(case, mode)
+        assert result.returncode != 0
+        assert evidence['status'] == 'inconclusive' and evidence['restore_exit'] == 0
+        assert 'staged' in (evidence['failure'] + evidence['restore_failure']).lower()
