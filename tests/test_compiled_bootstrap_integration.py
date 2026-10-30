@@ -58,7 +58,7 @@ def run_installer(tmp_path, port, *, existing=True, fail=False, input_text="", n
 printf '%s\\n' "$*" >>/work/docker-calls
 case "$1 $2" in
  'compose version') exit 0;;
- 'inspect sys-agent') if [ "$FAKE_EXISTING" = 1 ]; then exit 0; else echo 'No such object' >&2; exit 1; fi;;
+ 'inspect sys-agent') if [ "$FAKE_EXISTING" = 1 ]; then exit 0; else echo 'error: no such object' >&2; exit 1; fi;;
  'inspect --format') case "$3" in *State.Status*) if [ "$FAKE_STOPPED" = 1 ]; then echo exited; else echo running; fi;; *State.Running*) if [ "$FAKE_UNSTABLE" = 1 ]; then echo 'false 0 1'; else echo 'true 1234 0'; fi;; *Config.Image*) echo old:tag;; *) echo sha256:old;; esac; exit 0;;
  'compose -f') exit "$FAKE_EXIT";;
  'tag '*) exit "$FAKE_TAG_EXIT";;
