@@ -1,6 +1,7 @@
 """Capture the extracted payload from the executable built by this invocation."""
 
 import hashlib
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -30,10 +31,25 @@ def inventory(root):
     return entries
 
 
+@contextmanager
+def capture_directory():
+    directory = tempfile.TemporaryDirectory(prefix='sender-capture-')
+    try:
+        yield Path(directory.name)
+    finally:
+        for attempt in range(100):
+            try:
+                directory.cleanup()
+                break
+            except PermissionError:
+                if attempt == 99:
+                    raise
+                time.sleep(0.1)
+
+
 def capture(command, dist, output, timeout=30):
     expected = inventory(dist)
-    with tempfile.TemporaryDirectory(prefix='sender-capture-') as temporary, socket.socket() as listener:
-        root = Path(temporary)
+    with capture_directory() as root, socket.socket() as listener:
         listener.bind(('127.0.0.1', 0))
         listener.listen(1)
         env = {key: os.environ[key] for key in ('PATH', 'SYSTEMROOT', 'WINDIR', 'COMSPEC', 'PATHEXT') if key in os.environ}
