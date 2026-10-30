@@ -143,12 +143,12 @@ def install_compiled(project_root, config_file, systemctl, run):
     target = app / "sender"
     if target.is_symlink():
         raise RuntimeError("sender executable must not be a symbolic link")
+    existed = unit.exists()
     active_status = run([systemctl, "is-active", "--quiet", SERVICE_NAME], check=False).returncode
     enabled_status = run([systemctl, "is-enabled", "--quiet", SERVICE_NAME], check=False).returncode
-    if active_status not in (0, 3, 4) or enabled_status not in (0, 1):
+    if active_status not in (0, 3, 4) or enabled_status not in (0, 1, 4) or existed and 4 in (active_status, enabled_status):
         raise RuntimeError("cannot determine existing service state")
     active, enabled = active_status == 0, enabled_status == 0
-    existed = unit.exists()
     dropdir = unit.parent / (unit.name + ".d")
     override = dropdir / "90-hwmonitor-sender.conf"
     if dropdir.is_symlink() or override.is_symlink():

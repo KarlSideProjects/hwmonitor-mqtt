@@ -1048,3 +1048,20 @@ def test_compiled_upgrade_refuses_unrecognized_owned_override(monkeypatch, tmp_p
         pve.install(project, tmp_path / "pve.env", run=lambda *a, **k: SimpleNamespace(returncode=0, stdout="", stderr=""), which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0)
     assert override.read_text() == "[Service]\nUser=custom\n"
     assert (app / "sender").read_bytes() == b"old"
+
+
+def test_compiled_native_install_accepts_systemd_not_found_status(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from hwmonitor_mqtt.platforms.installers import pve
+    project, app, units = tmp_path / "project", tmp_path / "runtime" / "app", tmp_path / "units"
+    project.mkdir(); units.mkdir(); (project / "sender").write_bytes(b"new")
+    monkeypatch.setattr(pve, "__compiled__", True, raising=False)
+    monkeypatch.setattr(pve, "APP_ROOT", str(app))
+    monkeypatch.setattr(pve, "SYSTEMD_DIR", str(units))
+    monkeypatch.setattr(pve, "readiness", lambda path: None)
+    monkeypatch.setattr(pve.time, "sleep", lambda _: None)
+    def run(args, **kwargs):
+        if "is-enabled" in args or ("is-active" in args and not (app / "sender").exists()):
+            return SimpleNamespace(returncode=4, stdout="", stderr="")
+        return SimpleNamespace(returncode=0, stdout=("path=" + str(app / "sender") if "--property=ExecStart" in args else "1234") if "show" in args else "", stderr="")
+    assert pve.install(project, tmp_path / "pve.env", run=run, which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0) == 0
