@@ -1,5 +1,6 @@
 param(
     [string]$ProjectRoot = "",
+    [string]$SenderExe = "",
     [string]$PythonExe = "python",
     [switch]$UseUv,
     [string]$UvExe = "",
@@ -18,6 +19,11 @@ Set-Location $ProjectRoot
 
 if (-not [string]::IsNullOrWhiteSpace($LhmPath)) {
     $env:LHM_PATH = $LhmPath
+}
+
+if (-not [string]::IsNullOrWhiteSpace($SenderExe)) {
+    & $SenderExe
+    exit $LASTEXITCODE
 }
 
 function Resolve-UvExePath {
