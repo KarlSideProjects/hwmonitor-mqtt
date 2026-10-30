@@ -41,9 +41,11 @@ def test_diagnostic_records_only_whitelisted_metadata(tmp_path):
     body = '\n'.join(line[10:] for line in lines[start:end])
     mocks = r'''
 function Get-ItemProperty { param($Path,$LiteralPath,$ErrorAction)
-  if ($LiteralPath) { return [pscustomobject]@{Installed=1;Version='v14.51.36247.00';Major=14;Minor=51;Bld=36247;Rbld=0} }
+  if ($LiteralPath -match 'Runtimes') { return [pscustomobject]@{Installed=1;Version='v14.51.36247.00';Major=14;Minor=51;Bld=36247;Rbld=0} }
+  if ($LiteralPath) { return [pscustomobject]@{DisplayName='Microsoft Visual C++ 2022 X64 Minimum Runtime';DisplayVersion='14.51.36247';Publisher='Microsoft Corporation'} }
   return @([pscustomobject]@{PSChildName='{fixture}';DisplayName='Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247';DisplayVersion='14.51.36247';Publisher='Microsoft Corporation';QuietUninstallString=('"' + $env:CACHED + '" /uninstall /quiet')}, [pscustomobject]@{DisplayName='unrelated private program';QuietUninstallString='DO NOT EXPORT'})
 }
+function Test-Path { param($LiteralPath,$PathType,$ErrorAction) if ($LiteralPath -like 'Registry::*') { return ($LiteralPath -notmatch 'WOW6432Node' -and $LiteralPath -match '931A2CF0') }; Microsoft.PowerShell.Management\Test-Path -LiteralPath $LiteralPath }
 function Invoke-WebRequest { param([switch]$UseBasicParsing,$Uri,$OutFile) [IO.File]::WriteAllText($OutFile,'official') }
 function Get-AuthenticodeSignature { param($LiteralPath) [pscustomobject]@{Status='Valid';SignerCertificate=[pscustomobject]@{Subject='CN=Microsoft Corporation, O=Microsoft Corporation'}} }
 function Get-Item { param($LiteralPath) [pscustomobject]@{VersionInfo=[pscustomobject]@{FileVersion='14.51.36247.0';ProductVersion='14.51.36247.0';ProductName='Microsoft Visual C++'}} }
@@ -65,6 +67,10 @@ function Start-Process { throw 'process execution is forbidden' }
     assert data['status'] == 'complete' and data['entry_count'] == 1 and len(data['entries']) == 1
     assert data['entries'][0]['cache_status'] == 'present'
     assert data['entries'][0]['sha256'] == hashlib.sha256(b'cached').hexdigest()
+    assert len(data['exact_entries']) == 6
+    assert {item['view'] for item in data['exact_entries']} == {'64', '32'}
+    assert sum(item['present'] for item in data['exact_entries']) == 1
+    assert {item['id'] for item in data['exact_entries']} == {'{0e3bb569-69d6-4c34-bff9-c2f81db5e5f0}', '{931A2CF0-2404-45EA-82F5-345735AE6A90}', '{6FA797CF-6B76-4B6D-87EE-768F92008720}'}
     assert data['official']['bundle_id'] == '{bundle}'
     assert data['official']['bundle_version'] == '14.51.36247.0'
     assert 'DO NOT EXPORT' not in raw and 'unrelated private program' not in raw

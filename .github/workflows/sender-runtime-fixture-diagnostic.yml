@@ -17,7 +17,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $output = Join-Path $env:RUNNER_TEMP 'sender-runtime-diagnostic.json'
-          $result = [ordered]@{status='incomplete'; runtime=$null; entry_count=0; entries=@(); official=$null; error=''}
+          $result = [ordered]@{status='incomplete'; runtime=$null; entry_count=0; entries=@(); exact_entries=@(); official=$null; error=''}
           try {
             if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:RUNNER_OS -ne 'Windows' -or $env:RUNNER_ARCH -ne 'X64') { throw 'A disposable GitHub-hosted Windows x64 runner is required.' }
             $runtime = Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64' -ErrorAction Stop
@@ -42,6 +42,36 @@ jobs:
                 } else { $item.cache_status = 'not-whitelisted' }
               } else { $item.cache_status = 'unrecognized-format' }
               $result.entries += [pscustomobject]$item
+            }
+            $productIds = @('{0e3bb569-69d6-4c34-bff9-c2f81db5e5f0}', '{931A2CF0-2404-45EA-82F5-345735AE6A90}', '{6FA797CF-6B76-4B6D-87EE-768F92008720}')
+            foreach ($view in @('64', '32')) {
+              $registryRoot = if ($view -eq '64') { 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall' } else { 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall' }
+              foreach ($id in $productIds) {
+                $key = $registryRoot + '\' + $id
+                $exact = [ordered]@{view=$view; id=$id; present=$false; display=''; version=''; publisher=''; cache_status='unavailable'; cache_path=''; signature=''; signer=''; sha256=''}
+                if (Test-Path -LiteralPath $key -ErrorAction Stop) {
+                  $entry = Get-ItemProperty -LiteralPath $key -ErrorAction Stop
+                  $exact.present = $true
+                  $exact.display = [string]$entry.DisplayName
+                  $exact.version = [string]$entry.DisplayVersion
+                  $exact.publisher = [string]$entry.Publisher
+                  $command = if ($entry.QuietUninstallString) { [string]$entry.QuietUninstallString } else { [string]$entry.UninstallString }
+                  if ($command -match '^\s*"([^"]+\.exe)"(?:\s|$)') {
+                    $path = [IO.Path]::GetFullPath($Matches[1])
+                    if ($path.StartsWith($cacheRoot, [StringComparison]::OrdinalIgnoreCase) -and [IO.Path]::GetFileName($path) -ieq 'vc_redist.x64.exe') {
+                      $exact.cache_path = $path
+                      if (Test-Path -LiteralPath $path -PathType Leaf) {
+                        $signature = Get-AuthenticodeSignature -LiteralPath $path
+                        $exact.cache_status = 'present'
+                        $exact.signature = [string]$signature.Status
+                        $exact.signer = [string]$signature.SignerCertificate.Subject
+                        $exact.sha256 = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+                      } else { $exact.cache_status = 'missing' }
+                    } else { $exact.cache_status = 'not-whitelisted' }
+                  } else { $exact.cache_status = 'unrecognized-format' }
+                }
+                $result.exact_entries += [pscustomobject]$exact
+              }
             }
             $installer = Join-Path $env:RUNNER_TEMP 'vc_redist.x64.exe'
             Invoke-WebRequest -UseBasicParsing -Uri 'https://aka.ms/vc14/vc_redist.x64.exe' -OutFile $installer
