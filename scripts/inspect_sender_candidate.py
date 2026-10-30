@@ -472,7 +472,7 @@ def windows_runtime_architecture(data):
         return False
 
 
-# Exact upstream strings: CPython getpass/SSL and Paho 2.1.0 docstrings.
+# Exact upstream strings: CPython getpass/SSL, Paho 2.1.0 and WMI 1.5.1.
 RUNTIME_SECRET_CONTEXTS = {
     'sender.bin': (
         b'\xfa\nPassword: c\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x03\x00\x00\x00\xf3\x08\x05',
@@ -480,6 +480,14 @@ RUNTIME_SECRET_CONTEXTS = {
         b':param str password: The password to authenticate with.',
     ),
     'libpython3.11.so.1.0': (b'load_cert_chain($self, /, certfile, keyfile=None, password=None)\n--\n\n',),
+    '_ssl.pyd': (b'load_cert_chain($self, /, certfile, keyfile=None, password=None)\n--\n\n',),
+    'agent_sender_windows.dll': (
+        b')\x02z\nPassword: N)\x03r=\x00\x00\x00NN',
+        b':param proxy_password: password for SOCKS5 proxy',
+        b':param str password: The password to authenticate with.',
+        b':param password: leave blank to use current context',
+        b'server="remote_machine", user="myname", password="mypassword"\n        )',
+    ),
 }
 
 
@@ -505,7 +513,7 @@ def inspect_runtime_files(root, entries, platform=None):
         if hashlib.sha256(content).hexdigest() != item['sha256']:
             raise ValueError(f'runtime inventory hash mismatch: {name}')
         scanned = content
-        for context in RUNTIME_SECRET_CONTEXTS.get(name, ()) if platform in ('linux-x64', 'linux-arm64') else ():
+        for context in RUNTIME_SECRET_CONTEXTS.get(name, ()):
             scanned = scanned.replace(context, b'\x00' * len(context))
         if SECRET.search(scanned):
             raise ValueError(f'potential secret in runtime: {name}')

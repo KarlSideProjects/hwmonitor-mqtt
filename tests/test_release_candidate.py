@@ -775,3 +775,31 @@ def test_image_limits_total_uncompressed_layer_streams(tmp_path, monkeypatch):
             tar.addfile(item, io.BytesIO(content))
     with pytest.raises(ValueError, match='expanded'):
         checker.inspect_image_layers(image, hashlib.sha256(image.read_bytes()).hexdigest(), hashlib.sha256(b'sender').hexdigest())
+
+
+def test_windows_runtime_scans_around_source_proven_docstrings(tmp_path):
+    import importlib.util
+    import struct
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    pe = bytearray(512)
+    pe[:2] = b'MZ'
+    struct.pack_into('<I', pe, 60, 128)
+    pe[128:132] = b'PE\0\0'
+    struct.pack_into('<HH', pe, 132, 0x8664, 1)
+    struct.pack_into('<H', pe, 148, 112)
+    struct.pack_into('<H', pe, 152, 0x20b)
+    data = bytes(pe) + b':param password: leave blank to use current context\n'
+    path = tmp_path / 'agent_sender_windows.dll'
+    def scan(content):
+        path.write_bytes(content)
+        checker.inspect_runtime_files(tmp_path, [{'path': path.name, 'size': len(content), 'sha256': hashlib.sha256(content).hexdigest()}], 'windows-x64')
+    scan(data)
+    with pytest.raises(ValueError, match='secret'):
+        scan(data + b'MQTT_PASS=actual-secret')
+    path.unlink()
+    other = tmp_path / 'other.dll'
+    other.write_bytes(data)
+    with pytest.raises(ValueError, match='secret'):
+        checker.inspect_runtime_files(tmp_path, [{'path': other.name, 'size': len(data), 'sha256': hashlib.sha256(data).hexdigest()}], 'windows-x64')

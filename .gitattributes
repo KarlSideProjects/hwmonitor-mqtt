@@ -1,0 +1,2 @@
+release-notices/** -text
+tests/fixtures/release-notices/** -text
