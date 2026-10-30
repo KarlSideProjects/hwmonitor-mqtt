@@ -77,8 +77,8 @@ def main():
     if status.stdout:
         parser.error("uncommitted source changes are not allowed")
     source = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-    target = {"x86_64": "linux-x64", "aarch64": "linux-arm64"}.get(platform.machine())
-    if sys.version_info[:3] != (3, 11, 15) or platform.system() != "Linux" or target is None:
+    target_platform = {"x86_64": "linux-x64", "aarch64": "linux-arm64"}.get(platform.machine())
+    if sys.version_info[:3] != (3, 11, 15) or platform.system() != "Linux" or target_platform is None:
         parser.error("Linux x64 or ARM64 and CPython 3.11.15 are required")
     if not compatible_libc(*platform.libc_ver()):
         parser.error("glibc 2.31 or older is required for portable Linux builds")
@@ -117,12 +117,12 @@ def main():
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source_dir / name, target)
         (candidate / ".dockerignore").write_text("*\n!Dockerfile\n!sender\n", encoding="utf-8")
-        manifest = {"platform": target, "source": source, "version": args.version,
+        manifest = {"platform": target_platform, "source": source, "version": args.version,
                     "executable_sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
                     "compiler": "Nuitka 2.7.16", "runtime": {"python": platform.python_version(),
                     **{name: DEPENDENCIES[name] for name in ("paho-mqtt", "psutil", "python-dotenv", "typing-extensions")}}}
         (candidate / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-        create_archive(candidate, output, target)
+        create_archive(candidate, output, target_platform)
 
 
 if __name__ == "__main__":

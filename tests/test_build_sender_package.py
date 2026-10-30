@@ -142,3 +142,40 @@ def test_arm64_archive_uses_official_asset_name(tmp_path):
     create_archive(candidate, tmp_path, "linux-arm64")
     assert (tmp_path / "sender-linux-arm64.tar.gz").is_file()
     assert (tmp_path / "sender-linux-arm64.tar.gz.sha256").read_text().endswith("  sender-linux-arm64.tar.gz\n")
+
+
+def test_builder_main_packages_both_platforms(tmp_path, monkeypatch):
+    import json
+    import tarfile
+    from types import SimpleNamespace
+    from scripts import build_sender_package as builder
+
+    monkeypatch.setattr(builder.sys, "version_info", (3, 11, 15))
+    monkeypatch.setattr(builder.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(builder.platform, "libc_ver", lambda: ("glibc", "2.31"))
+    monkeypatch.setattr(builder.importlib.metadata, "version", lambda name: builder.DEPENDENCIES[name])
+    monkeypatch.setattr(builder.importlib.metadata, "distribution", lambda name: SimpleNamespace(read_text=lambda _: "license"))
+    monkeypatch.setattr(builder.subprocess, "check_output", lambda *args, **kwargs: "a" * 40)
+    def snapshot(repo, destination, source):
+        for name in ("tests/fixtures/release-notices", "release-public", "docs/configuration"):
+            shutil.copytree(repo / name, destination / name)
+        for name in ("Dockerfile", "docker-compose.linux.yml", "docker-compose.pve.yml"):
+            shutil.copyfile(repo / name, destination / name)
+    monkeypatch.setattr(builder, "source_snapshot", snapshot)
+    def run(command, **kwargs):
+        if command[0] == "git":
+            return SimpleNamespace(stdout="")
+        build_dir = Path(next(item.split("=", 1)[1] for item in command if item.startswith("--output-dir=")))
+        build_dir.mkdir(parents=True)
+        (build_dir / "sender").write_bytes(b"compiled executable")
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(builder.subprocess, "run", run)
+    for machine, target in (("x86_64", "linux-x64"), ("aarch64", "linux-arm64")):
+        monkeypatch.setattr(builder.platform, "machine", lambda: machine)
+        output = tmp_path / target
+        monkeypatch.setattr(builder.sys, "argv", ["builder", "--output", str(output), "--version", "1.2.3"])
+        builder.main()
+        with tarfile.open(output / f"sender-{target}.tar.gz") as package:
+            manifest = json.load(package.extractfile("manifest.json"))
+        assert manifest["platform"] == target
+        assert manifest["source"] == "a" * 40
