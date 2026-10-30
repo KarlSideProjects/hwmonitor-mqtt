@@ -56,3 +56,15 @@ def test_traversal_entry_is_rejected_before_extraction(tmp_path):
     assert "unsafe" in (result.stdout + result.stderr).lower()
     assert not destination.exists()
     assert not (tmp_path / "escape").exists()
+
+
+def test_parent_segment_in_license_entry_is_rejected(tmp_path):
+    archive = tmp_path / "package.zip"
+    with zipfile.ZipFile(archive, "w") as package:
+        package.writestr("licenses/..", "unsafe")
+    destination = tmp_path / "out"
+    script = Path(__file__).resolve().parents[1] / "scripts/windows/validate_sender_package.ps1"
+    result = run_pwsh('& $env:VALIDATOR -Archive $env:ARCHIVE -Sha256 $env:SHA -Destination $env:DEST', env={"VALIDATOR": str(script), "ARCHIVE": str(archive), "SHA": hashlib.sha256(archive.read_bytes()).hexdigest(), "DEST": str(destination)})
+    assert result.returncode != 0
+    assert "unsafe" in (result.stdout + result.stderr).lower()
+    assert not destination.exists()

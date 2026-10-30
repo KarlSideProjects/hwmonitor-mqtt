@@ -11,7 +11,7 @@ $zip = [IO.Compression.ZipFile]::OpenRead($Archive)
 try {
     $names = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach ($entry in $zip.Entries) {
-        if ($entry.FullName -notmatch '^(sender\.exe|manifest\.json|licenses/[a-zA-Z0-9._-]+)$' -or -not $names.Add($entry.FullName)) { throw 'Unsafe or unexpected package entry.' }
+        if ($entry.FullName -notmatch '^(sender\.exe|manifest\.json|licenses/[a-zA-Z0-9_-][a-zA-Z0-9._-]*)$' -or -not $names.Add($entry.FullName)) { throw 'Unsafe or unexpected package entry.' }
         $mode = ($entry.ExternalAttributes -shr 16) -band 0xF000
         if ($mode -eq 0xA000) { throw 'Package links are not allowed.' }
     }
