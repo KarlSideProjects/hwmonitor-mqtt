@@ -186,7 +186,8 @@
     "hwmonitor_mqtt/clients/pve.py",
     "docs/configuration/pve.env.example",
     "docs/deployment/installation.md",
-    "docker-compose.linux.yml"
+    "docker-compose.linux.yml",
+    "scripts/windows/uninstall_windows_sender_task.ps1"
   ],
   "limits": {
     "nodes": 25,
