@@ -40,6 +40,7 @@ jobs:
         shell: powershell
         run: |
           & scripts/windows/install_windows_sender_task.ps1 -ProjectRoot "$PWD" -UseUv:$false -EnsurePawnIo:$false -AtStartup
+          Unregister-ScheduledTask -TaskName 'HWMonitorMQTTSender' -Confirm:$false
       - name: Test compiled executable sensor entrypoint
         shell: pwsh
         run: |
@@ -50,6 +51,19 @@ jobs:
           if (-not (Select-String -Path sensors.log -SimpleMatch 'available: True' -Quiet)) { throw 'LHM library did not load' }
           $sensors = Get-Content sensors.json -Raw | ConvertFrom-Json
           if ($null -eq $sensors.sensors) { throw 'Missing sensor array' }
+      - name: Install pinned broker on the disposable runner
+        shell: pwsh
+        run: |
+          $setupPath = Join-Path $env:RUNNER_TEMP 'mosquitto-setup.exe'
+          $brokerDir = Join-Path $env:RUNNER_TEMP 'mosquitto-test'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://mosquitto.org/files/binary/win64/mosquitto-2.1.2-install-windows-x64.exe' -OutFile $setupPath
+          if ((Get-FileHash -LiteralPath $setupPath -Algorithm SHA256).Hash -ne '58008AD7A22ADA0B4073AFA415801746E027C5F583E4FA52D0F4E9193B98D6AA') { throw 'Test broker installer SHA-256 mismatch' }
+          $setup = Start-Process -FilePath $setupPath -ArgumentList '/S', "/D=$brokerDir" -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "Test broker install failed: $($setup.ExitCode)" }
+      - name: Observe compiled sender profiles on an isolated broker
+        shell: pwsh
+        run: |
+          & tests/windows_compiled_mqtt_smoke.ps1 -SenderExe (Resolve-Path build/windows/sender.exe).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe')
       - name: Assemble and validate private candidate
         shell: pwsh
         run: |
@@ -61,15 +75,27 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .venv/Scripts/python.exe scripts/windows/package_sender.py --executable build/windows/sender.exe --notices notices --output candidate --source $source --version 0.0.0 --compiler 'Nuitka 2.8.9'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv/Scripts/python.exe scripts/windows/package_sender.py --executable build/windows/sender.exe --notices notices --output candidate-upgrade --source $source --version 0.0.1 --compiler 'Nuitka 2.8.9'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $archive = 'candidate/sender-windows-x64.zip'
           & scripts/windows/validate_sender_package.ps1 -Archive $archive -Sha256 (Get-FileHash $archive -Algorithm SHA256).Hash -Destination candidate-staged
+      - name: Rehearse official bootstrap with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          & tests/windows_official_install_smoke.ps1 -Candidate (Resolve-Path candidate).Path -UpgradeCandidate (Resolve-Path candidate-upgrade).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -Source $env:GITHUB_SHA
+      - name: Rehearse official bootstrap with PowerShell 7
+        shell: pwsh
+        run: |
+          & tests/windows_official_install_smoke.ps1 -Candidate (Resolve-Path candidate).Path -UpgradeCandidate (Resolve-Path candidate-upgrade).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -Source $env:GITHUB_SHA
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
         with:
           name: windows-sender-wip
           path: |
+            build/windows/sender.exe
             candidate/sender-windows-x64.zip
             candidate/sender-windows-x64.zip.sha256
             notice-inventory.json
             build/windows/nuitka-report.xml
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 3
