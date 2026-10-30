@@ -194,6 +194,8 @@ def test_python_bundle_requires_exact_binary_license(tmp_path):
     result = subprocess.run(command, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     assert (tmp_path / 'notices/python.txt').read_bytes() == (inputs / 'runtime-bundle.txt').read_bytes()
+    for name in ('openssl-3.5.9-LICENSE.txt', 'xz-5.2.5-COPYING', 'cpython-3.13.17-expat-COPYING'):
+        assert (tmp_path / 'notices' / name).read_bytes() == (inputs / name).read_bytes()
     raw.write_bytes(b'changed')
     command[command.index(str(tmp_path / 'notices'))] = str(tmp_path / 'other')
     assert subprocess.run(command, capture_output=True).returncode != 0
