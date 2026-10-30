@@ -812,3 +812,21 @@ def test_windows_project_notice_hash_matches_git_blob():
     spec.loader.exec_module(checker)
     notice = subprocess.check_output(['git', '-C', str(CHECKER.parents[1]), 'show', 'HEAD:release-public/LICENSE-NOTICE.md'])
     assert checker.ARCHIVE_NOTICE_HASHES['windows-x64']['licenses/project.txt'] == hashlib.sha256(notice).hexdigest()
+
+
+def test_notice_readiness_binds_runtime_image_recipe(monkeypatch):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    recipe = 'a' * 64
+    record = {'compiler': 'Nuitka test', 'runtime': {'python': '3.11.15'}, 'source_files': {'Dockerfile': recipe}}
+    descriptor = {'platform': 'linux-x64', 'compiler': record['compiler'], 'runtime': record['runtime'], 'notices': checker.ARCHIVE_NOTICE_HASHES['linux-x64'], 'runtime_image_recipe': recipe}
+    fingerprint = hashlib.sha256(json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    monkeypatch.setattr(checker, 'APPROVED_NOTICE_SETS', frozenset({fingerprint}))
+    checker.check_release_notice_readiness('linux-x64', record)
+    record['executable_sha256'] = 'c' * 64
+    checker.check_release_notice_readiness('linux-x64', record)
+    record['source_files']['Dockerfile'] = 'b' * 64
+    with pytest.raises(ValueError, match='not established'):
+        checker.check_release_notice_readiness('linux-x64', record)

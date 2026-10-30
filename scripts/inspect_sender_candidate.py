@@ -641,6 +641,11 @@ APPROVED_NOTICE_SETS = frozenset()
 def check_release_notice_readiness(platform, record):
     descriptor = {'platform': platform, 'compiler': record.get('compiler'),
                   'runtime': record.get('runtime'), 'notices': ARCHIVE_NOTICE_HASHES.get(platform)}
+    if platform in ('linux-x64', 'linux-arm64'):
+        source_files = record.get('source_files')
+        if not isinstance(source_files, dict) or not isinstance(source_files.get('Dockerfile'), str) or not re.fullmatch(r'[a-f0-9]{64}', source_files['Dockerfile']):
+            raise ValueError('runtime image recipe not established')
+        descriptor['runtime_image_recipe'] = source_files['Dockerfile']
     fingerprint = hashlib.sha256(json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     if fingerprint not in APPROVED_NOTICE_SETS:
         raise ValueError('runtime notice and source obligations not established for this exact input set')

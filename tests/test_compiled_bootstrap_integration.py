@@ -172,7 +172,7 @@ def test_unprivileged_staging_mutation_cannot_change_activated_files(release, tm
     assert (tmp_path / "stage-mutated").exists()
     assert result.returncode == 0, result.stderr
     assert (root / "Dockerfile").read_text() != "tampered"
-    assert (root / "Dockerfile").read_text().startswith("# syntax=docker/dockerfile:")
+    assert "FROM debian@sha256:" in (root / "Dockerfile").read_text()
 
 
 def test_missing_archive_does_not_modify_existing_install(release, tmp_path):
