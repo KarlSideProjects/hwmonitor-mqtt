@@ -1009,6 +1009,7 @@ def test_compiled_upgrade_preserves_existing_service_permissions_and_dropins(mon
     assert custom.read_text() == "[Service]\nProtectHome=yes\n"
     override = (dropdir / "90-hwmonitor-sender.conf").read_text()
     assert "ExecStart=\nExecStart=" + str(app / "sender") in override
+    assert "Environment=PYTHONIOENCODING=utf-8" in override
 
 
 def test_compiled_upgrade_refuses_unrelated_unit(monkeypatch, tmp_path):

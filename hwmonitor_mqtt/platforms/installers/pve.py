@@ -49,7 +49,7 @@ def unit_text(project_root, python=f"{SERVICE_VENV}/bin/python", config_file=DEF
             "EnvironmentFile=-" + _unit_escape(root / ".env") + "\nEnvironmentFile=-" + _unit_escape(config_file) + "\n"
             "Environment=PVE_ENABLED=1\nEnvironment=PVE_CONFIG_LOADED=1\nEnvironment=PVE_ENV_PRELOADED=1\n"
             "Environment=PVE_CONFIG_FILE=" + _unit_escape(config_file) + "\nEnvironment=SENDER_PROFILE=full\n"
-            "ExecStart=" + _unit_escape(python) + ("\n" if compiled else " -m hwmonitor_mqtt.agents.agent_sender_async\n")
+            + ("Environment=PYTHONIOENCODING=utf-8\n" if compiled else "") + "ExecStart=" + _unit_escape(python) + ("\n" if compiled else " -m hwmonitor_mqtt.agents.agent_sender_async\n")
             + "Restart=on-failure\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\n")
 
 
@@ -153,8 +153,9 @@ def install_compiled(project_root, config_file, systemctl, run):
     override = dropdir / "90-hwmonitor-sender.conf"
     if dropdir.is_symlink() or override.is_symlink():
         raise RuntimeError("installer override path must not be a symbolic link")
-    expected_override = "[Service]\nExecStart=\nExecStart=" + _unit_escape(target) + "\nWorkingDirectory=" + _unit_escape(app) + "\n"
-    if override.exists() and override.read_text() != expected_override:
+    legacy_override = "[Service]\nExecStart=\nExecStart=" + _unit_escape(target) + "\nWorkingDirectory=" + _unit_escape(app) + "\n"
+    expected_override = legacy_override + "Environment=PYTHONIOENCODING=utf-8\n"
+    if override.exists() and override.read_text() not in (legacy_override, expected_override):
         raise RuntimeError("unrecognized existing sender override")
     if existed:
         current_unit = unit.read_text()
