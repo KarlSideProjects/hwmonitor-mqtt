@@ -18,7 +18,8 @@ flowchart TD
     B -->|no| C
     B -->|provider error| I
     C -->|yes| D
-    C -->|no or scan error| M
+    C -->|missing executable or handled scan error| M
+    C -->|unexpected scan error| I
     D -->|completed| E
     D -->|malformed data error| I
     E -->|yes| F
