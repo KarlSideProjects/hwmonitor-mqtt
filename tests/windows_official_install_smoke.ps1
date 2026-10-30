@@ -21,6 +21,7 @@ $ownsTask = $false
 $global:FailNextStart = $false
 $global:FailNextDownload = $false
 $global:SmokeRelease = '0.0.0'
+$observations = [Collections.Generic.List[object]]::new()
 $env:SMOKE_MQTT_USER = 'ci-user'
 $env:SMOKE_MQTT_PASS = 'ci-test-password'
 
@@ -54,6 +55,29 @@ function Assert-OldState($expectedExe, $expectedEnv, $expectedAcl) {
     if ((Get-FileHash (Join-Path $root '.env') -Algorithm SHA256).Hash -ne $expectedEnv) { throw 'Settings changed.' }
     if ((Get-Acl (Join-Path $root '.env')).Sddl -ne $expectedAcl) { throw 'Settings ACL changed.' }
     if ((Get-ScheduledTask -TaskName 'HWMonitorMQTTSender').State -ne 'Running') { throw 'Previous task is not running.' }
+}
+function Get-SenderTree {
+    $launcher = Join-Path $root 'package/scripts/windows/start_windows_sender.ps1'
+    $processes = @(Get-CimInstance -ClassName Win32_Process)
+    $roots = @($processes | Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($launcher, [StringComparison]::OrdinalIgnoreCase) -ge 0 })
+    if ($roots.Count -ne 1) { throw "Expected one task launcher, observed $($roots.Count)." }
+    $ids = [Collections.Generic.HashSet[uint32]]::new()
+    [void]$ids.Add([uint32]$roots[0].ProcessId)
+    do {
+        $added = $false
+        foreach ($process in $processes) {
+            if ($ids.Contains([uint32]$process.ParentProcessId) -and $ids.Add([uint32]$process.ProcessId)) { $added = $true }
+        }
+    } while ($added)
+    return @($processes | Where-Object { $ids.Contains([uint32]$_.ProcessId) } | ForEach-Object {
+        [pscustomobject]@{ pid = $_.ProcessId; parent = $_.ParentProcessId; created = $_.CreationDate.ToString('o'); name = $_.Name }
+    })
+}
+function Assert-TreeExited($tree) {
+    foreach ($process in $tree) {
+        $remaining = Get-CimInstance -ClassName Win32_Process -Filter "ProcessId = $($process.pid)" -ErrorAction Stop
+        if ($remaining -and $remaining.CreationDate.ToString('o') -eq $process.created) { throw "Prior sender process $($process.pid) remains running." }
+    }
 }
 try {
     if (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue) { throw 'Refusing to replace an existing task in the smoke environment.' }
@@ -92,6 +116,8 @@ try {
     if ((Get-FileHash (Join-Path $root '.env') -Algorithm SHA256).Hash -ne $firstEnv -or (Get-Acl (Join-Path $root '.env')).Sddl -ne $firstAcl) { throw 'Retry changed settings or ACL.' }
     & .venv/Scripts/python.exe tests/windows_mqtt_observer.py --profile full --port 18884
     if ($LASTEXITCODE -ne 0) { throw 'No installed full payload.' }
+    $oldTree = @(Get-SenderTree)
+    $observations.Add([pscustomobject]@{phase='old-running'; processes=$oldTree})
 
     [IO.File]::AppendAllText((Join-Path $root '.env'), "SENDER_PROFILE=esp`n", [Text.UTF8Encoding]::new($false))
     $oldExe = (Get-FileHash (Join-Path $root 'package/sender.exe') -Algorithm SHA256).Hash
@@ -111,17 +137,24 @@ try {
     $global:FailNextStart = $true
     try { & $bootstrap; throw 'Expected upgrade start failure.' } catch { if ($_ -notmatch 'Injected start failure') { throw } }
     Assert-OldState $oldExe $oldEnv $oldAcl
+    Assert-TreeExited $oldTree
+    $rollbackTree = @(Get-SenderTree)
+    $observations.Add([pscustomobject]@{phase='rollback-running'; processes=$rollbackTree})
     & $bootstrap
     if ((Get-FileHash (Join-Path $root '.env') -Algorithm SHA256).Hash -ne $oldEnv -or (Get-Acl (Join-Path $root '.env')).Sddl -ne $oldAcl) { throw 'Upgrade changed settings or ACL.' }
     $manifest = [IO.File]::ReadAllText((Join-Path $root 'package/manifest.json')) | ConvertFrom-Json
     if ($manifest.version -ne '0.0.1') { throw 'Upgrade did not activate candidate manifest.' }
     $newExe = (Get-FileHash (Join-Path $root 'package/sender.exe') -Algorithm SHA256).Hash
     if ($newExe -eq $oldExe -or $manifest.source -ne $Source) { throw 'Upgrade did not activate distinct compiled bytes from the selected source.' }
+    Assert-TreeExited $rollbackTree
+    $observations.Add([pscustomobject]@{phase='upgrade-running'; processes=@(Get-SenderTree)})
     & .venv/Scripts/python.exe tests/windows_mqtt_observer.py --profile esp --port 18884
     if ($LASTEXITCODE -ne 0) { throw 'No installed esp payload.' }
     Write-Output "Official bootstrap activated distinct compiled bytes: old=$oldExe new=$newExe"
 }
 finally {
+    New-Item -ItemType Directory -Path 'test-evidence' -Force | Out-Null
+    $observations | ConvertTo-Json -Depth 8 | Set-Content -Path (Join-Path 'test-evidence' "process-tree-ps$($PSVersionTable.PSVersion.Major).json") -Encoding UTF8
     if ($ownsTask -and (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue)) {
         Stop-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue
         Unregister-ScheduledTask -TaskName 'HWMonitorMQTTSender' -Confirm:$false -ErrorAction SilentlyContinue

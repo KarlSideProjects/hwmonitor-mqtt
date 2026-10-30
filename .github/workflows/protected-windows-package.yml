@@ -111,5 +111,6 @@ jobs:
             candidate/sender-windows-x64.zip.sha256
             notice-inventory.json
             build/windows/nuitka-report.xml
+            test-evidence/process-tree-ps*.json
           if-no-files-found: warn
           retention-days: 3
