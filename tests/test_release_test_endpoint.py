@@ -54,8 +54,48 @@ def test_release_endpoint_rejects_wrong_source_before_listening(tmp_path):
 
 def test_acceptance_runner_rejects_wrong_host_architecture_before_docker(tmp_path):
     runner = SCRIPT.with_name('docker_acceptance.py')
-    result = subprocess.run([sys.executable, str(runner), '--bootstrap', str(tmp_path / 'bootstrap'), '--archive', str(tmp_path / 'sender'), '--sha256', '0' * 64, '--source', SOURCE, '--version', '1.2.3', '--platform', 'linux-arm64', '--output', str(tmp_path / 'out')], capture_output=True, text=True, timeout=5)
+    result = subprocess.run([sys.executable, str(runner), '--bootstrap', str(tmp_path / 'bootstrap'), '--archive', str(tmp_path / 'sender'), '--sha256', '0' * 64, '--source', SOURCE, '--version', '1.2.3', '--platform', 'linux-arm64', '--old-archive', str(tmp_path / 'old'), '--old-sha256', '1' * 64, '--old-source', '2' * 40, '--old-version', '1.2.2', '--output', str(tmp_path / 'out')], capture_output=True, text=True, timeout=5)
     if __import__('platform').machine() in ('x86_64', 'amd64'):
         assert result.returncode != 0
         assert 'architecture' in result.stderr.lower()
         assert not (tmp_path / 'out').exists()
+
+
+def test_acceptance_rejects_reinstall_as_upgrade_before_docker(tmp_path):
+    import platform
+    current = {'x86_64': 'linux-x64', 'aarch64': 'linux-arm64'}.get(platform.machine())
+    if not current:
+        return
+    runner = SCRIPT.with_name('docker_acceptance.py')
+    args = [sys.executable, str(runner), '--bootstrap', str(tmp_path / 'bootstrap'), '--archive', str(tmp_path / 'new'), '--sha256', '0' * 64, '--source', SOURCE, '--version', '1.2.3', '--platform', current, '--old-archive', str(tmp_path / 'old'), '--old-sha256', '0' * 64, '--old-source', SOURCE, '--old-version', '1.2.3', '--output', str(tmp_path / 'out')]
+    result = subprocess.run(args, capture_output=True, text=True, timeout=5)
+    assert result.returncode != 0
+    assert 'distinct' in result.stderr.lower()
+    assert not (tmp_path / 'out').exists()
+
+
+def test_acceptance_attempts_all_cleanup_after_chown_failure(tmp_path):
+    import os
+    import platform
+    current = {'x86_64': 'linux-x64', 'aarch64': 'linux-arm64'}.get(platform.machine())
+    if not current:
+        return
+    bindir = tmp_path / 'bin'
+    bindir.mkdir()
+    calls = tmp_path / 'calls'
+    docker = bindir / 'docker'
+    docker.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$CALLS"\ncase "$1" in exec) exit 1;; esac\nexit 0\n')
+    docker.chmod(0o755)
+    new, old = tmp_path / 'new', tmp_path / 'old'
+    new.write_bytes(b'new')
+    old.write_bytes(b'old')
+    bootstrap = tmp_path / 'bootstrap'
+    bootstrap.write_text('test')
+    result = subprocess.run([sys.executable, str(SCRIPT.with_name('docker_acceptance.py')), '--bootstrap', str(bootstrap), '--archive', str(new), '--sha256', hashlib.sha256(b'new').hexdigest(), '--source', SOURCE, '--version', '1.2.3', '--platform', current, '--old-archive', str(old), '--old-sha256', hashlib.sha256(b'old').hexdigest(), '--old-source', '2' * 40, '--old-version', '1.2.2', '--output', str(tmp_path / 'out')], env={**os.environ, 'PATH': str(bindir), 'CALLS': str(calls)}, capture_output=True, text=True, timeout=5)
+    assert result.returncode != 0
+    commands = calls.read_text().splitlines()
+    assert any(command.startswith('rm -f ') for command in commands)
+    assert any(command.startswith('ps -a ') for command in commands)
+    assert any(command.startswith('image rm ') for command in commands)
+    assert any(command.startswith('image ls ') for command in commands)
+    assert 'cleanup unresolved: evidence/chown:' in (tmp_path / 'out/run.log').read_text()
