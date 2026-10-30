@@ -36,3 +36,21 @@ def test_selected_archives_and_candidate_identity_are_bound(tmp_path):
     wheel.unlink()
     with pytest.raises(ValueError):
         inputs.make_receipt(wheels, runtime, 'runtime-install', 'linux-x64', 'a' * 40, '1.2.3', inventory, {'example-pkg': '1.2'}, {'gcc': '10.2.1-6'})
+
+
+def test_windows_compiler_identity_comes_from_both_actual_scons_builds(tmp_path):
+    old = tmp_path / 'old-cl.exe'
+    selected = tmp_path / 'selected-cl.exe'
+    old.write_bytes(b'older compiler on PATH')
+    selected.write_bytes(b'actual latest compiler')
+    log = tmp_path / 'build.log'
+    log.write_text(f'Scons: Compiler used {selected} (MSVC 14.3)\nScons: Compiler used {selected} (MSVC 14.3)\n')
+    result = inputs.windows_compiler_evidence(log)
+    assert result['compiler_sha256'] == hashlib.sha256(selected.read_bytes()).hexdigest()
+    assert result['compiler_sha256'] != hashlib.sha256(old.read_bytes()).hexdigest()
+    log.write_text(f'Scons: Compiler used {old} (MSVC 14.3)\nScons: Compiler used {selected} (MSVC 14.3)\n')
+    with pytest.raises(ValueError, match='compiler'):
+        inputs.windows_compiler_evidence(log)
+    log.write_text(f'Scons: Compiler used {selected} (MSVC 14.3)\n')
+    with pytest.raises(ValueError, match='compiler'):
+        inputs.windows_compiler_evidence(log)

@@ -91,20 +91,32 @@ def validate_receipt(receipt, platform, source, version, inventory_sha256, expec
 
 
 
-def observed_toolchain():
+def windows_compiler_evidence(log):
+    if log.is_symlink() or not log.is_file() or log.stat().st_size > 64 * 1024 * 1024:
+        raise ValueError('invalid compiler log')
+    lines = log.read_text(encoding='utf-8', errors='replace').splitlines()
+    found = [match.groups() for line in lines if (match := re.fullmatch(r'Scons: Compiler used (.+?) \(MSVC ([0-9.]+)\)\s*', line))]
+    if len(found) != 2 or found[0] != found[1]:
+        raise ValueError('backend and onefile compiler identities do not match')
+    path, version = found[0]
+    compiler = Path(path)
+    if not compiler.is_file():
+        raise ValueError('actual compiler is unavailable')
+    return {'compiler': f'{path} (MSVC {version})', 'compiler_sha256': digest(compiler)}
+
+
+def observed_toolchain(compiler_log=None):
+    python = {'python_sha256': digest(Path(sys.executable)), 'python_version': sys.version}
     if sys.platform == 'win32':
-        output = subprocess.check_output([sys.executable, '-m', 'nuitka', '--version'], text=True)
-        line = next((line for line in output.splitlines() if line.startswith('Version C compiler: ')), '')
-        match = re.fullmatch(r'Version C compiler: (.+) \(cl [^)]+\)\.', line)
-        if not match:
-            raise ValueError('compiler identity unavailable')
-        compiler = Path(match.group(1))
-        return {'compiler': line, 'compiler_sha256': digest(compiler), 'python_sha256': digest(Path(sys.executable)), 'python_version': sys.version}
+        if compiler_log is None:
+            raise ValueError('actual compiler log is required')
+        return {**windows_compiler_evidence(compiler_log), **python}
     packages = subprocess.check_output(['dpkg-query', '-W', '-f=${Package}=${Version}\n', 'gcc', 'gcc-10', 'libgcc-10-dev', 'libgcc-s1', 'binutils'], text=True).strip()
     compiler = Path(subprocess.check_output(['gcc', '-print-prog-name=cc1'], text=True).strip())
     if not compiler.is_file():
         raise ValueError('compiler identity unavailable')
-    return {'packages': packages, 'compiler_sha256': digest(compiler), 'compiler_version': subprocess.check_output(['gcc', '-dumpfullversion'], text=True).strip(), 'python_sha256': digest(Path(sys.executable)), 'python_version': sys.version}
+    return {'packages': packages, 'compiler_sha256': digest(compiler), 'compiler_version': subprocess.check_output(['gcc', '-dumpfullversion'], text=True).strip(), **python}
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -115,6 +127,7 @@ def main():
     parser.add_argument('--source', required=True)
     parser.add_argument('--version', required=True)
     parser.add_argument('--inventory', type=Path, required=True)
+    parser.add_argument('--compiler-log', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     expected = {}
@@ -123,7 +136,7 @@ def main():
         if name in expected or importlib.metadata.version(name) != version:
             raise ValueError('installed distribution differs from selected archive')
         expected[name] = version
-    toolchain = observed_toolchain()
+    toolchain = observed_toolchain(args.compiler_log)
     receipt = make_receipt(args.packages, args.runtime, args.runtime_kind, args.platform, args.source,
                            args.version, args.inventory, expected, toolchain)
     validate_receipt(receipt, args.platform, args.source, args.version, digest(args.inventory), expected)

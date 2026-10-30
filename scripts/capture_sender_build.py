@@ -87,10 +87,16 @@ def capture(command, dist, output, timeout=30):
         raise ValueError('onefile capture did not match this build distribution')
 
 
-def compile_and_capture(command, source, build_dir, executable, report, dist, runtime, inventory_path, provenance, smoke_args):
+def compile_and_capture(command, source, build_dir, executable, report, dist, runtime, inventory_path, provenance, smoke_args, compiler_log=None):
     if build_dir.exists() or runtime.exists() or inventory_path.exists() or provenance.exists():
         raise ValueError('build and evidence paths must be fresh')
-    subprocess.run(command, cwd=source, check=True)
+    if compiler_log is None:
+        subprocess.run(command, cwd=source, check=True)
+    else:
+        with compiler_log.open('xb') as output:
+            subprocess.run(command, cwd=source, check=True, stdout=output, stderr=subprocess.STDOUT)
+        if compiler_log.stat().st_size > 64 * 1024 * 1024:
+            raise ValueError('compiler log too large')
     if not executable.is_file() or not report.is_file() or not dist.is_dir():
         raise ValueError('fresh compiler outputs missing')
     exe_hash = hashlib.sha256(executable.read_bytes()).hexdigest()
@@ -99,8 +105,11 @@ def compile_and_capture(command, source, build_dir, executable, report, dist, ru
     if hashlib.sha256(executable.read_bytes()).hexdigest() != exe_hash or hashlib.sha256(report.read_bytes()).hexdigest() != report_hash:
         raise ValueError('compiler outputs changed during capture')
     inventory_path.write_text(json.dumps(entries, indent=2) + '\n', encoding='utf-8')
-    provenance.write_text(json.dumps({'executable_sha256': exe_hash, 'report_sha256': report_hash,
-                                      'inventory_sha256': hashlib.sha256(inventory_path.read_bytes()).hexdigest()}, indent=2) + '\n', encoding='utf-8')
+    data = {'executable_sha256': exe_hash, 'report_sha256': report_hash,
+            'inventory_sha256': hashlib.sha256(inventory_path.read_bytes()).hexdigest()}
+    if compiler_log is not None:
+        data['compiler_log_sha256'] = hashlib.sha256(compiler_log.read_bytes()).hexdigest()
+    provenance.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
 
 
 def main():
@@ -117,12 +126,12 @@ def main():
         parser.error('evidence directory must be fresh')
     evidence.mkdir(parents=True)
     report = build / 'nuitka-report.xml'
-    command = [sys.executable, '-m', 'nuitka', '--onefile', '--msvc=latest', f'--output-dir={build}',
+    command = [sys.executable, '-m', 'nuitka', '--onefile', '--msvc=latest', '--show-scons', f'--output-dir={build}',
                f'--report={report}', '--output-filename=sender.exe', '--include-package=pythonnet',
                '--include-package=clr_loader', '--include-module=clr', '--nofollow-import-to=win32com.test',
                '--nofollow-import-to=win32com.demos', 'hwmonitor_mqtt/agents/agent_sender_windows.py']
     compile_and_capture(command, source, build, build / 'sender.exe', report, build / 'agent_sender_windows.dist',
-                        evidence / 'runtime', evidence / 'inventory.json', evidence / 'provenance.json', [])
+                        evidence / 'runtime', evidence / 'inventory.json', evidence / 'provenance.json', [], evidence / 'compiler.log')
     shutil.copy2(report, evidence / 'report.xml')
 
 

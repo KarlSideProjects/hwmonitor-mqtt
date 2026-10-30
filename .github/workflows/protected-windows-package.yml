@@ -158,7 +158,7 @@ jobs:
           Get-FileHash -Algorithm SHA256 release-notices/windows-x64-cpython-3.13.17/openssl-3.5.9-LICENSE.txt
           .venv/Scripts/python.exe scripts/windows/collect_notices.py --output notices --inventory notice-inventory.json --python-license python-license.txt --python-bundle release-notices/windows-x64-cpython-3.13.17/runtime-bundle.txt --report build/windows/nuitka-report.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .venv/Scripts/python.exe scripts/sender_build_inputs.py --packages selected-packages --runtime python-embed.zip --runtime-kind verified-embed-reference --platform windows-x64 --source $source --version $env:BUILD_VERSION --inventory capture-evidence/inventory.json --output capture-evidence/input-receipt.json
+          .venv/Scripts/python.exe scripts/sender_build_inputs.py --packages selected-packages --compiler-log capture-evidence/compiler.log --runtime python-embed.zip --runtime-kind verified-embed-reference --platform windows-x64 --source $source --version $env:BUILD_VERSION --inventory capture-evidence/inventory.json --output capture-evidence/input-receipt.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Copy-Item capture-evidence/inventory.json dist-inventory.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -173,7 +173,7 @@ jobs:
             $assetHash = (Get-FileHash -LiteralPath (Join-Path 'record-assets' $name) -Algorithm SHA256).Hash.ToLowerInvariant()
             [IO.File]::WriteAllText((Join-Path $PWD "record-assets/$name.sha256"), "$assetHash  $name`n", [Text.Encoding]::ASCII)
           }
-          .venv/Scripts/python.exe scripts/create_sender_build_record.py --source-root . --platform windows-x64 --archive candidate/sender-windows-x64.zip --executable build/windows/sender.exe --report capture-evidence/report.xml --provenance capture-evidence/provenance.json --input-receipt capture-evidence/input-receipt.json --inventory dist-inventory.json --runtime-dir capture-evidence/runtime --assets record-assets --version $env:BUILD_VERSION --python-version 3.13.17 --output build-record.json
+          .venv/Scripts/python.exe scripts/create_sender_build_record.py --source-root . --platform windows-x64 --archive candidate/sender-windows-x64.zip --executable build/windows/sender.exe --report capture-evidence/report.xml --provenance capture-evidence/provenance.json --input-receipt capture-evidence/input-receipt.json --compiler-log capture-evidence/compiler.log --inventory dist-inventory.json --runtime-dir capture-evidence/runtime --assets record-assets --version $env:BUILD_VERSION --python-version 3.13.17 --output build-record.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if ((Get-FileHash old-source/build/windows/sender.exe -Algorithm SHA256).Hash -ne $env:OLD_SENDER_SHA256) { throw 'Prior native executable SHA-256 mismatch' }
           .venv/Scripts/python.exe scripts/windows/collect_notices.py --output old-notices --inventory old-notice-inventory.json --python-license python-license.txt --report old-source/build/windows/nuitka-report.xml
