@@ -1,19 +1,27 @@
 flowchart TD
     A{"Provider supplied"}
     B{"smartctl executable found"}
-    C["Scan devices and read usable SMART data"]
-    D{"Discovery or read requires fallback"}
-    E["Try PVE when configured"]
-    F["Normalize devices and evaluate alerts"]
-    G["Return snapshot; unavailable when no devices or poll errors"]
-    H["Fixture mocks command execution for normalization"]
-    I["Missing executable test expects unavailable"]
-    A -->|yes| F
+    C["Scan and read usable SMART devices"]
+    D{"Fallback needed"}
+    E{"PVE client configured"}
+    F["Query PVE for missing devices when needed"]
+    G["Normalize devices and evaluate alerts"]
+    H["Return snapshot or unavailable when devices are empty"]
+    I["Poll error returns unavailable"]
+    J["Fixture mocks executable discovery and command execution"]
+    K["Missing executable test expects unavailable"]
+    A -->|yes| G
     A -->|no| B
+    A -->|error| I
     B -->|yes| C
-    B -->|no| D
-    C --> D
+    B -->|no| E
+    C -->|read| D
+    C -->|error| E
+    D -->|no| G
     D -->|yes| E
-    D -->|no| F
-    E --> F
+    E -->|yes| F
+    E -->|no and discovery failed| I
+    E -->|no and discovery completed| G
     F --> G
+    G -->|success| H
+    G -->|error| I

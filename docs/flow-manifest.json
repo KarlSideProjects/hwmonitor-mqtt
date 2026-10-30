@@ -329,10 +329,18 @@
         },
         {
           "node": "H",
-          "path": "tests/test_smart_collector.py"
+          "path": "hwmonitor_mqtt/collectors/smart.py"
         },
         {
           "node": "I",
+          "path": "hwmonitor_mqtt/collectors/smart.py"
+        },
+        {
+          "node": "J",
+          "path": "tests/test_smart_collector.py"
+        },
+        {
+          "node": "K",
           "path": "tests/test_smart_collector.py"
         }
       ],
