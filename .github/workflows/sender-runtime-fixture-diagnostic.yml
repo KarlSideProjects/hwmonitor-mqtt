@@ -1,0 +1,80 @@
+name: Sender runtime read-only diagnostic WIP
+
+on:
+  push:
+    branches: [jhihweijhan/sender20-runtime-fixture-validation]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - name: Inspect whitelisted Microsoft x64 runtime metadata
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $output = Join-Path $env:RUNNER_TEMP 'sender-runtime-diagnostic.json'
+          $result = [ordered]@{status='incomplete'; runtime=$null; entry_count=0; entries=@(); official=$null; error=''}
+          try {
+            if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:RUNNER_OS -ne 'Windows' -or $env:RUNNER_ARCH -ne 'X64') { throw 'A disposable GitHub-hosted Windows x64 runner is required.' }
+            $runtime = Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64' -ErrorAction Stop
+            $result.runtime = [ordered]@{installed=$runtime.Installed; version=[string]$runtime.Version; major=$runtime.Major; minor=$runtime.Minor; build=$runtime.Bld; revision=$runtime.Rbld}
+            $entries = @(Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction Stop | Where-Object { $_.DisplayName -match '^Microsoft Visual C\+\+ (?:v14|2015(?:-[0-9]{4})?) Redistributable \(x64\) - ' })
+            $result.entry_count = $entries.Count
+            $cacheRoot = [IO.Path]::GetFullPath((Join-Path $env:ProgramData 'Package Cache')) + [IO.Path]::DirectorySeparatorChar
+            foreach ($entry in $entries) {
+              $item = [ordered]@{key=[string]$entry.PSChildName; display=[string]$entry.DisplayName; version=[string]$entry.DisplayVersion; publisher=[string]$entry.Publisher; cache_status='unavailable'; cache_path=''; signature=''; signer=''; sha256=''}
+              $command = if ($entry.QuietUninstallString) { [string]$entry.QuietUninstallString } else { [string]$entry.UninstallString }
+              if ($command -match '^\s*"([^"]+\.exe)"(?:\s|$)') {
+                $path = [IO.Path]::GetFullPath($Matches[1])
+                if ($path.StartsWith($cacheRoot, [StringComparison]::OrdinalIgnoreCase) -and [IO.Path]::GetFileName($path) -ieq 'vc_redist.x64.exe') {
+                  $item.cache_path = $path
+                  if (Test-Path -LiteralPath $path -PathType Leaf) {
+                    $signature = Get-AuthenticodeSignature -LiteralPath $path
+                    $item.cache_status = 'present'
+                    $item.signature = [string]$signature.Status
+                    $item.signer = [string]$signature.SignerCertificate.Subject
+                    $item.sha256 = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+                  } else { $item.cache_status = 'missing' }
+                } else { $item.cache_status = 'not-whitelisted' }
+              } else { $item.cache_status = 'unrecognized-format' }
+              $result.entries += [pscustomobject]$item
+            }
+            $installer = Join-Path $env:RUNNER_TEMP 'vc_redist.x64.exe'
+            Invoke-WebRequest -UseBasicParsing -Uri 'https://aka.ms/vc14/vc_redist.x64.exe' -OutFile $installer
+            $signature = Get-AuthenticodeSignature -LiteralPath $installer
+            if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notlike 'CN=Microsoft Corporation,*') { throw 'Official installer signature is invalid.' }
+            $file = Get-Item -LiteralPath $installer
+            $official = [ordered]@{sha256=(Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant(); signature=[string]$signature.Status; signer=[string]$signature.SignerCertificate.Subject; file_version=[string]$file.VersionInfo.FileVersion; product_version=[string]$file.VersionInfo.ProductVersion; product_name=[string]$file.VersionInfo.ProductName; bundle_id=''; bundle_version=''; bundle_display=''; metadata_status='unavailable'}
+            $seven = Get-Command '7z.exe' -ErrorAction SilentlyContinue
+            if ($seven) {
+              $metadata = Join-Path $env:RUNNER_TEMP 'vc-installer-metadata'
+              New-Item -ItemType Directory -Path $metadata | Out-Null
+              & $seven.Source x -y "-o$metadata" $installer '0' 'u17' | Out-Null
+              if ($LASTEXITCODE -ne 0) { throw 'Official installer metadata extraction failed.' }
+              [xml]$manifest = [IO.File]::ReadAllText((Join-Path $metadata '0'))
+              [xml]$application = [IO.File]::ReadAllText((Join-Path $metadata 'u17'))
+              $registration = $manifest.SelectSingleNode('//*[local-name()="Registration"]')
+              $properties = $application.SelectSingleNode('//*[local-name()="WixBundleProperties"]')
+              if (-not $registration -or -not $properties) { throw 'Official installer bundle metadata is incomplete.' }
+              $official.bundle_id = [string]$registration.Id
+              $official.bundle_version = [string]$registration.Version
+              $official.bundle_display = [string]$properties.DisplayName
+              $official.metadata_status = 'extracted'
+            }
+            $result.official = $official
+            $result.status = 'complete'
+          }
+          catch { $result.error = $_.Exception.Message }
+          finally { [IO.File]::WriteAllText($output, ($result | ConvertTo-Json -Depth 6) + "`n", [Text.UTF8Encoding]::new($false)) }
+          if ($result.status -ne 'complete') { throw "Read-only runtime diagnostic failed: $($result.error)" }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: sender-runtime-readonly-diagnostic
+          path: ${{ runner.temp }}/sender-runtime-diagnostic.json
+          if-no-files-found: error
+          retention-days: 3
