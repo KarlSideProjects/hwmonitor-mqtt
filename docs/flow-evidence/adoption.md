@@ -10,7 +10,7 @@ The source baseline covers `sender.distribution` and `sender.license` only. It r
 | `docs/flow-manifest.json` | Created, registered source fingerprints refreshed |
 | `tools/flow-docs/flow_checker.py`, `flow_parsers.py`, `requirements-ast.txt` | Copied from installed flow-docs-sync bundle |
 | Root `README.md`, `LICENSE`, `pyproject.toml` | Existing authoritative inputs reused |
-| Installation and runtime flow dependencies | Gap; expand and review before dependent edits |
+| Installation and runtime flow dependencies | Direct boundary inputs and related test/configuration files registered for invalidation; behavior is a gap, expand and review before dependent edits |
 | Independent review and candidate validation | Pending; no review is asserted |
 | Runtime evidence, agent discovery, candidate CI and remote merge enforcement | Unverified |
 | Hook and unattended generation | Not configured; delivery boundary is PR |

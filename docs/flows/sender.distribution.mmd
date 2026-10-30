@@ -1,12 +1,48 @@
 flowchart TD
-    A["Linux bootstrap downloads source archive"]
-    B["Validate and copy source"]
-    C["Invoke installer"]
-    D["Windows bootstrap downloads source archive on first install"]
-    E["Invoke scheduled task installer"]
-    F["Docker build copies Python source"]
-    G["Run Linux sender"]
+    A["Linux checks root, OS, directory and prerequisites"]
+    B{"Checks pass"}
+    C["Stop on failure"]
+    D["Download and validate source archive"]
+    E{"Download and validation pass"}
+    F["Copy source while preserving selected local settings"]
+    G["Detect target, prepare PVE credentials and MQTT settings"]
+    H["Check or install Docker and Compose when needed"]
+    I{"Preparation succeeds"}
+    J["Invoke install.sh and forward its result"]
+    K["Windows checks elevation and recognized directory"]
+    L{"Checks pass"}
+    M{"Existing installation"}
+    N["Keep existing source and marker"]
+    O["Download and extract source, write marker"]
+    P["Validate and create MQTT settings if absent"]
+    Q["Invoke task installer and start task"]
+    R["Stop on download, settings or installer error"]
+    S["Docker build installs dependencies and copies Python source"]
+    T["Image declares default sender command"]
+    U["Container execution uses default command unless overridden"]
     A --> B
-    B --> C
+    B -->|no| C
+    B -->|yes| D
     D --> E
+    E -->|no| C
+    E -->|yes| F
     F --> G
+    G -->|error| C
+    G -->|success| H
+    H -->|error| C
+    H -->|success| I
+    I -->|no| C
+    I -->|yes| J
+    K --> L
+    L -->|no| R
+    L -->|yes| M
+    M -->|yes| N
+    M -->|no| O
+    O -->|error| R
+    O -->|success| P
+    N --> P
+    P -->|error| R
+    P -->|success| Q
+    Q -->|error| R
+    S --> T
+    T --> U
