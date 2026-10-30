@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-[[ $(uname -m) == x86_64 ]] || { echo 'Unsupported architecture; Linux x64 is required.' >&2; exit 1; }
+case $(uname -m) in
+    x86_64) platform=linux-x64; machine=62 ;;
+    aarch64) platform=linux-arm64; machine=183 ;;
+    *) echo 'Unsupported architecture; 64-bit Linux x64 or ARM64 is required.' >&2; exit 1 ;;
+esac
+asset=sender-$platform.tar.gz
 [[ $(id -u) == 0 ]] || { echo 'Run this installer as root.' >&2; exit 1; }
 for tool in curl jq tar sha256sum runuser od flock; do
     command -v "$tool" >/dev/null || { echo "Install the required tool: $tool" >&2; exit 1; }
@@ -27,18 +32,18 @@ curl --fail --location --silent --show-error "$api" --output "$scratch/release.j
 tag=$(jq -er '.tag_name | select(type == "string")' "$scratch/release.json")
 [[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Invalid release tag' >&2; exit 1; }
 version=${tag#v}
-for asset in version.json sender-linux-x64.tar.gz sender-linux-x64.tar.gz.sha256; do
-    [[ $(jq -r --arg n "$asset" '[.assets[] | select(.name == $n)] | length' "$scratch/release.json") == 1 ]] || { echo "Missing release asset: $asset" >&2; exit 1; }
-    url=$(jq -er --arg n "$asset" '.assets[] | select(.name == $n) | .browser_download_url' "$scratch/release.json")
-    [[ $url == "$download_base/$tag/$asset" ]] || { echo 'Unexpected release asset URL' >&2; exit 1; }
-    curl --fail --location --silent --show-error "$url" --output "$scratch/$asset"
+for item in version.json "$asset" "$asset.sha256"; do
+    [[ $(jq -r --arg n "$item" '[.assets[] | select(.name == $n)] | length' "$scratch/release.json") == 1 ]] || { echo "Missing release asset: $item" >&2; exit 1; }
+    url=$(jq -er --arg n "$item" '.assets[] | select(.name == $n) | .browser_download_url' "$scratch/release.json")
+    [[ $url == "$download_base/$tag/$item" ]] || { echo 'Unexpected release asset URL' >&2; exit 1; }
+    curl --fail --location --silent --show-error "$url" --output "$scratch/$item"
 done
 jq -e --arg version "$version" 'type == "object" and (keys == ["source", "version"]) and .version == $version and (.source | type == "string" and test("^[0-9a-f]{40}$"))' "$scratch/version.json" >/dev/null || { echo 'Invalid release metadata' >&2; exit 1; }
 source=$(jq -r '.source' "$scratch/version.json")
-checksum_line=$(cat "$scratch/sender-linux-x64.tar.gz.sha256")
-[[ $checksum_line =~ ^([0-9a-f]{64})\ \ sender-linux-x64\.tar\.gz$ ]] || { echo 'Invalid release checksum' >&2; exit 1; }
-checksum=${BASH_REMATCH[1]}
-archive=$scratch/sender-linux-x64.tar.gz
+checksum_line=$(cat "$scratch/$asset.sha256")
+checksum=${checksum_line%%  *}
+[[ $checksum =~ ^[0-9a-f]{64}$ && $checksum_line == "$checksum  $asset" ]] || { echo 'Invalid release checksum' >&2; exit 1; }
+archive=$scratch/$asset
 [[ $(stat -c %s "$archive") -le 134217728 && $(sha256sum "$archive" | cut -d' ' -f1) == "$checksum" ]] || { echo 'Archive checksum or size mismatch' >&2; exit 1; }
 
 # Stream only the verified release's regular sender member, then let it validate the entire archive.
@@ -52,7 +57,7 @@ runuser -u nobody -- tar -tzf "$archive" --quoting-style=escape > "$scratch/name
 entry=$(runuser -u nobody -- tar -tvzf "$archive" sender --quoting-style=escape)
 [[ $entry == -* && $entry != *$'\n'* ]] || { echo 'Invalid sender entry type' >&2; exit 1; }
 runuser -u nobody -- bash -c 'ulimit -f 262144; exec tar -xOzf "$1" sender' _ "$archive" > "$scratch/sender"
-[[ $(od -An -tx1 -N6 "$scratch/sender" | tr -d ' \n') == 7f454c460201 && $(od -An -tu2 -j18 -N2 "$scratch/sender" | tr -d ' ') == 62 ]] || { echo 'Sender architecture mismatch' >&2; exit 1; }
+[[ $(od -An -tx1 -N6 "$scratch/sender" | tr -d ' \n') == 7f454c460201 && $(od -An -tu2 -j18 -N2 "$scratch/sender" | tr -d ' ') == "$machine" ]] || { echo 'Sender architecture mismatch' >&2; exit 1; }
 chmod 0555 "$scratch/sender"
 runuser -u nobody -- "$scratch/sender" --stage "$archive" "$scratch/worker/staged" "$version" "$source" "$checksum"
 chmod 0700 "$scratch"
@@ -60,6 +65,7 @@ chmod 0700 "$scratch"
 [[ $("$scratch/root-staged/sender" --version) == "$version $source" ]] || { echo 'Sender version mismatch' >&2; exit 1; }
 
 if command -v pveversion >/dev/null 2>&1 && dpkg-query -W -f='${Status}' pve-manager 2>/dev/null | grep -qx 'install ok installed' && pveversion | grep -q '^pve-manager/'; then
+    [[ $platform == linux-x64 ]] || { echo "PVE native sender requires Linux x64." >&2; exit 1; }
     target=pve
 else
     target=linux

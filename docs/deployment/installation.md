@@ -9,7 +9,7 @@
 
 ## 在 Linux 或 PVE 安裝 Sender
 
-Linux x64 編譯版尚未公開；公開發布完成前請勿使用下列命令。發布後，在 Debian、Ubuntu 或 Proxmox VE 主機的 root shell 執行。安裝器需要 `curl`、`jq`、`tar`、`sha256sum`、`runuser`、`od` 與 `flock`。一般 Linux 使用 Docker Compose v2，PVE 使用原生 systemd；既有 `.env` 與 Docker 覆寫檔會保留。ARM64 套件另待驗證。
+Linux x64 與 ARM64 編譯版尚未公開；公開發布完成前請勿使用下列命令。發布後，在 Debian、Ubuntu 或 Proxmox VE 主機的 root shell 執行。安裝器需要 `curl`、`jq`、`tar`、`sha256sum`、`runuser`、`od` 與 `flock`。一般 Linux 使用 Docker Compose v2，PVE 使用原生 systemd；既有 `.env` 與 Docker 覆寫檔會保留。ARM64 僅支援 64 位元 Linux（包含 Raspberry Pi）；32 位元系統不支援。PVE 原生 systemd 僅支援 x64。
 
 ```bash
 u=https://github.com/KarlSideProjects/hwmonitor-mqtt-releases/releases/latest/download/bootstrap.sh; f=$(mktemp) && (wget -qO "$f" "$u" || curl -fsSL "$u" -o "$f") && bash "$f"
@@ -77,7 +77,7 @@ systemctl disable --now hwmonitor-mqtt-pve
 docker rename sys-agent-before-native sys-agent && docker start sys-agent
 ```
 
-此候選版僅提供 Linux x64；ARM64 尚未提供。PVE 原生安裝與 Windows 排程安裝尚未在實體目標主機驗證。Windows 請使用 [Windows sender 安裝方式](#windows-sender-安裝與注意事項)。
+此候選版支援 Linux x64 與 64 位元 ARM64，ARM64 安裝仍待驗證。PVE 原生安裝與 Windows 排程安裝尚未在實體目標主機驗證。Windows 請使用 [Windows sender 安裝方式](#windows-sender-安裝與注意事項)。
 
 ## Windows Sender 安裝與注意事項
 

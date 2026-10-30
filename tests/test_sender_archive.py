@@ -118,3 +118,29 @@ def test_stage_requires_typing_extensions_notice(tmp_path):
     with pytest.raises(ValueError):
         stage(package, tmp_path / "install", VERSION, SOURCE, hashlib.sha256(package.read_bytes()).hexdigest())
     assert not (tmp_path / "install").exists()
+
+
+def test_stage_accepts_arm64_manifest_and_elf(tmp_path, monkeypatch):
+    import platform
+    monkeypatch.setattr(platform, "machine", lambda: "aarch64")
+    package = archive(tmp_path)
+    with tarfile.open(package, "r:gz") as src:
+        contents = {m.name: src.extractfile(m).read() for m in src}
+    contents["sender"] = ELF[:18] + b"\xb7\x00" + ELF[20:]
+    contents["manifest.json"] = json.dumps({"platform": "linux-arm64", "version": VERSION, "source": SOURCE, "executable_sha256": hashlib.sha256(contents["sender"]).hexdigest()}).encode()
+    with tarfile.open(package, "w:gz") as out:
+        for name, body in contents.items():
+            info = tarfile.TarInfo(name)
+            info.size = len(body)
+            out.addfile(info, io.BytesIO(body))
+    stage(package, tmp_path / "install", VERSION, SOURCE, hashlib.sha256(package.read_bytes()).hexdigest())
+    assert (tmp_path / "install" / "sender").read_bytes() == contents["sender"]
+
+
+def test_stage_rejects_other_architecture_before_extraction(tmp_path, monkeypatch):
+    import platform
+    monkeypatch.setattr(platform, "machine", lambda: "aarch64")
+    package = archive(tmp_path)
+    with pytest.raises(ValueError, match="manifest mismatch"):
+        stage(package, tmp_path / "install", VERSION, SOURCE, hashlib.sha256(package.read_bytes()).hexdigest())
+    assert not (tmp_path / "install").exists()

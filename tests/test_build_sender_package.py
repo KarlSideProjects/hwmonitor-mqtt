@@ -131,3 +131,14 @@ def test_build_host_libc_is_compatible_with_supported_linux_baseline():
     assert compatible_libc("glibc", "2.31")
     assert not compatible_libc("glibc", "2.38")
     assert not compatible_libc("unknown", "")
+
+
+def test_arm64_archive_uses_official_asset_name(tmp_path):
+    from scripts.build_sender_package import create_archive
+
+    candidate = tmp_path / "candidate"
+    candidate.mkdir()
+    (candidate / "sender").write_bytes(b"binary")
+    create_archive(candidate, tmp_path, "linux-arm64")
+    assert (tmp_path / "sender-linux-arm64.tar.gz").is_file()
+    assert (tmp_path / "sender-linux-arm64.tar.gz.sha256").read_text().endswith("  sender-linux-arm64.tar.gz\n")
