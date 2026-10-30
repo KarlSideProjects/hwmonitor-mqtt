@@ -37,3 +37,15 @@ def test_download_failure_never_uses_private_source_and_preserves_old_install(tm
     assert "hwmonitor-mqtt/archive" not in calls.read_text()
     assert (root / "sender").read_text() == "old executable"
     assert (root / ".env").read_text() == "private"
+
+
+def test_unrecognized_directory_is_not_modified_or_downloaded(tmp_path):
+    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
+    for name, body in {"uname": "#!/bin/sh\necho x86_64\n", "id": "#!/bin/sh\necho 0\n", "curl": f"#!/bin/sh\ntouch '{tmp_path / 'downloaded'}'\nexit 1\n"}.items():
+        tool = bin_dir / name; tool.write_text(body); tool.chmod(0o755)
+    root = tmp_path / "root"; root.mkdir()
+    (root / "keep").write_text("user data")
+    result = subprocess.run(["bash", str(BOOTSTRAP)], env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "HWMONITOR_BOOTSTRAP_ROOT": str(root)}, text=True, capture_output=True)
+    assert result.returncode != 0
+    assert (root / "keep").read_text() == "user data"
+    assert not (tmp_path / "downloaded").exists()

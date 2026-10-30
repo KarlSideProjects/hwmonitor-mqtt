@@ -821,7 +821,7 @@ def test_compiled_native_upgrade_restores_previous_sender_and_unit_on_failed_sta
     units = tmp_path / "units"
     units.mkdir()
     unit = units / pve.SERVICE_NAME
-    unit.write_text("old unit\n")
+    unit.write_text("[Unit]\nDescription=Hardware Monitor MQTT sender for Proxmox VE\n[Service]\nExecStart=/usr/bin/python -m hwmonitor_mqtt.agents.agent_sender_async\n")
     monkeypatch.setattr(pve, "__compiled__", True, raising=False)
     monkeypatch.setattr(pve, "APP_ROOT", str(app))
     monkeypatch.setattr(pve, "SYSTEMD_DIR", str(units))
@@ -835,7 +835,7 @@ def test_compiled_native_upgrade_restores_previous_sender_and_unit_on_failed_sta
     result = pve.install(project, config, run=run, which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0)
     assert result != 0
     assert (app / "sender").read_bytes() == b"old compiled sender"
-    assert unit.read_text() == "old unit\n"
+    assert unit.read_text() == "[Unit]\nDescription=Hardware Monitor MQTT sender for Proxmox VE\n[Service]\nExecStart=/usr/bin/python -m hwmonitor_mqtt.agents.agent_sender_async\n"
     assert config.read_text() == "private configuration\n"
     assert sum("restart" in a for a in attempts) == 2
 
@@ -848,7 +848,7 @@ def test_failed_compiled_rollback_retains_backup_for_recovery(monkeypatch, tmp_p
     project.mkdir(); app.mkdir(parents=True); units.mkdir()
     (project / "sender").write_bytes(b"new")
     (app / "sender").write_bytes(b"old")
-    (units / pve.SERVICE_NAME).write_text("old unit\n")
+    (units / pve.SERVICE_NAME).write_text("[Unit]\nDescription=Hardware Monitor MQTT sender for Proxmox VE\n[Service]\nExecStart=/usr/bin/python -m hwmonitor_mqtt.agents.agent_sender_async\n")
     monkeypatch.setattr(pve, "__compiled__", True, raising=False)
     monkeypatch.setattr(pve, "APP_ROOT", str(app))
     monkeypatch.setattr(pve, "SYSTEMD_DIR", str(units))
@@ -860,7 +860,7 @@ def test_failed_compiled_rollback_retains_backup_for_recovery(monkeypatch, tmp_p
     backups = list(app.parent.glob("sender-rollback-*"))
     assert len(backups) == 1
     assert (backups[0] / "sender").read_bytes() == b"old"
-    assert (backups[0] / "unit").read_text() == "old unit\n"
+    assert (backups[0] / "unit").read_text() == "[Unit]\nDescription=Hardware Monitor MQTT sender for Proxmox VE\n[Service]\nExecStart=/usr/bin/python -m hwmonitor_mqtt.agents.agent_sender_async\n"
 
 
 def test_compiled_native_install_keeps_service_identity_and_private_files(monkeypatch, tmp_path):
@@ -879,7 +879,7 @@ def test_compiled_native_install_keeps_service_identity_and_private_files(monkey
     monkeypatch.setattr(pve, "readiness", lambda path: None)
     monkeypatch.setattr(pve.time, "sleep", lambda _: None)
     def run(args, **kwargs):
-        return SimpleNamespace(returncode=3 if "is-active" in args and not (app / "sender").exists() else 1 if "is-enabled" in args else 0, stdout="1234" if "show" in args else "", stderr="")
+        return SimpleNamespace(returncode=3 if "is-active" in args and not (app / "sender").exists() else 1 if "is-enabled" in args else 0, stdout=("path=" + str(app / "sender") if "--property=ExecStart" in args else "1234") if "show" in args else "", stderr="")
     assert pve.install(project, config, run=run, which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0) == 0
     unit = (units / pve.SERVICE_NAME).read_text()
     assert "DynamicUser=yes" in unit
@@ -906,7 +906,7 @@ def test_compiled_native_upgrade_rolls_back_if_service_dies_after_initial_start(
     project.mkdir(); app.mkdir(parents=True); units.mkdir()
     (project / "sender").write_bytes(b"new")
     (app / "sender").write_bytes(b"old")
-    (units / pve.SERVICE_NAME).write_text("old unit\n")
+    (units / pve.SERVICE_NAME).write_text("[Unit]\nDescription=Hardware Monitor MQTT sender for Proxmox VE\n[Service]\nExecStart=/usr/bin/python -m hwmonitor_mqtt.agents.agent_sender_async\n")
     monkeypatch.setattr(pve, "__compiled__", True, raising=False)
     monkeypatch.setattr(pve, "APP_ROOT", str(app))
     monkeypatch.setattr(pve, "SYSTEMD_DIR", str(units))
@@ -918,10 +918,10 @@ def test_compiled_native_upgrade_rolls_back_if_service_dies_after_initial_start(
         if "is-active" in args:
             checks += 1
             return SimpleNamespace(returncode=3 if checks == 3 else 0, stdout="", stderr="")
-        return SimpleNamespace(returncode=0, stdout="1234" if "show" in args else "", stderr="")
+        return SimpleNamespace(returncode=0, stdout=("path=" + str(app / "sender") if "--property=ExecStart" in args else "1234") if "show" in args else "", stderr="")
     assert pve.install(project, tmp_path / "pve.env", run=run, which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0) != 0
     assert (app / "sender").read_bytes() == b"old"
-    assert (units / pve.SERVICE_NAME).read_text() == "old unit\n"
+    assert (units / pve.SERVICE_NAME).read_text() == "[Unit]\nDescription=Hardware Monitor MQTT sender for Proxmox VE\n[Service]\nExecStart=/usr/bin/python -m hwmonitor_mqtt.agents.agent_sender_async\n"
 
 
 def test_compiled_native_install_allows_dynamic_user_to_traverse_under_restrictive_umask(monkeypatch, tmp_path):
@@ -936,7 +936,7 @@ def test_compiled_native_install_allows_dynamic_user_to_traverse_under_restricti
     monkeypatch.setattr(pve, "readiness", lambda path: None)
     monkeypatch.setattr(pve.time, "sleep", lambda _: None)
     def run(args, **kwargs):
-        return SimpleNamespace(returncode=3 if "is-active" in args and not (parent / "app" / "sender").exists() else 1 if "is-enabled" in args else 0, stdout="1234" if "show" in args else "", stderr="")
+        return SimpleNamespace(returncode=3 if "is-active" in args and not (parent / "app" / "sender").exists() else 1 if "is-enabled" in args else 0, stdout=("path=" + str(parent / "app" / "sender") if "--property=ExecStart" in args else "1234") if "show" in args else "", stderr="")
     original = os.umask(0o077)
     try:
         assert pve.install(project, tmp_path / "pve.env", run=run, which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0) == 0
@@ -959,7 +959,7 @@ def test_compiled_native_failure_points_restore_previous_state(monkeypatch, tmp_
     (project / "sender").write_bytes(b"new")
     (app / "sender").write_bytes(b"old")
     unit = units / pve.SERVICE_NAME
-    if had_unit: unit.write_text("old unit\n")
+    if had_unit: unit.write_text("[Unit]\nDescription=Hardware Monitor MQTT sender for Proxmox VE\n[Service]\nExecStart=/usr/bin/python -m hwmonitor_mqtt.agents.agent_sender_async\n")
     monkeypatch.setattr(pve, "__compiled__", True, raising=False)
     monkeypatch.setattr(pve, "APP_ROOT", str(app))
     monkeypatch.setattr(pve, "SYSTEMD_DIR", str(units))
@@ -977,9 +977,73 @@ def test_compiled_native_failure_points_restore_previous_state(monkeypatch, tmp_
         if action == failure and not failed:
             failed = True
             return SimpleNamespace(returncode=1, stdout="", stderr="")
-        return SimpleNamespace(returncode=0, stdout="1234" if action == "show" else "", stderr="")
+        return SimpleNamespace(returncode=0, stdout=("path=" + str(app / "sender") if "--property=ExecStart" in args else "1234") if action == "show" else "", stderr="")
     assert pve.install(project, tmp_path / "pve.env", run=run, which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0) != 0
     assert failed and (app / "sender").read_bytes() == b"old"
-    assert unit.read_text() == "old unit\n" if had_unit else not unit.exists()
+    assert unit.read_text() == "[Unit]\nDescription=Hardware Monitor MQTT sender for Proxmox VE\n[Service]\nExecStart=/usr/bin/python -m hwmonitor_mqtt.agents.agent_sender_async\n" if had_unit else not unit.exists()
     assert ("restart" if was_active else "stop") in calls
     if not was_enabled: assert "disable" in calls
+
+
+def test_compiled_upgrade_preserves_existing_service_permissions_and_dropins(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from hwmonitor_mqtt.platforms.installers import pve
+    project, app, units = tmp_path / "project", tmp_path / "runtime" / "app", tmp_path / "units"
+    project.mkdir(); app.mkdir(parents=True); units.mkdir()
+    (project / "sender").write_bytes(b"new")
+    (app / "sender").write_bytes(b"old")
+    unit = units / pve.SERVICE_NAME
+    original = '[Unit]\nDescription=Hardware Monitor MQTT sender for Proxmox VE\n[Service]\nUser=monitor\nGroup=custom\nCapabilityBoundingSet=CAP_SYS_RAWIO\nExecStart=/usr/bin/python -m hwmonitor_mqtt.agents.agent_sender_async\n'
+    unit.write_text(original)
+    dropdir = units / (pve.SERVICE_NAME + ".d"); dropdir.mkdir()
+    custom = dropdir / "50-local.conf"; custom.write_text("[Service]\nProtectHome=yes\n")
+    monkeypatch.setattr(pve, "__compiled__", True, raising=False)
+    monkeypatch.setattr(pve, "APP_ROOT", str(app))
+    monkeypatch.setattr(pve, "SYSTEMD_DIR", str(units))
+    monkeypatch.setattr(pve, "readiness", lambda path: None)
+    monkeypatch.setattr(pve.time, "sleep", lambda _: None)
+    def run(args, **kwargs):
+        return SimpleNamespace(returncode=0, stdout=("path=" + str(app / "sender") if "--property=ExecStart" in args else "1234") if "show" in args else "", stderr="")
+    assert pve.install(project, tmp_path / "pve.env", run=run, which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0) == 0
+    assert unit.read_text() == original
+    assert custom.read_text() == "[Service]\nProtectHome=yes\n"
+    override = (dropdir / "90-hwmonitor-sender.conf").read_text()
+    assert "ExecStart=\nExecStart=" + str(app / "sender") in override
+
+
+def test_compiled_upgrade_refuses_unrelated_unit(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from hwmonitor_mqtt.platforms.installers import pve
+    project, app, units = tmp_path / "project", tmp_path / "runtime" / "app", tmp_path / "units"
+    project.mkdir(); app.mkdir(parents=True); units.mkdir()
+    (project / "sender").write_bytes(b"new")
+    (app / "sender").write_bytes(b"old")
+    unit = units / pve.SERVICE_NAME; unit.write_text("[Service]\nExecStart=/usr/bin/unrelated\n")
+    monkeypatch.setattr(pve, "__compiled__", True, raising=False)
+    monkeypatch.setattr(pve, "APP_ROOT", str(app))
+    monkeypatch.setattr(pve, "SYSTEMD_DIR", str(units))
+    monkeypatch.setattr(pve, "readiness", lambda path: None)
+    with pytest.raises(RuntimeError, match="unrecognized"):
+        pve.install(project, tmp_path / "pve.env", run=lambda *a, **k: SimpleNamespace(returncode=0, stdout="", stderr=""), which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0)
+    assert unit.read_text() == "[Service]\nExecStart=/usr/bin/unrelated\n"
+    assert (app / "sender").read_bytes() == b"old"
+
+
+def test_compiled_upgrade_refuses_unrecognized_owned_override(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from hwmonitor_mqtt.platforms.installers import pve
+    project, app, units = tmp_path / "project", tmp_path / "runtime" / "app", tmp_path / "units"
+    project.mkdir(); app.mkdir(parents=True); units.mkdir()
+    (project / "sender").write_bytes(b"new")
+    (app / "sender").write_bytes(b"old")
+    (units / pve.SERVICE_NAME).write_text("[Unit]\nDescription=Hardware Monitor MQTT sender for Proxmox VE\n[Service]\nExecStart=/usr/bin/python -m hwmonitor_mqtt.agents.agent_sender_async\n")
+    dropdir = units / (pve.SERVICE_NAME + ".d"); dropdir.mkdir()
+    override = dropdir / "90-hwmonitor-sender.conf"; override.write_text("[Service]\nUser=custom\n")
+    monkeypatch.setattr(pve, "__compiled__", True, raising=False)
+    monkeypatch.setattr(pve, "APP_ROOT", str(app))
+    monkeypatch.setattr(pve, "SYSTEMD_DIR", str(units))
+    monkeypatch.setattr(pve, "readiness", lambda path: None)
+    with pytest.raises(RuntimeError, match="unrecognized"):
+        pve.install(project, tmp_path / "pve.env", run=lambda *a, **k: SimpleNamespace(returncode=0, stdout="", stderr=""), which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0)
+    assert override.read_text() == "[Service]\nUser=custom\n"
+    assert (app / "sender").read_bytes() == b"old"

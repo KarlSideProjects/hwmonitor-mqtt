@@ -149,21 +149,42 @@ def install_compiled(project_root, config_file, systemctl, run):
         raise RuntimeError("cannot determine existing service state")
     active, enabled = active_status == 0, enabled_status == 0
     existed = unit.exists()
+    dropdir = unit.parent / (unit.name + ".d")
+    override = dropdir / "90-hwmonitor-sender.conf"
+    if dropdir.is_symlink() or override.is_symlink():
+        raise RuntimeError("installer override path must not be a symbolic link")
+    expected_override = "[Service]\nExecStart=\nExecStart=" + _unit_escape(target) + "\nWorkingDirectory=" + _unit_escape(app) + "\n"
+    if override.exists() and override.read_text() != expected_override:
+        raise RuntimeError("unrecognized existing sender override")
+    if existed:
+        current_unit = unit.read_text()
+        if "Description=Hardware Monitor MQTT sender for Proxmox VE" not in current_unit or not ("hwmonitor_mqtt.agents.agent_sender_async" in current_unit or str(target) in current_unit):
+            raise RuntimeError("unrecognized existing sender service")
     backup = Path(tempfile.mkdtemp(prefix="sender-rollback-", dir=app.parent))
     if target.exists():
         shutil.copy2(target, backup / "sender")
     if existed:
         shutil.copy2(unit, backup / "unit")
+    if override.exists():
+        shutil.copy2(override, backup / "override")
     try:
         shutil.copy2(Path(project_root) / "sender", backup / "new")
         (backup / "new").chmod(0o755)
         os.replace(backup / "new", target)
-        unit.write_text(unit_text(project_root, str(target), config_file, compiled=True))
+        if existed:
+            dropdir.mkdir(mode=0o755, exist_ok=True)
+            dropdir.chmod(0o755)
+            override.write_text(expected_override)
+        else:
+            unit.write_text(unit_text(project_root, str(target), config_file, compiled=True))
         for args in ([systemctl, "daemon-reload"],
                      *([[systemctl, "enable", SERVICE_NAME]] if not existed else []),
                      [systemctl, "restart", SERVICE_NAME]):
             if run(args, check=False).returncode:
                 raise RuntimeError("compiled sender startup failed")
+        effective = run([systemctl, "show", "--property=ExecStart", "--value", SERVICE_NAME], check=False, capture_output=True, text=True)
+        if effective.returncode or "path=" + str(target) not in effective.stdout:
+            raise RuntimeError("compiled sender is not the effective service command")
         previous_pid = None
         for _ in range(3):
             time.sleep(1)
@@ -186,6 +207,10 @@ def install_compiled(project_root, config_file, systemctl, run):
                 os.replace(unit.with_name(unit.name + ".restore"), unit)
             else:
                 unit.unlink(missing_ok=True)
+            if (backup / "override").exists():
+                shutil.copy2(backup / "override", override)
+            else:
+                override.unlink(missing_ok=True)
             rollback = [[systemctl, "daemon-reload"]]
             if not enabled:
                 rollback.append([systemctl, "disable", SERVICE_NAME])

@@ -67,6 +67,15 @@ mkdir -p "$root"
 exec 9>"$root/.sender-install.lock"
 flock -n 9 || { echo "Another sender installation is running." >&2; exit 1; }
 if [[ $target == pve ]]; then
+    if command -v docker >/dev/null 2>&1; then
+        if docker inspect sys-agent >/dev/null 2>"$scratch/docker-error"; then
+            echo 'sys-agent container exists; stop and remove or rename it before installing the native sender.' >&2
+            exit 2
+        elif ! grep -q 'No such object' "$scratch/docker-error"; then
+            echo 'Could not verify the existing Docker sender.' >&2
+            exit 2
+        fi
+    fi
     "$scratch/worker/staged/sender" --pve-bootstrap --config "$pve_config" --template "$scratch/worker/staged/docs/configuration/pve.env.example"
 else
     if ! command -v docker >/dev/null 2>&1; then

@@ -9,13 +9,13 @@
 
 ## 在 Linux 或 PVE 安裝 Sender
 
-在要監控的 Debian、Ubuntu、Raspberry Pi OS 或 Proxmox VE 主機執行以下命令。需要 `wget` 或 `curl` 其中一項；首次執行會詢問 MQTT 設定，密碼不會顯示，既有 `.env` 會保留。一般 Linux 會準備 Python 與 Docker Compose v2，PVE 使用原生 systemd sender。安裝需要 Python 3.11 以上；bootstrap 安裝系統的 `python3` 後若版本不足會停止，部分舊 Ubuntu（例如 22.04）需先自行安裝 Python 3.11+。請在 root shell 執行。
+Linux x64 編譯版尚未公開；公開發布完成前請勿使用下列命令。發布後，在 Debian、Ubuntu 或 Proxmox VE 主機的 root shell 執行。安裝器需要 `curl`、`jq`、`tar`、`sha256sum`、`runuser`、`od` 與 `flock`。一般 Linux 使用 Docker Compose v2，PVE 使用原生 systemd；既有 `.env` 與 Docker 覆寫檔會保留。ARM64 套件另待驗證。
 
 ```bash
-u=https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/refs/heads/master/bootstrap.sh; f=$(mktemp) && (wget -qO "$f" "$u" || curl -fsSL "$u" -o "$f") && bash "$f"
+u=https://github.com/KarlSideProjects/hwmonitor-mqtt-releases/releases/latest/download/bootstrap.sh; f=$(mktemp) && (wget -qO "$f" "$u" || curl -fsSL "$u" -o "$f") && bash "$f"
 ```
 
-若 PVE 套件來源回報 Enterprise repository 的 401，且目前沒有有效訂閱，bootstrap 會警告後嘗試以現有套件索引安裝必要套件；這不代表 Debian 官方套件來源無法使用。它不會修改或停用任何 PVE/Ceph 套件來源，也不會關閉簽章或來源驗證。
+安裝入口確認單一公開版本，下載相同版本的校驗資料與編譯包，驗證後才更新安裝。下載或校驗失敗不會更新現有程式；啟動失敗時會嘗試回復先前的程式與服務。
 
 PVE 安裝入口會先檢查舊的 `sys-agent` Docker 容器。容器存在時會停止，請先完成下方遷移，再執行安裝。它會更新下載目錄中的程式，保留既有 `.env` 與私有 PVE 設定。
 
@@ -23,7 +23,7 @@ PVE 本機的節點名稱與 CA 由 PVE 安裝模組準備。模組將本機 `/e
 
 ### 安裝檔會做什麼
 
-下載命令執行 `bootstrap.sh`，由它辨識系統並呼叫對應平台模組。它會檢查必要套件，缺少時透過 APT 安裝；一般 Linux 若需要 Docker 官方套件庫，會建立經簽章驗證的套件來源。它會下載或更新 `/opt/hwmonitor-mqtt` 內的程式，保留 MQTT `.env`、PVE 私有設定與 Docker 自訂覆寫檔。一般 Linux 使用 Docker Compose sender；PVE 使用原生 systemd sender。Windows 的 PowerShell 入口會準備 Python/uv、LibreHardwareMonitor 與開機排程。
+下載命令執行 `bootstrap.sh`，由它辨識系統並呼叫對應平台模組。一般 Linux 缺少 Docker 時，若系統套件來源提供 Docker Engine 與 Compose v2，安裝器會使用 APT 安裝；否則先自行安裝這兩項。它會下載或更新 `/opt/hwmonitor-mqtt` 內的程式，保留 MQTT `.env`、PVE 私有設定與 Docker 自訂覆寫檔。一般 Linux 使用 Docker Compose sender；PVE 使用原生 systemd sender。Windows 的 PowerShell 入口會準備 Python/uv、LibreHardwareMonitor 與開機排程。
 
 PVE 分支依序執行下列操作：
 
@@ -33,7 +33,7 @@ PVE 分支依序執行下列操作：
 4. 將 token ID 與密鑰直接寫入 `/etc/hwmonitor-mqtt/pve.env`，權限為 `0600`，不在終端顯示密鑰。
 5. 為新帳號與 token 在 `/` 設定可繼承的 `PVEAuditor` 唯讀角色。token 使用分離權限 (`privsep=1`)，不授予 VM／CT 的啟停或修改權限。
 6. 驗證 CA、HTTPS API 與 token scope，再詢問缺少的 MQTT 設定。
-7. 將 sender 與 Python 環境安裝至 `/opt/hwmonitor-mqtt-pve`，修正程式目錄與套件的讀取、執行權限，啟用並重啟 `hwmonitor-mqtt-pve.service`，再檢查服務是否為 active。採集服務以非 root 的動態身分執行；MQTT 與 PVE 密鑰檔維持私有權限。
+7. 將編譯版 sender 安裝至 `/opt/hwmonitor-mqtt-pve`，修正執行檔與目錄的讀取、執行權限，啟用並重啟 `hwmonitor-mqtt-pve.service`，再檢查服務是否為 active。採集服務以非 root 的動態身分執行；MQTT 與 PVE 密鑰檔維持私有權限。
 
 建立帳號、token 與 ACL 是 PVE 設定變更。安裝器為新安裝產生專用名稱，避免擴充其他帳號權限；不刪除或重設既有 token。既有自訂 token ID 缺少密鑰，或密鑰驗證失敗時會停止，不自動替換。只含安裝進度與專用識別碼的 `/etc/hwmonitor-mqtt/pve-token-state.json` 用於失敗重跑；實際密鑰只存在私有 `pve.env`。重裝沿用已保存的密鑰，接續未完成的權限設定。
 
@@ -43,7 +43,7 @@ PVE 分支依序執行下列操作：
 
 ### PVE 服務啟動權限
 
-若安裝完成後沒有監控資料，且服務日誌出現 `200/CHDIR` 或 `Permission denied`，可能是舊安裝器在 `umask 077` 下建立了服務無法讀取的程式目錄或 Python 環境。新版安裝器會修正這些執行檔案的權限，保留既有 MQTT 與 PVE token 設定；在 PVE root Shell 重跑 `bash /opt/hwmonitor-mqtt/bootstrap.sh` 即可更新修復。
+若安裝完成後沒有監控資料，且服務日誌出現 `200/CHDIR` 或 `Permission denied`，可能是舊安裝器在 `umask 077` 下建立了服務無法讀取的程式目錄或 Python 環境。新版安裝器會修正這些執行檔案的權限，保留既有 MQTT 與 PVE token 設定；公開發布後，在 PVE root shell 重跑上方下載安裝命令。
 
 ### PVE HTTPS 連線檢查
 
@@ -51,9 +51,7 @@ HTTPS 連線必須通過設定 CA 的信任鏈與主機名稱驗證。[Python 3.
 
 遇到此相容性問題時，在 PVE root Shell 重跑已下載的安裝入口即可更新採集端，無須重建 token：
 
-```bash
-bash /opt/hwmonitor-mqtt/bootstrap.sh
-```
+公開發布後，重新執行上方下載安裝命令。
 
 ### 從舊 Docker sender 遷移到 PVE 原生服務
 
@@ -79,7 +77,7 @@ systemctl disable --now hwmonitor-mqtt-pve
 docker rename sys-agent-before-native sys-agent && docker start sys-agent
 ```
 
-安裝器支援 Debian、Ubuntu 與 Raspberry Pi OS；其他 Linux 發行版會停止並回報不支援。PVE 原生安裝與 Windows 排程安裝尚未在實體目標主機驗證。Windows 請使用 [Windows sender 安裝方式](#windows-sender-安裝與注意事項)。
+此候選版僅提供 Linux x64；ARM64 尚未提供。PVE 原生安裝與 Windows 排程安裝尚未在實體目標主機驗證。Windows 請使用 [Windows sender 安裝方式](#windows-sender-安裝與注意事項)。
 
 ## Windows Sender 安裝與注意事項
 
