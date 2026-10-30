@@ -39,3 +39,23 @@ def test_source_snapshot_excludes_ignored_local_files(tmp_path):
     source_snapshot(repo, snapshot)
     assert (snapshot / "tracked.py").read_text() == "print('committed')\n"
     assert not (snapshot / "local.py").exists()
+
+
+def test_archive_contains_only_candidate_files_and_checksum(tmp_path):
+    import hashlib
+    import tarfile
+    from scripts.build_sender_package import create_archive
+
+    candidate = tmp_path / "candidate"
+    (candidate / "licenses").mkdir(parents=True)
+    (candidate / "sender").write_bytes(b"test executable")
+    (candidate / "manifest.json").write_text('{}\n')
+    (candidate / "licenses" / "python.txt").write_text("notice")
+    output = tmp_path / "output"
+    output.mkdir()
+    create_archive(candidate, output)
+    archive = output / "sender-linux-x64.tar.gz"
+    with tarfile.open(archive) as contents:
+        assert set(contents.getnames()) == {"sender", "manifest.json", "licenses/python.txt"}
+    expected = hashlib.sha256(archive.read_bytes()).hexdigest()
+    assert (output / "sender-linux-x64.tar.gz.sha256").read_text() == f"{expected}  sender-linux-x64.tar.gz\n"
