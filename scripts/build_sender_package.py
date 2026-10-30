@@ -38,6 +38,9 @@ def write_entrypoint(path, version, source):
         "import sys\n"
         + "if sys.argv[1:] == [\"--version\"]:\n"
         + f"    print({version!r}, {source!r})\n"
+        + "elif sys.argv[1:2] == [\"--pve-bootstrap\"]:\n    from hwmonitor_mqtt.platforms.pve_bootstrap import main\n    raise SystemExit(main(sys.argv[2:]))\n"
+        + "elif sys.argv[1:2] == [\"--install\"]:\n    from hwmonitor_mqtt.platforms.install import main\n    raise SystemExit(main(sys.argv[2:]))\n"
+        + "elif sys.argv[1:2] == [\"--native-install\"]:\n    from hwmonitor_mqtt.platforms.installers.pve import main\n    raise SystemExit(main(sys.argv[2:]))\n"
         + "else:\n    from hwmonitor_mqtt.agents.agent_sender_async import run\n    run()\n",
         encoding="utf-8",
     )

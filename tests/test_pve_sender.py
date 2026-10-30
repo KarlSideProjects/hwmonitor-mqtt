@@ -794,3 +794,94 @@ def test_native_installer_returns_failure_when_service_is_not_active(tmp_path, m
 
     assert result == 3
     assert calls[-1] == ["/usr/bin/systemctl", "is-active", "--quiet", pve.SERVICE_NAME]
+
+
+def test_compiled_pve_install_command_invokes_binary_dispatch(monkeypatch, tmp_path):
+    from hwmonitor_mqtt.platforms.installers import pve
+
+    monkeypatch.setattr(pve, "__compiled__", True, raising=False)
+    monkeypatch.setattr(pve.sys, "executable", "/opt/package/sender")
+    result = pve.command(tmp_path, tmp_path / "pve.env")
+    assert result[:2] == ["/opt/package/sender", "--native-install"]
+    assert result[2:] == ["--project-root", str(tmp_path.resolve()), "--config-file", str((tmp_path / "pve.env").resolve())]
+
+
+def test_compiled_native_upgrade_restores_previous_sender_and_unit_on_failed_start(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from hwmonitor_mqtt.platforms.installers import pve
+
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "sender").write_bytes(b"new compiled sender")
+    config = tmp_path / "pve.env"
+    config.write_text("private configuration\n")
+    app = tmp_path / "runtime" / "app"
+    app.mkdir(parents=True)
+    (app / "sender").write_bytes(b"old compiled sender")
+    units = tmp_path / "units"
+    units.mkdir()
+    unit = units / pve.SERVICE_NAME
+    unit.write_text("old unit\n")
+    monkeypatch.setattr(pve, "__compiled__", True, raising=False)
+    monkeypatch.setattr(pve, "APP_ROOT", str(app))
+    monkeypatch.setattr(pve, "SYSTEMD_DIR", str(units))
+    monkeypatch.setattr(pve, "readiness", lambda path: None)
+    attempts = []
+    def run(args, **kwargs):
+        attempts.append(args)
+        if "restart" in args and sum("restart" in a for a in attempts) == 1:
+            return SimpleNamespace(returncode=1, stdout="", stderr="failed")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+    result = pve.install(project, config, run=run, which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0)
+    assert result != 0
+    assert (app / "sender").read_bytes() == b"old compiled sender"
+    assert unit.read_text() == "old unit\n"
+    assert config.read_text() == "private configuration\n"
+    assert sum("restart" in a for a in attempts) == 2
+
+
+def test_failed_compiled_rollback_retains_backup_for_recovery(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from hwmonitor_mqtt.platforms.installers import pve
+
+    project, app, units = tmp_path / "project", tmp_path / "runtime" / "app", tmp_path / "units"
+    project.mkdir(); app.mkdir(parents=True); units.mkdir()
+    (project / "sender").write_bytes(b"new")
+    (app / "sender").write_bytes(b"old")
+    (units / pve.SERVICE_NAME).write_text("old unit\n")
+    monkeypatch.setattr(pve, "__compiled__", True, raising=False)
+    monkeypatch.setattr(pve, "APP_ROOT", str(app))
+    monkeypatch.setattr(pve, "SYSTEMD_DIR", str(units))
+    monkeypatch.setattr(pve, "readiness", lambda path: None)
+    def run(args, **kwargs):
+        return SimpleNamespace(returncode=int("restart" in args), stdout="", stderr="")
+    with pytest.raises(RuntimeError, match="rollback"):
+        pve.install(project, tmp_path / "pve.env", run=run, which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0)
+    backups = list(app.parent.glob("sender-rollback-*"))
+    assert len(backups) == 1
+    assert (backups[0] / "sender").read_bytes() == b"old"
+    assert (backups[0] / "unit").read_text() == "old unit\n"
+
+
+def test_compiled_native_install_keeps_service_identity_and_private_files(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from hwmonitor_mqtt.platforms.installers import pve
+
+    project, app, units = tmp_path / "project", tmp_path / "runtime" / "app", tmp_path / "units"
+    project.mkdir(); app.mkdir(parents=True); units.mkdir()
+    (project / "sender").write_bytes(b"new")
+    (project / ".env").write_text("secret\n")
+    config = tmp_path / "pve.env"
+    config.write_text("token\n")
+    monkeypatch.setattr(pve, "__compiled__", True, raising=False)
+    monkeypatch.setattr(pve, "APP_ROOT", str(app))
+    monkeypatch.setattr(pve, "SYSTEMD_DIR", str(units))
+    monkeypatch.setattr(pve, "readiness", lambda path: None)
+    def run(args, **kwargs):
+        return SimpleNamespace(returncode=3 if "is-active" in args and not (app / "sender").exists() else 1 if "is-enabled" in args else 0, stdout="", stderr="")
+    assert pve.install(project, config, run=run, which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0) == 0
+    unit = (units / pve.SERVICE_NAME).read_text()
+    assert "DynamicUser=yes" in unit
+    assert "ExecStart=" + str(app / "sender") in unit
+    assert (project / ".env").read_text() == "secret\n"
+    assert config.read_text() == "token\n"

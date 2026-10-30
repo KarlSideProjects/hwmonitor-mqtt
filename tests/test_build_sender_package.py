@@ -82,3 +82,17 @@ def test_entrypoint_starts_sender_without_module_reexecution(tmp_path):
     env = {**os.environ, "PYTHONPATH": str(tmp_path)}
     result = subprocess.run([sys.executable, str(script)], env=env, capture_output=True, text=True, check=True)
     assert result.stdout.strip() == "sender started"
+
+
+def test_entrypoint_passes_arguments_to_pve_bootstrap(tmp_path):
+    import os
+    from scripts.build_sender_package import write_entrypoint
+
+    package = tmp_path / "hwmonitor_mqtt" / "platforms"
+    package.mkdir(parents=True)
+    (package / "pve_bootstrap.py").write_text("def main(argv):\n    print(','.join(argv))\n    return 3\n")
+    script = tmp_path / "entrypoint.py"
+    write_entrypoint(script, "1.2.3", "a" * 40)
+    result = subprocess.run([sys.executable, str(script), "--pve-bootstrap", "--config", "settings"], env={**os.environ, "PYTHONPATH": str(tmp_path)}, capture_output=True, text=True)
+    assert result.returncode == 3
+    assert result.stdout.strip() == "--config,settings"
