@@ -1032,7 +1032,7 @@ async def main():
     except Exception as e:
         print(f"🚨 Runtime Error: {e}")
 
-if __name__ == "__main__":
+def run():
     # 確保環境變數有正確讀取，或是提供 fallback
     if not BROKER_HOST:
         print("❌ Error: BROKER_HOST is not set.")
@@ -1049,3 +1049,7 @@ if __name__ == "__main__":
             mqtt_client.loop_stop()
             mqtt_client.disconnect()
             print("Cleanup complete.")
+
+
+if __name__ == "__main__":
+    run()

@@ -5,7 +5,9 @@ import subprocess
 
 def command(project_root):
     compose = str(Path(project_root) / "docker-compose.linux.yml")
-    return ["docker", "compose", "-f", compose, "--profile", "agent", "up", "--build", "-d"]
+    override = Path(project_root) / "docker-compose.override.yml"
+    files = ["-f", compose] + (["-f", str(override)] if override.is_file() else [])
+    return ["docker", "compose", *files, "--profile", "agent", "up", "--build", "-d"]
 
 
 def preflight(which=shutil.which, run=subprocess.run):

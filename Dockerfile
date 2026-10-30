@@ -1,26 +1,12 @@
 # syntax=docker/dockerfile:1
-FROM python:3.11-slim
+FROM debian@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3
 
-# 更小鏡像 & 安裝依賴
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
-# 可選：timezone（若要）
-# RUN ln -snf /usr/share/zoneinfo/Asia/Taipei /etc/localtime && echo Asia/Taipei > /etc/timezone
-
-# 安裝必要套件與硬體監控工具
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    intel-gpu-tools \
-    pciutils \
-    procps \
-    smartmontools \
+    intel-gpu-tools pciutils procps smartmontools \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir psutil paho-mqtt python-dotenv
+ENV LANG=C.UTF-8
 
-# 複製程式
 WORKDIR /app
-COPY hwmonitor_mqtt /app/hwmonitor_mqtt
-
-# 預設執行
-CMD ["python", "-m", "hwmonitor_mqtt.agents.agent_sender_async"]
+COPY sender /app/sender
+CMD ["/app/sender"]
