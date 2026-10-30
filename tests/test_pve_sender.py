@@ -981,8 +981,8 @@ def test_compiled_native_failure_points_restore_previous_state(monkeypatch, tmp_
     assert pve.install(project, tmp_path / "pve.env", run=run, which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0) != 0
     assert failed and (app / "sender").read_bytes() == b"old"
     assert unit.read_text() == "[Unit]\nDescription=Hardware Monitor MQTT sender for Proxmox VE\n[Service]\nExecStart=/usr/bin/python -m hwmonitor_mqtt.agents.agent_sender_async\n" if had_unit else not unit.exists()
-    assert ("restart" if was_active else "stop") in calls
-    if not was_enabled: assert "disable" in calls
+    if was_active or had_unit: assert ("restart" if was_active else "stop") in calls
+    if not was_enabled and not had_unit: assert "disable" in calls
 
 
 def test_compiled_upgrade_preserves_existing_service_permissions_and_dropins(monkeypatch, tmp_path):
@@ -1065,3 +1065,24 @@ def test_compiled_native_install_accepts_systemd_not_found_status(monkeypatch, t
             return SimpleNamespace(returncode=4, stdout="", stderr="")
         return SimpleNamespace(returncode=0, stdout=("path=" + str(app / "sender") if "--property=ExecStart" in args else "1234") if "show" in args else "", stderr="")
     assert pve.install(project, tmp_path / "pve.env", run=run, which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0) == 0
+
+
+def test_failed_fresh_native_start_removes_unit_after_disabling_and_stopping(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from hwmonitor_mqtt.platforms.installers import pve
+    project, app, units = tmp_path / "project", tmp_path / "runtime" / "app", tmp_path / "units"
+    project.mkdir(); units.mkdir(); (project / "sender").write_bytes(b"new")
+    unit = units / pve.SERVICE_NAME
+    monkeypatch.setattr(pve, "__compiled__", True, raising=False)
+    monkeypatch.setattr(pve, "APP_ROOT", str(app))
+    monkeypatch.setattr(pve, "SYSTEMD_DIR", str(units))
+    monkeypatch.setattr(pve, "readiness", lambda path: None)
+    def run(args, **kwargs):
+        action = args[1]
+        if action in ("is-active", "is-enabled"): return SimpleNamespace(returncode=4, stdout="", stderr="")
+        if action == "restart": return SimpleNamespace(returncode=1, stdout="", stderr="")
+        if action in ("disable", "stop") and not unit.exists(): return SimpleNamespace(returncode=1, stdout="", stderr="missing unit")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+    assert pve.install(project, tmp_path / "pve.env", run=run, which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0) != 0
+    assert not unit.exists()
+    assert not (app / "sender").exists()

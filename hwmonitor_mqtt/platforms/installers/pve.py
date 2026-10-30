@@ -168,6 +168,7 @@ def install_compiled(project_root, config_file, systemctl, run):
         shutil.copy2(unit, backup / "unit")
     if override.exists():
         shutil.copy2(override, backup / "override")
+    started = False
     try:
         shutil.copy2(Path(project_root) / "sender", backup / "new")
         (backup / "new").chmod(0o755)
@@ -181,6 +182,8 @@ def install_compiled(project_root, config_file, systemctl, run):
         for args in ([systemctl, "daemon-reload"],
                      *([[systemctl, "enable", SERVICE_NAME]] if not existed else []),
                      [systemctl, "restart", SERVICE_NAME]):
+            if "restart" in args:
+                started = True
             if run(args, check=False).returncode:
                 raise RuntimeError("compiled sender startup failed")
         effective = run([systemctl, "show", "--property=ExecStart", "--value", SERVICE_NAME], check=False, capture_output=True, text=True)
@@ -198,6 +201,11 @@ def install_compiled(project_root, config_file, systemctl, run):
             previous_pid = pid
     except (OSError, RuntimeError):
         try:
+            preliminary = []
+            if not existed and started:
+                preliminary.append(run([systemctl, "stop", SERVICE_NAME], check=False).returncode)
+            if not existed and unit.exists():
+                preliminary.append(run([systemctl, "disable", SERVICE_NAME], check=False).returncode)
             if (backup / "sender").exists():
                 shutil.copy2(backup / "sender", backup / "restore-sender")
                 os.replace(backup / "restore-sender", target)
@@ -213,10 +221,9 @@ def install_compiled(project_root, config_file, systemctl, run):
             else:
                 override.unlink(missing_ok=True)
             rollback = [[systemctl, "daemon-reload"]]
-            if not enabled:
-                rollback.append([systemctl, "disable", SERVICE_NAME])
-            rollback.append([systemctl, "restart" if active else "stop", SERVICE_NAME])
-            results = [run(args, check=False).returncode for args in rollback]
+            if existed:
+                rollback.append([systemctl, "restart" if active else "stop", SERVICE_NAME])
+            results = preliminary + [run(args, check=False).returncode for args in rollback]
             if any(results):
                 raise RuntimeError("service recovery failed")
         except (OSError, RuntimeError) as error:
