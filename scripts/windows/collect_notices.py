@@ -107,7 +107,7 @@ def main():
             entries.append({"file": target, "source": str(item), "sha256": hashlib.sha256(content).hexdigest()})
         if not entries or name.lower() == "paho-mqtt":
             for content, source, source_hash in supplemental_notices(name, dist):
-                target = re.sub(r"[^a-zA-Z0-9_-]", "-", name) + f"-{len(entries)}.txt"
+                target = Path(source.split("#")[-1]).name if name.lower() == "paho-mqtt" else re.sub(r"[^a-zA-Z0-9_-]", "-", name) + f"-{len(entries)}.txt"
                 (args.output / target).write_bytes(content)
                 entries.append({"file": target, "source": source, "source_sha256": source_hash, "sha256": hashlib.sha256(content).hexdigest()})
         if not entries:

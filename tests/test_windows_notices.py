@@ -96,3 +96,24 @@ def test_paho_supplement_includes_both_upstream_license_texts(monkeypatch):
     monkeypatch.setattr(module, "fetch_verified", lambda *args: archive.getvalue())
     notices = module.supplemental_notices("paho-mqtt", SimpleNamespace(version="2.1.0"))
     assert [notice[0] for notice in notices] == list(content.values())
+
+
+def test_paho_terms_keep_the_filenames_referenced_by_wheel_notice(tmp_path, monkeypatch):
+    import importlib.util
+    from types import SimpleNamespace
+
+    path = Path(__file__).resolve().parents[1] / "scripts/windows/collect_notices.py"
+    spec = importlib.util.spec_from_file_location("collect_notices_names_test", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    wheel_notice = tmp_path / "LICENSE.txt"
+    wheel_notice.write_text("See epl-v20 and edl-v10")
+    python_notice = tmp_path / "python.txt"
+    python_notice.write_text("Python")
+    dist = SimpleNamespace(version="2.1.0", files=[Path("LICENSE.txt")], locate_file=lambda path: wheel_notice)
+    monkeypatch.setattr(module.importlib.metadata, "distribution", lambda name: dist)
+    monkeypatch.setattr(module, "supplemental_notices", lambda name, dist: [(b"edl", "https://example.invalid/sdist#paho/edl-v10", "a" * 64), (b"epl", "https://example.invalid/sdist#paho/epl-v20", "a" * 64)])
+    monkeypatch.setattr(sys, "argv", [str(path), "--output", str(tmp_path / "out"), "--inventory", str(tmp_path / "inventory"), "--python-license", str(python_notice), "paho-mqtt"])
+    module.main()
+    assert (tmp_path / "out/edl-v10").read_bytes() == b"edl"
+    assert (tmp_path / "out/epl-v20").read_bytes() == b"epl"
