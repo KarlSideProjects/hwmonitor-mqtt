@@ -28,3 +28,37 @@ def test_capture_records_actual_extracted_payload(tmp_path):
     executable.write_text("import os,time\nfrom pathlib import Path\np=Path(os.environ['TMPDIR'])/'onefile_1'\np.mkdir()\n(p/'payload').write_bytes(b'build one')\ntime.sleep(2)\n")
     capture([sys.executable, str(executable)], dist, tmp_path / 'runtime', timeout=1)
     assert (tmp_path / 'runtime/payload').read_bytes() == b'build one'
+
+
+def test_capture_temporary_cleanup_retries_transient_lock(monkeypatch):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
+    import capture_sender_build as capture_module
+    calls = []
+    class Directory:
+        name = 'temporary'
+        def cleanup(self):
+            calls.append(1)
+            if len(calls) < 3:
+                raise PermissionError('locked')
+    monkeypatch.setattr(capture_module.tempfile, 'TemporaryDirectory', lambda **kwargs: Directory())
+    monkeypatch.setattr(capture_module.time, 'sleep', lambda delay: None)
+    with capture_module.capture_directory() as path:
+        assert path == Path('temporary')
+    assert len(calls) == 3
+
+
+def test_capture_temporary_cleanup_fails_if_lock_persists(monkeypatch):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
+    import capture_sender_build as capture_module
+    calls = []
+    class Directory:
+        name = 'temporary'
+        def cleanup(self):
+            calls.append(1)
+            raise PermissionError('locked')
+    monkeypatch.setattr(capture_module.tempfile, 'TemporaryDirectory', lambda **kwargs: Directory())
+    monkeypatch.setattr(capture_module.time, 'sleep', lambda delay: None)
+    with pytest.raises(PermissionError):
+        with capture_module.capture_directory():
+            pass
+    assert len(calls) == 100
