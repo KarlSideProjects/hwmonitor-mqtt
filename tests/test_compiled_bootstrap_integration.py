@@ -51,7 +51,7 @@ def release(tmp_path):
     server.shutdown(); server.server_close(); thread.join()
 
 
-def run_installer(tmp_path, port, *, existing=True, fail=False, input_text="", native_active=False, mutate_stage=False, target_pve=False, unstable=False, rollback_failure=False):
+def run_installer(tmp_path, port, *, existing=True, fail=False, input_text="", native_active=False, mutate_stage=False, target_pve=False, unstable=False, rollback_failure=False, reuse=False, stopped=False, race=False):
     (tmp_path / "bin").mkdir(exist_ok=True)
     docker = tmp_path / "bin" / "docker"
     docker.write_text('''#!/bin/sh
@@ -59,7 +59,7 @@ printf '%s\\n' "$*" >>/work/docker-calls
 case "$1 $2" in
  'compose version') exit 0;;
  'inspect sys-agent') if [ "$FAKE_EXISTING" = 1 ]; then exit 0; else echo 'No such object' >&2; exit 1; fi;;
- 'inspect --format') case "$3" in *State.Running*) if [ "$FAKE_UNSTABLE" = 1 ]; then echo 'false 0 1'; else echo 'true 1234 0'; fi;; *Config.Image*) echo old:tag;; *) echo sha256:old;; esac; exit 0;;
+ 'inspect --format') case "$3" in *State.Status*) if [ "$FAKE_STOPPED" = 1 ]; then echo exited; else echo running; fi;; *State.Running*) if [ "$FAKE_UNSTABLE" = 1 ]; then echo 'false 0 1'; else echo 'true 1234 0'; fi;; *Config.Image*) echo old:tag;; *) echo sha256:old;; esac; exit 0;;
  'compose -f') exit "$FAKE_EXIT";;
  'tag '*) exit "$FAKE_TAG_EXIT";;
  *) exit 0;;
@@ -67,6 +67,10 @@ esac
 ''')
     docker.chmod(0o755)
     virt = tmp_path / "bin" / "systemd-detect-virt"; virt.write_text("#!/bin/sh\nexit 1\n"); virt.chmod(0o755)
+    if race:
+        mkdir = tmp_path / "bin" / "mkdir"
+        mkdir.write_text("#!/bin/sh\nif [ \"$1\" = /work/root ]; then /bin/mkdir /work/root; echo untouched >/work/root/sentinel; fi\nexec /bin/mkdir \"$@\"\n")
+        mkdir.chmod(0o755)
     if target_pve:
         for name, text in {"pveversion": "#!/bin/sh\necho pve-manager/9.2\n", "dpkg-query": "#!/bin/sh\necho install ok installed\n"}.items():
             path = tmp_path / "bin" / name; path.write_text(text); path.chmod(0o755)
@@ -87,11 +91,12 @@ exit "$result"
 ''')
         wrapper.chmod(0o755)
     root = tmp_path / "root"
-    if existing:
+    if existing and not reuse:
         root.mkdir()
+        root.chmod(0o755)
         for n, data in {".hwmonitor-mqtt-bootstrap": "", "sender": "old binary", ".env": "private settings", "Dockerfile": "old Dockerfile", "docker-compose.linux.yml": "old compose", "docker-compose.override.yml": "custom override"}.items():
             (root / n).write_text(data)
-    command = ["docker", "run", "--rm", "-i", "--network", "host", "-v", f"{BOOTSTRAP}:/bootstrap.sh:ro", "-v", f"{tmp_path}:/work", "-e", "HWMONITOR_BOOTSTRAP_ROOT=/work/root", "-e", f"HWMONITOR_TEST_RELEASE_BASE=http://127.0.0.1:{port}", "-e", f"FAKE_EXISTING={int(existing)}", "-e", f"FAKE_EXIT={23 if fail else 0}", "-e", f"FAKE_UNSTABLE={int(unstable)}", "-e", f"FAKE_TAG_EXIT={int(rollback_failure)}", "-e", "PATH=/work/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "protected21-bootstrap-test:local", "bash", "-c", "rm -f /.dockerenv; exec bash /bootstrap.sh"]
+    command = ["docker", "run", "--rm", "-i", "--network", "host", "-v", f"{BOOTSTRAP}:/bootstrap.sh:ro", "-v", f"{tmp_path}:/work", "-e", "HWMONITOR_BOOTSTRAP_ROOT=/work/root", "-e", f"HWMONITOR_TEST_RELEASE_BASE=http://127.0.0.1:{port}", "-e", f"FAKE_EXISTING={int(existing)}", "-e", f"FAKE_EXIT={23 if fail else 0}", "-e", f"FAKE_UNSTABLE={int(unstable)}", "-e", f"FAKE_TAG_EXIT={int(rollback_failure)}", "-e", f"FAKE_STOPPED={int(stopped)}", "-e", "PATH=/work/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "protected21-bootstrap-test:local", "bash", "-c", "rm -f /.dockerenv; [ ! -d /work/root ] || chown root:root /work/root; exec bash /bootstrap.sh"]
     result = subprocess.run(command, input=input_text, text=True, capture_output=True, timeout=90)
     return result, root
 
@@ -194,3 +199,49 @@ def test_failed_rollback_retains_recovery_backup(release, tmp_path):
     assert len(backups) == 1
     content = subprocess.check_output(["docker", "run", "--rm", "-v", f"{tmp_path}:/work:ro", "protected21-bootstrap-test:local", "cat", f"/work/root/{backups[0].name}/sender"], text=True)
     assert content == "old binary"
+
+
+def test_failed_first_install_can_retry_without_losing_mqtt_settings(release, tmp_path):
+    port, _, manifest = release
+    result, root = run_installer(tmp_path, port, existing=False, fail=True, input_text="broker.example\n1883\nuser\nsecret\n")
+    assert result.returncode != 0
+    before = subprocess.check_output(["docker", "run", "--rm", "-v", f"{tmp_path}:/work:ro", "protected21-bootstrap-test:local", "cat", "/work/root/.env"])
+    result, root = run_installer(tmp_path, port, existing=False, reuse=True)
+    assert result.returncode == 0, result.stderr
+    after = subprocess.check_output(["docker", "run", "--rm", "-v", f"{tmp_path}:/work:ro", "protected21-bootstrap-test:local", "cat", "/work/root/.env"])
+    assert before == after
+    assert subprocess.check_output([str(root / "sender"), "--version"], text=True).strip() == manifest["version"] + " " + manifest["source"]
+
+
+def test_failed_upgrade_preserves_previously_stopped_container(release, tmp_path):
+    port, _, _ = release
+    result, root = run_installer(tmp_path, port, fail=True, stopped=True)
+    assert result.returncode != 0
+    assert (root / "sender").read_text() == "old binary"
+    assert (tmp_path / "docker-calls").exists(), result.stderr
+    calls = (tmp_path / "docker-calls").read_text()
+    assert "create --no-build" in calls
+    assert "up --no-build" not in calls
+
+
+def test_symlinked_install_lock_cannot_modify_its_target(release, tmp_path):
+    port, _, _ = release
+    root = tmp_path / "root"
+    root.mkdir(mode=0o755)
+    (root / ".hwmonitor-mqtt-bootstrap").touch()
+    target = tmp_path / "sentinel"
+    target.write_text("preserve")
+    (root / ".sender-install.lock").symlink_to("/work/sentinel")
+    result, _ = run_installer(tmp_path, port, reuse=True)
+    assert result.returncode != 0
+    assert target.read_text() == "preserve"
+    assert not (tmp_path / "docker-calls").exists()
+
+
+def test_concurrent_install_root_creation_is_not_claimed(release, tmp_path):
+    port, _, _ = release
+    result, root = run_installer(tmp_path, port, existing=False, race=True)
+    assert result.returncode != 0
+    assert (root / "sentinel").read_text().strip() == "untouched"
+    assert not (root / ".hwmonitor-mqtt-bootstrap").exists()
+    assert not (tmp_path / "docker-calls").exists()

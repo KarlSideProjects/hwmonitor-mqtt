@@ -49,3 +49,16 @@ def test_unrecognized_directory_is_not_modified_or_downloaded(tmp_path):
     assert result.returncode != 0
     assert (root / "keep").read_text() == "user data"
     assert not (tmp_path / "downloaded").exists()
+
+
+def test_rejects_symlinked_marker_without_contacting_release(tmp_path):
+    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
+    for name, body in {"uname": "#!/bin/sh\necho x86_64\n", "id": "#!/bin/sh\necho 0\n", "curl": f"#!/bin/sh\ntouch '{tmp_path / 'downloaded'}'\nexit 1\n"}.items():
+        tool = bin_dir / name; tool.write_text(body); tool.chmod(0o755)
+    root = tmp_path / "root"; root.mkdir()
+    target = tmp_path / "target"; target.write_text("marker")
+    (root / ".hwmonitor-mqtt-bootstrap").symlink_to(target)
+    result = subprocess.run(["bash", str(BOOTSTRAP)], env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "HWMONITOR_BOOTSTRAP_ROOT": str(root)}, text=True, capture_output=True)
+    assert result.returncode != 0
+    assert target.read_text() == "marker"
+    assert not (tmp_path / "downloaded").exists()

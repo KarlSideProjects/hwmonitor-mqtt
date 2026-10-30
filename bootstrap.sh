@@ -7,7 +7,7 @@ for tool in curl jq tar sha256sum runuser od flock; do
     command -v "$tool" >/dev/null || { echo "Install the required tool: $tool" >&2; exit 1; }
 done
 root=${HWMONITOR_BOOTSTRAP_ROOT:-/opt/hwmonitor-mqtt}
-if [[ -L $root || ( -e $root && ( ! -d $root || ! -f $root/.hwmonitor-mqtt-bootstrap ) ) ]]; then
+if [[ -L $root || ( -e $root && ( ! -d $root || ! -f $root/.hwmonitor-mqtt-bootstrap || -L $root/.hwmonitor-mqtt-bootstrap ) ) ]]; then
     echo "Refusing unrecognized installation directory: $root" >&2
     exit 1
 fi
@@ -75,8 +75,18 @@ if [[ $target == linux ]] && command -v systemctl >/dev/null 2>&1; then
     fi
 fi
 pve_config=${PVE_CONFIG_FILE:-/etc/hwmonitor-mqtt/pve.env}
-mkdir -p "$root"
-exec 9>"$root/.sender-install.lock"
+if [[ ! -e $root ]]; then
+    mkdir -p "$(dirname "$root")"
+    mkdir "$root" || { echo 'Installation directory was created concurrently; retry.' >&2; exit 1; }
+    chmod 0755 "$root"
+    (set -o noclobber; : > "$root/.hwmonitor-mqtt-bootstrap") || { echo 'Cannot create installation marker.' >&2; exit 1; }
+fi
+[[ ! -L $root && -d $root && -f $root/.hwmonitor-mqtt-bootstrap && ! -L $root/.hwmonitor-mqtt-bootstrap && $(stat -c %u "$root") == 0 ]] || { echo 'Unsafe installation directory or marker.' >&2; exit 1; }
+mode=$(stat -c %a "$root")
+(( (8#$mode & 8#022) == 0 )) || { echo 'Installation directory must not be group/world writable.' >&2; exit 1; }
+lock=$root/.sender-install.lock
+[[ ! -L $lock && ( ! -e $lock || ( -f $lock && $(stat -c %u "$lock") == 0 ) ) ]] || { echo 'Unsafe installation lock.' >&2; exit 1; }
+exec 9>>"$lock"
 flock -n 9 || { echo "Another sender installation is running." >&2; exit 1; }
 if [[ $target == pve ]]; then
     if command -v docker >/dev/null 2>&1; then
@@ -132,11 +142,13 @@ for file in "${files[@]}"; do
     mkdir -p "$root/$(dirname "$file")" "$backup/$(dirname "$file")"
     if [[ -e $root/$file ]]; then cp -p "$root/$file" "$backup/$file"; else touch "$backup/$file.absent"; fi
 done
-old_image= old_ref= docker_attempted=0
+old_image= old_ref= old_state= docker_attempted=0
 if [[ $target == linux ]]; then
     if docker inspect sys-agent >/dev/null 2>"$scratch/docker-error"; then
         old_image=$(docker inspect --format '{{.Image}}' sys-agent)
         old_ref=$(docker inspect --format '{{.Config.Image}}' sys-agent)
+        old_state=$(docker inspect --format '{{.State.Status}}' sys-agent)
+        [[ $old_state == running || $old_state == exited || $old_state == created ]] || { echo 'Existing Docker sender is in an unsupported state.' >&2; exit 1; }
     elif ! grep -q 'No such object' "$scratch/docker-error"; then
         echo 'Cannot verify the existing Docker sender.' >&2
         exit 1
@@ -152,7 +164,11 @@ rollback() {
             docker tag "$old_image" "$old_ref" || return 1
             local compose=(-f "$root/docker-compose.linux.yml")
             [[ ! -f $root/docker-compose.override.yml ]] || compose+=(-f "$root/docker-compose.override.yml")
-            SENDER_HOSTNAME=$(hostname) docker compose --project-directory "$root" "${compose[@]}" --profile agent up --no-build -d || return 1
+            if [[ $old_state == running ]]; then
+                SENDER_HOSTNAME=$(hostname) docker compose --project-directory "$root" "${compose[@]}" --profile agent up --no-build -d || return 1
+            else
+                SENDER_HOSTNAME=$(hostname) docker compose --project-directory "$root" "${compose[@]}" --profile agent create --no-build || return 1
+            fi
         elif docker inspect sys-agent >/dev/null 2>&1; then
             docker rm -f sys-agent >/dev/null || return 1
         fi
