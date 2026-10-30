@@ -942,7 +942,9 @@
         "outer_launcher_sha256": "274f990c1f5b1cc01a08bbf430bf3cdcb5098e246f67a71942e908d22830230d",
         "sender_dll_sha256": "ad96bce69218df04bf75030bb94ac4de30681a5e9f7a14d2ecfdecaf71e5df16",
         "observations": "Both PE files import VCRUNTIME140.dll and Windows UCRT API-set DLLs. The launcher also imports KERNEL32 and SHELL32; the generated DLL imports KERNEL32 and python313.dll.",
-        "specific_unresolved_origin": "Exact compiler and CRT build identity, and any statically linked runtime code, require the candidate compiler receipt and link provenance. The observed Microsoft VCRuntime DLL redistribution entitlement remains unresolved."
+        "specific_unresolved_origin": "Any statically linked runtime code requires link provenance. The observed Microsoft VCRuntime and MFC redistribution entitlement remains unresolved.",
+        "observed_compiler": "Native run 41133228244 identifies MSVC cl 14.3 in toolset 14.44.35207 for both backend and onefile.",
+        "mfc_report_origin": "The b5 build report identifies mfc140u.dll from VC Redist MSVC 14.44.35112; this is a separate identity from the compiler toolset and from the earlier 53e wheel match."
       }
     }
   },
@@ -951,7 +953,7 @@
     "Capture exact selected wheel archive filenames and SHA-256 for each platform, including compiler inputs.",
     "Bind a fresh native member inventory and compiler/toolchain identities to each actual candidate.",
     "Determine whether the stripped Linux sender.bin and onefile launchers contain static libgcc routines and identify their exact input archive; establish any associated conditions from the identified files.",
-    "Identify exact Windows compiler and CRT build inputs and any statically linked runtime code.",
+    "Identify any statically linked Windows runtime code and retain exact selected compiler and CRT input receipts.",
     "Confirm any native build modifications and corresponding change notices.",
     "Establish Microsoft entitlement or validate the DLL-exclusion acquisition path on a clean host.",
     "Update producer and inspector to ship the corrected bundles and validate final archive bytes."
