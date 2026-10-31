@@ -73,6 +73,13 @@ def test_link_driver_preserves_args_and_rejects_duplicate_or_missing_evidence(tm
     gcc.write_text('''#!/usr/bin/env python3
 import pathlib, sys
 args = sys.argv[1:]
+if args == ['-print-prog-name=cc1']:
+    print(__file__); raise SystemExit
+if args == ['-dumpfullversion', '-dumpversion']:
+    print('1.0'); raise SystemExit
+out = pathlib.Path(args[args.index('-o') + 1])
+out.parent.mkdir(parents=True, exist_ok=True)
+out.write_bytes(b'fake output')
 pathlib.Path('called.json').write_text(__import__('json').dumps(args))
 for item in args:
     if item.startswith('-Wl,-Map,'):
@@ -84,10 +91,10 @@ print(str(pathlib.Path(next(x.split('=', 1)[1] for x in args if x.startswith('-s
     state.mkdir()
     (state / 'entry.o').write_bytes(b'entry')
     (state / 'startup.specs').write_text('spec')
-    (state / 'inputs.json').write_text(json.dumps({'build_dir': str(tmp_path), 'object_sha256': '0' * 64}))
+    (state / 'inputs.json').write_text(json.dumps({'build_dir': str(tmp_path), 'object_sha256': '0' * 64, 'compiler': compiler.compiler_identity(str(gcc)), 'crt': {}}))
     with pytest.raises(ValueError):
         compiler.run_link(str(gcc), ['-o', str(tmp_path / 'sender'), 'one.o'], state, tmp_path)
-    (state / 'inputs.json').write_text(json.dumps({'build_dir': str(tmp_path), 'object_sha256': __import__('hashlib').sha256(b'entry').hexdigest()}))
+    (state / 'inputs.json').write_text(json.dumps({'build_dir': str(tmp_path), 'object_sha256': __import__('hashlib').sha256(b'entry').hexdigest(), 'compiler': compiler.compiler_identity(str(gcc)), 'crt': {}}))
     with pytest.raises(ValueError):
         compiler.run_link(str(gcc), ['-o', '/wrong/sender', 'one.o'], state, tmp_path)
     response = tmp_path / '@link_input.txt'
@@ -112,7 +119,11 @@ def test_prepare_checks_crt_paths_and_compiles_only_verified_entry(tmp_path):
     gcc.write_text('''#!/usr/bin/env python3
 import os, pathlib, sys
 a = sys.argv[1:]
-if a == ['-dumpspecs']:
+if a == ['-print-prog-name=cc1']:
+    print(__file__)
+elif a == ['-dumpfullversion', '-dumpversion']:
+    print('1.0')
+elif a == ['-dumpspecs']:
     print('*startfile:\\n' + os.environ['TEST_STARTFILE'] + '\\n')
 elif a[0].startswith('-print-file-name='):
     print(os.path.join(os.environ['TEST_CRT'], a[0].split('=', 1)[1]))
@@ -129,6 +140,10 @@ else:
     assert 'mov x2, x0' in (state / 'entry.h').read_text()
     assert (state / 'startup.specs').read_text().count(str(state / 'entry.o')) == 1
     compiler.verify_local_crt(state)
+    gcc.write_text(gcc.read_text() + '\n# changed compiler\n')
+    with pytest.raises(ValueError, match='compiler'):
+        compiler.verify_local_crt(state)
+    gcc.write_text(gcc.read_text().replace('\n# changed compiler\n', ''))
     (crt / 'crtn.o').write_bytes(b'changed')
     with pytest.raises(ValueError):
         compiler.verify_local_crt(state)
@@ -144,15 +159,40 @@ def test_link_evidence_requires_both_phases_and_detects_tampering(tmp_path):
     (state / 'entry.o').write_bytes(b'entry')
     (state / 'startup.specs').write_text(compiler.startfile_spec('*startfile:\n' + STARTFILE + '\n', str(state / 'entry.o')))
     (state / 'inputs.json').write_text(json.dumps({'startup': compiler.verified_inputs(ROOT / 'scripts/linux_arm64/startup'), 'glue_sha256': 'b' * 64, 'build_dir': str(tmp_path), 'object_sha256': __import__('hashlib').sha256(b'entry').hexdigest(), 'crt': {name: {'path': '/x/' + name, 'sha256': 'a' * 64} for name in ('crti.o', 'crtbeginS.o', 'crtendS.o', 'crtn.o')}}))
+    inputs = json.loads((state / 'inputs.json').read_text())
+    inputs['compiler'] = {'path': '/usr/bin/gcc', 'sha256': 'a' * 64, 'cc1_path': '/usr/lib/cc1', 'cc1_sha256': 'b' * 64, 'version': '1.0'}
+    (state / 'inputs.json').write_text(json.dumps(inputs))
     for phase in ('backend', 'onefile'):
         (state / f'{phase}.argv.json').write_text(json.dumps({'cwd': str(tmp_path), 'args': ['-o', str(tmp_path / ('sender_entrypoint.dist/sender.bin' if phase == 'backend' else 'sender')), 'one.o']}))
         selected = [str(state / 'entry.o'), *('/x/' + name for name in ('crti.o', 'crtbeginS.o', 'crtendS.o', 'crtn.o'))]
         (state / f'{phase}.trace').write_text('\n'.join(selected) + '\n')
         (state / f'{phase}.map').write_text('\n'.join(selected) + '\n')
+        data = phase.encode()
+        (state / f'{phase}.raw').write_bytes(data)
+        names = [f'{phase}.argv.json', f'{phase}.map', f'{phase}.trace']
+        metadata = {'phase': phase, 'output': str(tmp_path / ('sender_entrypoint.dist/sender.bin' if phase == 'backend' else 'sender')), 'size': len(data), 'sha256': __import__('hashlib').sha256(data).hexdigest(), 'evidence': {name: __import__('hashlib').sha256((state / name).read_bytes()).hexdigest() for name in names}}
+        (state / f'{phase}.output.json').write_text(json.dumps(metadata))
     header = state / 'entry.h'
     raw = (ROOT / 'scripts/linux_arm64/startup/crt_arch.h').read_text()
     header.write_text(raw.replace('"\tmov x0, sp\\n"', '"\tmov x2, x0\\n"\n"\tmov x0, sp\\n"'))
     evidence = compiler.link_evidence(state)
+    raw_output = state / 'backend.raw'
+    original_output = raw_output.read_bytes()
+    raw_output.write_bytes((state / 'onefile.raw').read_bytes())
+    with pytest.raises(ValueError):
+        compiler.link_evidence(state)
+    raw_output.write_bytes(original_output)
+    metadata_path = state / 'backend.output.json'
+    original_metadata = metadata_path.read_text()
+    swapped = (state / 'onefile.raw').read_bytes()
+    raw_output.write_bytes(swapped)
+    metadata = json.loads(original_metadata)
+    metadata.update(size=len(swapped), sha256=__import__('hashlib').sha256(swapped).hexdigest())
+    metadata_path.write_text(json.dumps(metadata))
+    with pytest.raises(ValueError, match='evidence mismatch'):
+        compiler.verify_link_evidence(state, evidence)
+    raw_output.write_bytes(original_output)
+    metadata_path.write_text(original_metadata)
     (state / 'unrelated').write_text('unexpected')
     with pytest.raises(ValueError):
         compiler.link_evidence(state)
@@ -243,3 +283,61 @@ def test_response_file_rejects_ambiguous_escaping(tmp_path):
     (tmp_path / 'args').write_text(r'one\ two.o')
     with pytest.raises(ValueError):
         compiler.classify(['-o', str(tmp_path / 'sender'), '@args'], tmp_path)
+
+
+def test_successful_link_without_output_is_rejected(tmp_path):
+    import hashlib
+    import json
+    gcc = tmp_path / 'gcc'
+    gcc.write_text('''#!/usr/bin/env python3
+import pathlib, sys
+if sys.argv[1:] == ['-print-prog-name=cc1']:
+    print(__file__); raise SystemExit
+if sys.argv[1:] == ['-dumpfullversion', '-dumpversion']:
+    print('1.0'); raise SystemExit
+state = pathlib.Path(next(x.split('=', 1)[1] for x in sys.argv if x.startswith('-specs='))).parent
+(state / 'backend.map').write_text(str(state / 'entry.o'))
+print(state / 'entry.o')
+''')
+    gcc.chmod(0o755)
+    state = tmp_path / 'state'
+    state.mkdir()
+    (state / 'entry.o').write_bytes(b'entry')
+    (state / 'inputs.json').write_text(json.dumps({'build_dir': str(tmp_path), 'object_sha256': hashlib.sha256(b'entry').hexdigest(), 'compiler': compiler.compiler_identity(str(gcc)), 'crt': {}}))
+    with pytest.raises(ValueError):
+        compiler.run_link(str(gcc), ['-o', str(tmp_path / 'sender_entrypoint.dist/sender.bin'), 'one.o'], state, tmp_path)
+
+
+@pytest.mark.parametrize('kind', ['symlink', 'empty', 'oversize', 'directory'])
+def test_link_rejects_invalid_output(tmp_path, kind):
+    import hashlib
+    import json
+    gcc = tmp_path / 'gcc'
+    gcc.write_text('''#!/usr/bin/env python3
+import pathlib, sys
+args = sys.argv[1:]
+if args == ['-print-prog-name=cc1']:
+    print(__file__); raise SystemExit
+if args == ['-dumpfullversion', '-dumpversion']:
+    print('1.0'); raise SystemExit
+state = pathlib.Path(next(x.split('=', 1)[1] for x in args if x.startswith('-specs='))).parent
+(state / 'onefile.map').write_text(str(state / 'entry.o'))
+print(state / 'entry.o')
+''')
+    gcc.chmod(0o755)
+    state = tmp_path / 'state'
+    state.mkdir()
+    (state / 'entry.o').write_bytes(b'entry')
+    (state / 'inputs.json').write_text(json.dumps({'build_dir': str(tmp_path), 'object_sha256': hashlib.sha256(b'entry').hexdigest(), 'compiler': compiler.compiler_identity(str(gcc)), 'crt': {}}))
+    output = tmp_path / 'sender'
+    if kind == 'symlink':
+        output.symlink_to(state / 'entry.o')
+    elif kind == 'empty':
+        output.touch()
+    elif kind == 'oversize':
+        with output.open('wb') as file:
+            file.truncate(128 * 1024 * 1024 + 1)
+    else:
+        output.mkdir()
+    with pytest.raises(ValueError, match='link output'):
+        compiler.run_link(str(gcc), ['-o', str(output), 'one.o'], state, tmp_path)

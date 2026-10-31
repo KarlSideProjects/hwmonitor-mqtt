@@ -78,6 +78,23 @@ def verified_inputs(startup):
     return result
 
 
+def compiler_identity(gcc, env=None):
+    import subprocess
+    path = Path(os.path.abspath(gcc))
+    cc1 = Path(subprocess.check_output([gcc, '-print-prog-name=cc1'], env=env, text=True).strip()).resolve(strict=True)
+    version = subprocess.check_output([gcc, '-dumpfullversion', '-dumpversion'], env=env, text=True).strip()
+    if not path.is_file() or not cc1.is_file() or not version or len(version) > 256 or len(str(path)) > 4096 or len(str(cc1)) > 4096:
+        raise ValueError('invalid compiler identity')
+    return {'path': str(path), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+            'cc1_path': str(cc1), 'cc1_sha256': hashlib.sha256(cc1.read_bytes()).hexdigest(), 'version': version}
+
+
+def verify_compiler(inputs, gcc=None):
+    identity = inputs['compiler']
+    if compiler_identity(gcc or identity['path']) != identity:
+        raise ValueError('compiler identity changed')
+
+
 def run_link(gcc, args, state, cwd):
     import json
     import subprocess
@@ -86,6 +103,8 @@ def run_link(gcc, args, state, cwd):
     phase = classify(args, cwd, build_dir=inputs['build_dir'])
     if phase is None:
         return subprocess.run([gcc, *args], cwd=cwd).returncode
+    verify_local_crt(state)
+    verify_compiler(inputs, gcc)
     if hashlib.sha256((state / 'entry.o').read_bytes()).hexdigest() != inputs['object_sha256']:
         raise ValueError('ARM entry object changed')
     marker = state / (phase + '.argv.json')
@@ -109,12 +128,35 @@ def run_link(gcc, args, state, cwd):
         raise ValueError('ARM entry object changed')
     if any((cwd / arg[1:]).read_bytes() != (state / f'{phase}.response.{index}').read_bytes() for index, arg in enumerate(response_args)):
         raise ValueError('response file changed during link')
+    verify_local_crt(state)
+    verify_compiler(inputs, gcc)
     entry = str(state / 'entry.o')
     trace = result.stdout.decode(errors='replace').splitlines()
     if trace.count(entry) != 1 or not map_file.is_file() or entry not in map_file.read_text(errors='replace'):
         raise ValueError('missing startup link evidence')
     if any(re.search(r'(^|/)(?:S|r|g)?crt1\.o(?:\s|$)', line) for line in trace):
         raise ValueError('forbidden GNU startup object')
+    expanded = []
+    for arg in args:
+        expanded.extend(shlex.split((cwd / arg[1:]).read_text(), posix=True) if arg.startswith('@') else [arg])
+    output_path = Path(os.path.abspath(cwd / expanded[expanded.index('-o') + 1]))
+    import stat
+    try:
+        fd = os.open(output_path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError as error:
+        raise ValueError('invalid link output') from error
+    info = os.fstat(fd)
+    if not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= 128 * 1024 * 1024:
+        os.close(fd)
+        raise ValueError('invalid link output')
+    with os.fdopen(fd, 'rb') as output:
+        data = output.read(128 * 1024 * 1024 + 1)
+    if len(data) != info.st_size:
+        raise ValueError('link output changed')
+    (state / (phase + '.raw')).write_bytes(data)
+    metadata = {'phase': phase, 'output': str(output_path), 'size': len(data), 'sha256': hashlib.sha256(data).hexdigest(),
+                'evidence': {name: hashlib.sha256((state / name).read_bytes()).hexdigest() for name in [phase + '.argv.json', phase + '.map', phase + '.trace', *(f'{phase}.response.{i}' for i in range(len(response_args)))]}}
+    (state / (phase + '.output.json')).write_text(json.dumps(metadata, sort_keys=True) + '\n', encoding='utf-8')
     return 0
 
 
@@ -122,6 +164,7 @@ def prepare(gcc, startup, state, env, build_dir):
     import json
     import subprocess
     inputs = verified_inputs(startup)
+    identity = compiler_identity(gcc, env)
     state.mkdir(mode=0o700)
     header = (startup / 'crt_arch.h').read_text(encoding='utf-8')
     original = '"\tmov x0, sp\\n"'
@@ -139,13 +182,17 @@ def prepare(gcc, startup, state, env, build_dir):
     subprocess.run([gcc, '-fPIE', '-fno-stack-protector', '-fno-stack-clash-protection', '-fno-profile-arcs',
                     '-fno-instrument-functions', '-I' + str(state), '-c', str(startup / 'entry.c'),
                     '-o', str(state / 'entry.o')], env=env, check=True)
-    (state / 'inputs.json').write_text(json.dumps({'startup': inputs, 'crt': crt, 'build_dir': str(build_dir), 'object_sha256': hashlib.sha256((state / 'entry.o').read_bytes()).hexdigest(), 'glue_sha256': hashlib.sha256((startup / 'entry.c').read_bytes()).hexdigest()}, sort_keys=True) + '\n', encoding='utf-8')
+    if compiler_identity(gcc, env) != identity:
+        raise ValueError('compiler identity changed')
+    (state / 'inputs.json').write_text(json.dumps({'startup': inputs, 'crt': crt, 'compiler': identity, 'build_dir': str(build_dir), 'object_sha256': hashlib.sha256((state / 'entry.o').read_bytes()).hexdigest(), 'glue_sha256': hashlib.sha256((startup / 'entry.c').read_bytes()).hexdigest()}, sort_keys=True) + '\n', encoding='utf-8')
 
 
 def verify_local_crt(state):
     import json
     try:
-        crt = json.loads((state / 'inputs.json').read_text(encoding='utf-8'))['crt']
+        inputs = json.loads((state / 'inputs.json').read_text(encoding='utf-8'))
+        verify_compiler(inputs)
+        crt = inputs['crt']
         for value in crt.values():
             if hashlib.sha256(Path(value['path']).read_bytes()).hexdigest() != value['sha256']:
                 raise ValueError('CRT changed during build')
@@ -161,8 +208,11 @@ def link_evidence(state):
             raise ValueError('invalid ARM evidence path')
         expected_files = {'inputs.json', 'entry.h', 'entry.o', 'startup.specs'}
         inputs = json.loads((state / 'inputs.json').read_text(encoding='utf-8'))
-        if set(inputs) != {'startup', 'crt', 'glue_sha256', 'build_dir', 'object_sha256'} or not re.fullmatch(r'[a-f0-9]{64}', inputs['glue_sha256']):
+        if set(inputs) != {'startup', 'crt', 'compiler', 'glue_sha256', 'build_dir', 'object_sha256'} or not re.fullmatch(r'[a-f0-9]{64}', inputs['glue_sha256']):
             raise ValueError('invalid ARM input evidence')
+        identity = inputs['compiler']
+        if set(identity) != {'path', 'sha256', 'cc1_path', 'cc1_sha256', 'version'} or any(not isinstance(identity[k], str) or not identity[k] or len(identity[k]) > 4096 for k in identity) or len(identity['version']) > 256 or any(not re.fullmatch(r'[a-f0-9]{64}', identity[k]) for k in ('sha256', 'cc1_sha256')) or not all(Path(identity[k]).is_absolute() for k in ('path', 'cc1_path')):
+            raise ValueError('invalid compiler identity')
         if hashlib.sha256((state / 'entry.h').read_bytes()).hexdigest() != 'fc2fe4b6503dbfb4d4c95731609236c744c32400fbb63eb7002fce2975ca8a1c':
             raise ValueError('invalid generated ARM entry')
         if inputs['startup'] != ARM_STARTUP:
@@ -185,7 +235,13 @@ def link_evidence(state):
                 raise ValueError('invalid compiler invocation')
             response_names = [f'{phase}.response.{i}' for i in range(sum(arg.startswith('@') for arg in invocation['args']))]
             expected_files.update(response_names)
-            expected_files.update({phase + '.argv.json', phase + '.trace', phase + '.map'})
+            expected_files.update({phase + '.argv.json', phase + '.trace', phase + '.map', phase + '.raw', phase + '.output.json'})
+            metadata = json.loads((state / (phase + '.output.json')).read_text(encoding='utf-8'))
+            raw = (state / (phase + '.raw')).read_bytes()
+            expected_output = str(Path(inputs['build_dir']) / ('sender_entrypoint.dist/sender.bin' if phase == 'backend' else 'sender'))
+            bound = [phase + '.argv.json', phase + '.map', phase + '.trace', *response_names]
+            if metadata != {'phase': phase, 'output': expected_output, 'size': len(raw), 'sha256': hashlib.sha256(raw).hexdigest(), 'evidence': {name: hashlib.sha256((state / name).read_bytes()).hexdigest() for name in bound}} or not 0 < len(raw) <= 128 * 1024 * 1024:
+                raise ValueError('invalid link output evidence')
             responses = [(state / name).read_bytes() for name in response_names]
             if classify(invocation['args'], Path(invocation['cwd']), responses, inputs['build_dir']) != phase:
                 raise ValueError('compiler phase mismatch')
