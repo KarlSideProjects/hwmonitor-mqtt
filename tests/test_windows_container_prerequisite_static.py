@@ -30,3 +30,13 @@ def test_container_result_and_runtime_inventory_guards():
     assert "$result.positive -cne 'passed: prerequisite check and unchanged inventory'" in script and '$result.failure' in script
     assert 'WOW6432Node' in script and 'CurrentVersion\\Uninstall' in script
     assert "Microsoft Visual C\\+\\+" in script and 'Redistributable|Runtime' in script
+
+
+def test_evidence_copy_preserves_state_and_uses_new_directory():
+    script = (ROOT / 'tests/windows_container_prerequisite.ps1').read_text()
+    assert script.index("Join-Path $EvidenceDir 'state.json'") < script.index('docker cp ')
+    assert "startExitCode = $exitCode; inspectExitCode = $inspectExitCode; state = $state" in script
+    assert "if (Test-Path -LiteralPath $recovered)" in script
+    assert 'docker cp "${name}:C:\\qa-evidence" $recovered' in script
+    assert "Join-Path $recovered 'container.json'" in script
+    assert 'Get-ChildItem -LiteralPath $EvidenceDir -Recurse -File' in script

@@ -95,15 +95,18 @@ try {
     $exitCode = $LASTEXITCODE
     $state = docker inspect --format '{{json .State}}' $name | ConvertFrom-Json
     $inspectExitCode = $LASTEXITCODE
-    docker cp "${name}:C:\qa-evidence\." $EvidenceDir
+    @{ startExitCode = $exitCode; inspectExitCode = $inspectExitCode; state = $state } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $EvidenceDir 'state.json') -Encoding UTF8
+    $recovered = Join-Path $EvidenceDir 'recovered'
+    if (Test-Path -LiteralPath $recovered) { throw 'Evidence destination already exists' }
+    docker cp "${name}:C:\qa-evidence" $recovered
     if ($LASTEXITCODE -ne 0) { throw 'Container evidence unavailable' }
     if ($inspectExitCode -ne 0 -or $null -eq $state -or $state.Running -ne $false -or $state.Status -cne 'exited' -or $state.ExitCode -ne 0) { throw 'Container state did not establish a successful exit' }
     if ($exitCode -ne 0) { throw "Container test failed: $exitCode" }
-    $result = Get-Content -LiteralPath (Join-Path $EvidenceDir 'container.json') -Raw | ConvertFrom-Json
+    $result = Get-Content -LiteralPath (Join-Path $recovered 'container.json') -Raw | ConvertFrom-Json
     if ($null -eq $result -or $result.failure -or $result.negative -cne 'passed: exact prerequisite error and unchanged inventory' -or $result.positive -cne 'passed: prerequisite check and unchanged inventory') { throw 'Container evidence is missing, incomplete, or reports failure' }
 } finally {
     $cleanupFailed = $false
-    foreach ($file in @(Get-ChildItem -LiteralPath $EvidenceDir -File)) {
+    foreach ($file in @(Get-ChildItem -LiteralPath $EvidenceDir -Recurse -File)) {
         if ($file.Length -gt 1048576) { Remove-Item -LiteralPath $file.FullName -Force; $cleanupFailed = $true }
     }
     if ($created) {
