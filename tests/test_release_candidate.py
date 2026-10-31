@@ -895,7 +895,7 @@ def test_old_windows_notice_and_descriptor_remain_rejected(monkeypatch):
     assert 'd32cad7654cc32027037ec3f7b412823b177396c3252f1353eba5d5f48872bd9' not in checker.APPROVED_NOTICE_SETS
 
 
-def test_observed_windows_notice_set_and_identity_bindings(monkeypatch):
+def test_observed_windows_notice_set_and_record_receipt_consistency(monkeypatch):
     import copy
     import importlib.util
 
@@ -916,6 +916,12 @@ def test_observed_windows_notice_set_and_identity_bindings(monkeypatch):
         changed[field] = '0' * len(changed[field])
         with pytest.raises(ValueError):
             checker.check_release_notice_readiness('windows-x64', changed)
+    # Candidate identities can change together without changing the dependency fingerprint.
+    changed = copy.deepcopy(record)
+    for field, value in (('source', 'b' * 40), ('version', '2.0.0'), ('inventory_sha256', 'c' * 64)):
+        changed[field] = changed['selected_inputs'][field] = value
+    assert checker.receipt_inputs('windows-x64', changed) == checker.receipt_inputs('windows-x64', record)
+    checker.check_release_notice_readiness('windows-x64', changed)
     for section, field in (('runtime_archive', 'sha256'), ('toolchain', 'compiler_sha256')):
         changed = copy.deepcopy(record)
         changed['selected_inputs'][section][field] = '0' * 64
