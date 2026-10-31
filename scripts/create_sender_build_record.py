@@ -80,6 +80,9 @@ def verify_arm_build(evidence_dir, provenance, receipt, git, source, executable,
             committed = subprocess.check_output(git + ['show', f'{source}:{path}'])
             if hashlib.sha256(committed).hexdigest() != expected:
                 raise ValueError('ARM startup source mismatch')
+        committed = subprocess.check_output(git + ['show', f'{source}:scripts/linux_arm64/gcc.py'])
+        if hashlib.sha256(committed).hexdigest() != inputs['launcher']['helper_sha256']:
+            raise ValueError('ARM compiler helper source mismatch')
         log = evidence_dir / 'compiler.log'
         if log.is_symlink() or not log.is_file() or digest(log) != provenance['compiler_log_sha256']:
             raise ValueError('ARM compiler log mismatch')

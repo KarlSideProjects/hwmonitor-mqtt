@@ -274,10 +274,16 @@ def link_evidence(state):
         paths = list(state.iterdir())
         if state.is_symlink() or len(paths) > 30 or any(path.is_symlink() or not path.is_file() or path.stat().st_nlink != 1 or path.stat().st_size > 128 * 1024 * 1024 for path in paths):
             raise ValueError('invalid ARM evidence path')
-        expected_files = {'inputs.json', 'entry.h', 'entry.o', 'startup.specs'}
+        expected_files = {'inputs.json', 'entry.h', 'entry.o', 'startup.specs', 'gcc'}
         inputs = json.loads((state / 'inputs.json').read_text(encoding='utf-8'))
-        if set(inputs) != {'startup', 'crt', 'compiler', 'glue_sha256', 'build_dir', 'object_sha256'} or not re.fullmatch(r'[a-f0-9]{64}', inputs['glue_sha256']):
+        if set(inputs) != {'startup', 'crt', 'compiler', 'glue_sha256', 'build_dir', 'object_sha256', 'launcher'} or not re.fullmatch(r'[a-f0-9]{64}', inputs['glue_sha256']):
             raise ValueError('invalid ARM input evidence')
+        launcher = inputs['launcher']
+        if set(launcher) != {'path', 'python', 'helper', 'helper_sha256', 'sha256'} or any(not isinstance(v, str) or not v or len(v) > 4096 for v in launcher.values()) or not all(Path(launcher[k]).is_absolute() for k in ('path', 'python', 'helper')) or Path(launcher['path']).name != 'gcc' or not all(re.fullmatch(r'[a-f0-9]{64}', launcher[k]) for k in ('helper_sha256', 'sha256')):
+            raise ValueError('invalid launcher identity')
+        script = f"#!/bin/sh\nHWMONITOR_ARM_STATE={shlex.quote(str(Path(launcher['path']).parent))} exec {shlex.quote(launcher['python'])} {shlex.quote(launcher['helper'])} \"$@\"\n".encode()
+        if (state / 'gcc').read_bytes() != script or hashlib.sha256(script).hexdigest() != launcher['sha256']:
+            raise ValueError('invalid launcher evidence')
         identity = inputs['compiler']
         if set(identity) != {'path', 'sha256', 'cc1_path', 'cc1_sha256', 'version'} or any(not isinstance(identity[k], str) or not identity[k] or len(identity[k]) > 4096 for k in identity) or len(identity['version']) > 256 or any(not re.fullmatch(r'[a-f0-9]{64}', identity[k]) for k in ('sha256', 'cc1_sha256')) or not all(Path(identity[k]).is_absolute() for k in ('path', 'cc1_path')):
             raise ValueError('invalid compiler identity')

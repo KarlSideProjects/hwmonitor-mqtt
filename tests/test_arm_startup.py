@@ -162,6 +162,8 @@ def test_link_evidence_requires_both_phases_and_detects_tampering(tmp_path):
     inputs = json.loads((state / 'inputs.json').read_text())
     inputs['compiler'] = {'path': '/usr/bin/gcc', 'sha256': 'a' * 64, 'cc1_path': '/usr/lib/cc1', 'cc1_sha256': 'b' * 64, 'version': '1.0'}
     (state / 'inputs.json').write_text(json.dumps(inputs))
+    from capture_sender_build import arm_launcher
+    arm_launcher(ROOT, state)
     for phase in ('backend', 'onefile'):
         (state / f'{phase}.argv.json').write_text(json.dumps({'cwd': str(tmp_path), 'args': ['-o', str(tmp_path / ('sender_entrypoint.dist/sender.bin' if phase == 'backend' else 'sender')), 'one.o']}))
         selected = [str(state / 'entry.o'), *('/x/' + name for name in ('crti.o', 'crtbeginS.o', 'crtendS.o', 'crtn.o'))]
@@ -176,6 +178,12 @@ def test_link_evidence_requires_both_phases_and_detects_tampering(tmp_path):
     raw = (ROOT / 'scripts/linux_arm64/startup/crt_arch.h').read_text()
     header.write_text(raw.replace('"\tmov x0, sp\\n"', '"\tmov x2, x0\\n"\n"\tmov x0, sp\\n"'))
     evidence = compiler.link_evidence(state)
+    launcher = state / 'gcc'
+    launcher_bytes = launcher.read_bytes()
+    launcher.write_bytes(launcher_bytes + b'# tampered\n')
+    with pytest.raises(ValueError, match='launcher'):
+        compiler.link_evidence(state)
+    launcher.write_bytes(launcher_bytes)
     raw_output = state / 'backend.raw'
     original_output = raw_output.read_bytes()
     raw_output.write_bytes((state / 'onefile.raw').read_bytes())

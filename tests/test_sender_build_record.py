@@ -173,6 +173,7 @@ def test_arm_record_binds_receipt_committed_inputs_and_link_files(tmp_path, monk
     subprocess.run(['git', 'init', '-q', str(repo)], check=True)
     startup = repo / 'scripts/linux_arm64/startup'
     shutil.copytree(root / 'scripts/linux_arm64/startup', startup)
+    shutil.copy2(root / 'scripts/linux_arm64/gcc.py', startup.parent / 'gcc.py')
     subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True)
     subprocess.run(['git', '-C', str(repo), '-c', 'user.name=Test', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'source'], check=True)
     source = subprocess.check_output(['git', '-C', str(repo), 'rev-parse', 'HEAD'], text=True).strip()
@@ -186,6 +187,8 @@ def test_arm_record_binds_receipt_committed_inputs_and_link_files(tmp_path, monk
     inputs = {'startup': compiler.ARM_STARTUP, 'crt': crts, 'build_dir': str(tmp_path), 'object_sha256': hashlib.sha256(b'entry').hexdigest(), 'glue_sha256': hashlib.sha256((startup / 'entry.c').read_bytes()).hexdigest()}
     inputs['compiler'] = {'path': '/usr/bin/gcc', 'sha256': 'a' * 64, 'cc1_path': '/usr/lib/cc1', 'cc1_sha256': 'b' * 64, 'version': '1.0'}
     (state / 'inputs.json').write_text(json.dumps(inputs))
+    from capture_sender_build import arm_launcher
+    arm_launcher(repo, state)
     for phase in ('backend', 'onefile'):
         args = ['-o', str(tmp_path / ('sender_entrypoint.dist/sender.bin' if phase == 'backend' else 'sender')), 'one.o']
         (state / f'{phase}.argv.json').write_text(json.dumps({'cwd': str(tmp_path), 'args': args}))

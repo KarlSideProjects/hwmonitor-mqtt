@@ -85,15 +85,17 @@ def test_arm_capture_requires_link_evidence_before_provenance(tmp_path, monkeypa
     inventory, provenance = tmp_path / 'inventory.json', tmp_path / 'provenance.json'
     state = tmp_path / 'arm-startup'
     state.mkdir()
+    (state / 'inputs.json').write_text('{}')
     def fake_run(*args, **kwargs):
         build.mkdir()
         (build / 'sender').write_bytes(b'exe')
         (build / 'report').write_bytes(b'report')
         (build / 'dist').mkdir()
+    monkeypatch.setattr(module.subprocess, 'check_output', lambda *args, **kwargs: '12.1')
     monkeypatch.setattr(module.subprocess, 'run', fake_run)
     monkeypatch.setattr(module, 'capture', lambda *args: [])
     with pytest.raises(ValueError):
-        module.compile_and_capture(['compiler'], tmp_path, build, build / 'sender', build / 'report', build / 'dist', runtime, inventory, provenance, [], arm_state=state)
+        module.compile_and_capture(['compiler'], Path(__file__).resolve().parents[1], build, build / 'sender', build / 'report', build / 'dist', runtime, inventory, provenance, [], arm_state=state)
     assert not provenance.exists()
 
 
@@ -111,6 +113,10 @@ def test_arm_cc_selects_pinned_nuitka_gcc_c11_route(tmp_path, monkeypatch):
     def capture_command(*args, **kwargs):
         raise Captured(kwargs['env']['CC'])
 
+    state = tmp_path / 'state'
+    state.mkdir()
+    (state / 'inputs.json').write_text('{}')
+    monkeypatch.setattr(module.subprocess, 'check_output', lambda *args, **kwargs: '12.1')
     monkeypatch.setattr(module.subprocess, 'run', capture_command)
     with pytest.raises(Captured) as caught:
         module.compile_and_capture(['nuitka'], Path(__file__).resolve().parents[1],
@@ -142,3 +148,51 @@ def test_arm_cc_selects_pinned_nuitka_gcc_c11_route(tmp_path, monkeypatch):
         (tmp_path / 'module.sample.c').touch()
         assert list(scope['scanSourceDir'](env, str(tmp_path), [])) == [str(tmp_path / 'module.sample.c')]
         assert scope['provideStaticSourceFile'](env, 'OnefileBootstrap.c', env.c11_mode).endswith('.c')
+
+
+def test_arm_launcher_runs_version_probe_without_path_or_inherited_state(tmp_path):
+    import json
+    import subprocess
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
+    import capture_sender_build as module
+
+    state = tmp_path / "private state"
+    state.mkdir()
+    (state / 'inputs.json').write_text(json.dumps({'build_dir': str(tmp_path)}))
+    launcher = module.arm_launcher(Path(__file__).resolve().parents[1], state)
+    result = subprocess.run([str(launcher), '-dumpversion', '-dumpfullversion'],
+                            env={'PATH': '/nonexistent'}, text=True, capture_output=True, check=True)
+    expected = subprocess.check_output(['/usr/bin/gcc', '-dumpversion', '-dumpfullversion'], text=True)
+    assert result.stdout == expected
+    import ast
+    import re
+    from types import SimpleNamespace
+    fixture = Path(__file__).parent / 'fixtures/nuitka-2.7.16/SconsHacks.py'
+    def execute(command):
+        completed = subprocess.run(command, env={'PATH': '/nonexistent'}, capture_output=True)
+        return completed.stdout, completed.stderr, completed.returncode
+    gcc_name = next(node for node in ast.parse((fixture.parent / 'SconsUtils.py').read_text()).body
+                    if isinstance(node, ast.FunctionDef) and node.name == 'isGccName')
+    scope = {}
+    exec(compile(ast.Module(body=[gcc_name], type_ignores=[]), 'SconsUtils.py', 'exec'), scope)
+    scope.update({'executeProcess': execute,
+             'decodeData': lambda value: value.decode(), 're': re,
+             'scons_details_logger': SimpleNamespace(info=lambda *args: None)})
+    exec(compile(ast.parse(fixture.read_text()), str(fixture), 'exec'), scope)
+    assert scope['_myDetectVersion'](str(launcher)) == tuple(map(int, expected.strip().split('.')))
+
+
+def test_arm_preflight_stops_before_compilation_on_version_mismatch(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / 'scripts'))
+    import capture_sender_build as module
+    state = tmp_path / 'state'
+    state.mkdir()
+    (state / 'inputs.json').write_text('{}')
+    results = iter(['12.1', '13.1'])
+    monkeypatch.setattr(module.subprocess, 'check_output', lambda *args, **kwargs: next(results))
+    monkeypatch.setattr(module.subprocess, 'run', lambda *args, **kwargs: pytest.fail('compiler started'))
+    with pytest.raises(ValueError, match='version probe mismatch'):
+        module.compile_and_capture(['nuitka'], Path(__file__).resolve().parents[1], tmp_path / 'build',
+                                   tmp_path / 'sender', tmp_path / 'report', tmp_path / 'dist',
+                                   tmp_path / 'runtime', tmp_path / 'inventory', tmp_path / 'provenance',
+                                   [], arm_state=state)

@@ -6,6 +6,8 @@ import json
 import os
 from pathlib import Path
 import shutil
+import shlex
+import sys
 import signal
 import socket
 import subprocess
@@ -87,6 +89,23 @@ def capture(command, dist, output, timeout=30):
         raise ValueError('onefile capture did not match this build distribution')
 
 
+def arm_launcher(source, state):
+    helper = (source / 'scripts/linux_arm64/gcc.py').resolve(strict=True)
+    python = Path(sys.executable).absolute()
+    state = state.resolve(strict=True)
+    launcher = state / 'gcc'
+    content = f"#!/bin/sh\nHWMONITOR_ARM_STATE={shlex.quote(str(state))} exec {shlex.quote(str(python))} {shlex.quote(str(helper))} \"$@\"\n"
+    launcher.write_text(content, encoding='utf-8')
+    launcher.chmod(0o700)
+    inputs_path = state / 'inputs.json'
+    inputs = json.loads(inputs_path.read_text(encoding='utf-8'))
+    inputs['launcher'] = {'path': str(launcher), 'python': str(python), 'helper': str(helper),
+                          'helper_sha256': hashlib.sha256(helper.read_bytes()).hexdigest(),
+                          'sha256': hashlib.sha256(launcher.read_bytes()).hexdigest()}
+    inputs_path.write_text(json.dumps(inputs, sort_keys=True) + '\n', encoding='utf-8')
+    return launcher
+
+
 def compile_and_capture(command, source, build_dir, executable, report, dist, runtime, inventory_path, provenance, smoke_args, compiler_log=None, arm_state=None):
     if build_dir.exists() or runtime.exists() or inventory_path.exists() or provenance.exists():
         raise ValueError('build and evidence paths must be fresh')
@@ -97,7 +116,13 @@ def compile_and_capture(command, source, build_dir, executable, report, dist, ru
         else:
             from linux_arm64.gcc import patchelf_identity
         tool_identity = patchelf_identity()
-        env = {**os.environ, 'CC': str(source / 'scripts/linux_arm64/gcc.py'), 'HWMONITOR_ARM_STATE': str(arm_state)}
+        launcher = arm_launcher(source, arm_state)
+        probe_env = {'PATH': '/nonexistent'}
+        version = subprocess.check_output([str(launcher), '-dumpversion', '-dumpfullversion'], env=probe_env, text=True, timeout=10).strip()
+        expected = subprocess.check_output(['/usr/bin/gcc', '-dumpversion', '-dumpfullversion'], env=probe_env, text=True, timeout=10).strip()
+        if not version or version != expected:
+            raise ValueError('ARM compiler version probe mismatch')
+        env = {**os.environ, 'CC': str(launcher)}
     if compiler_log is None:
         subprocess.run(command, cwd=source, check=True, env=env)
     else:
