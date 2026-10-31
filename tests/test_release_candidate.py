@@ -877,3 +877,19 @@ def test_observed_linux_notice_set_and_identity_bindings(monkeypatch):
     monkeypatch.setitem(checker.ARCHIVE_NOTICE_HASHES, 'linux-x64', notices)
     with pytest.raises(ValueError, match='not established'):
         checker.check_release_notice_readiness('linux-x64', record)
+
+
+def test_old_windows_notice_and_descriptor_remain_rejected(monkeypatch):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    bundle = (Path(__file__).parents[1] / 'release-notices/windows-x64-cpython-3.13.17/runtime-bundle.txt').read_bytes()
+    old = bundle.split(b'\nCFFI 2.0.0 Windows x64 libffi source notices\n\n')[0]
+    assert hashlib.sha256(old).hexdigest() == '359d4441518f0522a43adb96b48856ccba3fedef355fd9fd7d4f571c57367bda'
+    monkeypatch.setitem(checker.ARCHIVE_NOTICE_HASHES, 'windows-x64', {'licenses/python.txt': checker.ARCHIVE_NOTICE_HASHES['windows-x64']['licenses/python.txt']})
+    checker.check_archive_notices('windows-x64', {'licenses/python.txt': bundle})
+    with pytest.raises(ValueError, match='notice differs'):
+        checker.check_archive_notices('windows-x64', {'licenses/python.txt': old})
+    assert 'd32cad7654cc32027037ec3f7b412823b177396c3252f1353eba5d5f48872bd9' not in checker.APPROVED_NOTICE_SETS
