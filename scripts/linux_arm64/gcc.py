@@ -200,6 +200,74 @@ def verify_local_crt(state):
         raise ValueError('invalid CRT evidence') from error
 
 
+def patchelf_identity():
+    import shutil
+    tool_name = shutil.which('patchelf')
+    if tool_name is None:
+        raise ValueError('missing patchelf')
+    tool = Path(tool_name).resolve(strict=True)
+    return str(tool), hashlib.sha256(tool.read_bytes()).hexdigest()
+
+
+def bind_final_outputs(state, executable, backend, identity=None):
+    import json
+    import subprocess
+    import tempfile
+    tool_path, tool_hash = patchelf_identity()
+    if identity is not None and identity != (tool_path, tool_hash):
+        raise ValueError('patchelf changed during build')
+    tool = Path(tool_path)
+    raw = (state / 'backend.raw').read_bytes()
+    with tempfile.TemporaryDirectory(prefix='normalize-', dir=state.parent) as directory:
+        normalized = Path(directory) / 'backend'
+        normalized.write_bytes(raw)
+        argv = [str(tool), '--force-rpath', '--set-rpath', '$ORIGIN', str(normalized)]
+        subprocess.run(argv, check=True)
+        if patchelf_identity() != (tool_path, tool_hash):
+            raise ValueError('patchelf changed during transformation')
+        data = normalized.read_bytes()
+        if not data or data != backend.read_bytes():
+            raise ValueError('backend transformation mismatch')
+        (state / 'backend.normalized').write_bytes(data)
+        metadata = {'tool_path': str(tool), 'tool_sha256': tool_hash, 'argv': argv,
+                    'raw_sha256': hashlib.sha256(raw).hexdigest(), 'raw_size': len(raw),
+                    'normalized_sha256': hashlib.sha256(data).hexdigest(), 'normalized_size': len(data)}
+        (state / 'binding.json').write_text(json.dumps(metadata, sort_keys=True) + '\n', encoding='utf-8')
+    verify_final_binding(state, executable, backend)
+
+
+def _binding_metadata(state):
+    import json
+    try:
+        metadata = json.loads((state / 'binding.json').read_text(encoding='utf-8'))
+        raw = (state / 'backend.raw').read_bytes()
+        normalized = (state / 'backend.normalized').read_bytes()
+        if set(metadata) != {'tool_path', 'tool_sha256', 'argv', 'raw_sha256', 'raw_size', 'normalized_sha256', 'normalized_size'}:
+            raise ValueError('invalid binding metadata')
+        tool = metadata['tool_path']
+        argv = metadata['argv']
+        if not isinstance(tool, str) or not Path(tool).is_absolute() or not re.fullmatch(r'[a-f0-9]{64}', metadata['tool_sha256']) or not isinstance(argv, list) or len(argv) != 5 or argv[:4] != [tool, '--force-rpath', '--set-rpath', '$ORIGIN'] or not isinstance(argv[4], str) or not Path(argv[4]).is_absolute():
+            raise ValueError('invalid transformation identity')
+        if not raw or not normalized or type(metadata['raw_size']) is not int or type(metadata['normalized_size']) is not int or metadata['raw_size'] != len(raw) or metadata['raw_sha256'] != hashlib.sha256(raw).hexdigest() or metadata['normalized_size'] != len(normalized) or metadata['normalized_sha256'] != hashlib.sha256(normalized).hexdigest():
+            raise ValueError('backend binding mismatch')
+        return normalized
+    except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+        raise ValueError('invalid final binding') from error
+
+
+def verify_final_binding(state, executable, backend):
+    try:
+        normalized = _binding_metadata(state)
+        launcher = (state / 'onefile.raw').read_bytes()
+        final = executable.read_bytes()
+        if normalized != backend.read_bytes():
+            raise ValueError('backend binding mismatch')
+        if not launcher or len(final) <= len(launcher) or not final.startswith(launcher):
+            raise ValueError('launcher binding mismatch')
+    except OSError as error:
+        raise ValueError('invalid final binding') from error
+
+
 def link_evidence(state):
     import json
     try:
@@ -254,6 +322,10 @@ def link_evidence(state):
                 raise ValueError('forbidden GNU startup object')
         if hashlib.sha256((state / 'entry.o').read_bytes()).hexdigest() != inputs['object_sha256']:
             raise ValueError('ARM entry object mismatch')
+        binding_files = {'binding.json', 'backend.normalized'}
+        if binding_files & {path.name for path in paths}:
+            expected_files.update(binding_files)
+            _binding_metadata(state)
         if {path.name for path in paths} != expected_files:
             raise ValueError('unexpected ARM evidence files')
         files = {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(paths)}

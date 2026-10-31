@@ -341,3 +341,71 @@ print(state / 'entry.o')
         output.mkdir()
     with pytest.raises(ValueError, match='link output'):
         compiler.run_link(str(gcc), ['-o', str(output), 'one.o'], state, tmp_path)
+
+
+def test_final_binding_checks_transformation_and_launcher(tmp_path, monkeypatch):
+    state = tmp_path / 'state'
+    state.mkdir()
+    (state / 'backend.raw').write_bytes(b'backend')
+    (state / 'onefile.raw').write_bytes(b'launcher')
+    tool = tmp_path / 'patchelf'
+    tool.write_text("#!/usr/bin/env python3\nimport pathlib, sys\nassert sys.argv[1:4] == ['--force-rpath', '--set-rpath', '$ORIGIN']\np = pathlib.Path(sys.argv[4]); p.write_bytes(p.read_bytes() + b'-normalized')\n")
+    tool.chmod(0o755)
+    monkeypatch.setenv('PATH', str(tmp_path) + ':' + __import__('os').environ['PATH'])
+    backend = tmp_path / 'sender.bin'
+    backend.write_bytes(b'backend-normalized')
+    executable = tmp_path / 'sender'
+    executable.write_bytes(b'launcher-payload')
+    compiler.bind_final_outputs(state, executable, backend)
+    compiler.verify_final_binding(state, executable, backend)
+    for path, bad in ((backend, b'wrong'), (executable, b'launcher'), (executable, b'wrong-payload'), (state / 'backend.normalized', b'changed'), (state / 'backend.raw', b'swapped')):
+        original = path.read_bytes()
+        path.write_bytes(bad)
+        with pytest.raises(ValueError):
+            compiler.verify_final_binding(state, executable, backend)
+        path.write_bytes(original)
+    tool.unlink()
+    compiler.verify_final_binding(state, executable, backend)
+
+
+def test_binding_rejects_missing_raw_and_changed_tool(tmp_path, monkeypatch):
+    import os
+    state = tmp_path / 'state'
+    state.mkdir()
+    (state / 'onefile.raw').write_bytes(b'launcher')
+    executable = tmp_path / 'sender'
+    executable.write_bytes(b'launcherp')
+    backend = tmp_path / 'sender.bin'
+    backend.write_bytes(b'backend')
+    tool = tmp_path / 'patchelf'
+    tool.write_text('#!/usr/bin/env python3\nimport pathlib, sys\np = pathlib.Path(sys.argv[0]); p.write_text(p.read_text() + "# changed\\n")\n')
+    tool.chmod(0o755)
+    monkeypatch.setenv('PATH', str(tmp_path) + ':' + os.environ['PATH'])
+    with pytest.raises((ValueError, OSError)):
+        compiler.bind_final_outputs(state, executable, backend)
+    (state / 'backend.raw').write_bytes(b'backend')
+    with pytest.raises(ValueError, match='patchelf changed'):
+        compiler.bind_final_outputs(state, executable, backend)
+
+
+def test_binding_rejects_wrong_recorded_args(tmp_path, monkeypatch):
+    import json
+    import os
+    state = tmp_path / 'state'
+    state.mkdir()
+    (state / 'backend.raw').write_bytes(b'backend')
+    (state / 'onefile.raw').write_bytes(b'launcher')
+    executable = tmp_path / 'sender'
+    executable.write_bytes(b'launcherp')
+    backend = tmp_path / 'sender.bin'
+    backend.write_bytes(b'backend')
+    tool = tmp_path / 'patchelf'
+    tool.write_text('#!/bin/sh\nexit 0\n')
+    tool.chmod(0o755)
+    monkeypatch.setenv('PATH', str(tmp_path) + ':' + os.environ['PATH'])
+    compiler.bind_final_outputs(state, executable, backend)
+    metadata = json.loads((state / 'binding.json').read_text())
+    metadata['argv'][3] = 'ORIGIN'
+    (state / 'binding.json').write_text(json.dumps(metadata))
+    with pytest.raises(ValueError, match='transformation'):
+        compiler.verify_final_binding(state, executable, backend)
