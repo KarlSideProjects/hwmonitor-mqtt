@@ -154,7 +154,7 @@ def test_arm_record_rejects_missing_private_link_evidence(tmp_path, monkeypatch)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     with pytest.raises(ValueError):
-        module.verify_arm_build(tmp_path, {}, {}, ['git'], 'a' * 40)
+        module.verify_arm_build(tmp_path, {}, {}, ['git'], 'a' * 40, tmp_path / 'sender', tmp_path / 'sender.bin')
 
 
 def test_arm_record_binds_receipt_committed_inputs_and_link_files(tmp_path, monkeypatch):
@@ -184,6 +184,7 @@ def test_arm_record_binds_receipt_committed_inputs_and_link_files(tmp_path, monk
     (state / 'startup.specs').write_text(compiler.startfile_spec('*startfile:\n' + compiler.PINNED_STARTFILE + '\n', str(state / 'entry.o')))
     crts = {name: {'path': '/x/' + name, 'sha256': 'a' * 64} for name in ('crti.o', 'crtbeginS.o', 'crtendS.o', 'crtn.o')}
     inputs = {'startup': compiler.ARM_STARTUP, 'crt': crts, 'build_dir': str(tmp_path), 'object_sha256': hashlib.sha256(b'entry').hexdigest(), 'glue_sha256': hashlib.sha256((startup / 'entry.c').read_bytes()).hexdigest()}
+    inputs['compiler'] = {'path': '/usr/bin/gcc', 'sha256': 'a' * 64, 'cc1_path': '/usr/lib/cc1', 'cc1_sha256': 'b' * 64, 'version': '1.0'}
     (state / 'inputs.json').write_text(json.dumps(inputs))
     for phase in ('backend', 'onefile'):
         args = ['-o', str(tmp_path / ('sender_entrypoint.dist/sender.bin' if phase == 'backend' else 'sender')), 'one.o']
@@ -191,20 +192,79 @@ def test_arm_record_binds_receipt_committed_inputs_and_link_files(tmp_path, monk
         selected = [str(state / 'entry.o'), *(crt['path'] for crt in crts.values())]
         (state / f'{phase}.trace').write_text('\n'.join(selected) + '\n')
         (state / f'{phase}.map').write_text('\n'.join(selected) + '\n')
+        data = phase.encode()
+        (state / f'{phase}.raw').write_bytes(data)
+        names = [f'{phase}.argv.json', f'{phase}.map', f'{phase}.trace']
+        metadata = {'phase': phase, 'output': args[1], 'size': len(data), 'sha256': hashlib.sha256(data).hexdigest(), 'evidence': {name: hashlib.sha256((state / name).read_bytes()).hexdigest() for name in names}}
+        (state / f'{phase}.output.json').write_text(json.dumps(metadata))
+    executable = tmp_path / 'candidate'
+    executable.write_bytes(b'onefile-payload')
+    backend = tmp_path / 'sender.bin'
+    backend.write_bytes(b'normalized')
+    (state / 'backend.normalized').write_bytes(backend.read_bytes())
+    binding = {'tool_path': '/builder/patchelf', 'tool_sha256': 'c' * 64, 'argv': ['/builder/patchelf', '--force-rpath', '--set-rpath', '$ORIGIN', '/tmp/backend'], 'raw_sha256': hashlib.sha256(b'backend').hexdigest(), 'raw_size': 7, 'normalized_sha256': hashlib.sha256(backend.read_bytes()).hexdigest(), 'normalized_size': len(backend.read_bytes())}
+    (state / 'binding.json').write_text(json.dumps(binding))
     log = tmp_path / 'compiler.log'
     log.write_text('Scons: Scons command: python -f Backend.scons\nScons: Scons command: python -f Onefile.scons\n')
     provenance = {'arm_startup': compiler.link_evidence(state), 'compiler_log_sha256': hashlib.sha256(log.read_bytes()).hexdigest()}
-    receipt = {'startup': compiler.ARM_STARTUP}
+    receipt = {'startup': compiler.ARM_STARTUP, 'toolchain': {'compiler_sha256': 'b' * 64, 'compiler_version': '1.0'}}
     git = ['git', '-C', str(repo)]
-    module.verify_arm_build(tmp_path, provenance, receipt, git, source)
+    module.verify_arm_build(tmp_path, provenance, receipt, git, source, executable, backend)
     inventory = tmp_path / 'inventory.json'
     inventory.write_text('[]')
     provenance['inventory_sha256'] = hashlib.sha256(inventory.read_bytes()).hexdigest()
     (tmp_path / 'provenance.json').write_text(json.dumps(provenance))
     from sender_build_inputs import arm_startup_from_build
-    assert arm_startup_from_build(inventory) == compiler.ARM_STARTUP
+    assert arm_startup_from_build(inventory, receipt['toolchain']) == compiler.ARM_STARTUP
+    from sender_build_inputs import make_receipt
+    import zipfile
+    wheels = tmp_path / 'wheels'
+    wheels.mkdir()
+    with zipfile.ZipFile(wheels / 'example-1-py3-none-any.whl', 'w') as archive:
+        archive.writestr('example-1.dist-info/METADATA', 'Name: example\nVersion: 1\n')
+    runtime = tmp_path / 'python.tar.gz'
+    runtime.write_bytes(b'runtime')
+    args = (wheels, runtime, 'runtime-install', 'linux-arm64', source, '1.0.0', inventory, {'example': '1'})
+    assert make_receipt(*args, receipt['toolchain'])['startup'] == compiler.ARM_STARTUP
+    for wrong in ({'compiler_sha256': '0' * 64, 'compiler_version': '1.0'}, {'compiler_sha256': 'b' * 64, 'compiler_version': 'wrong'}):
+        with pytest.raises(ValueError, match='compiler'):
+            make_receipt(*args, wrong)
+        with pytest.raises(ValueError, match='compiler'):
+            module.verify_arm_build(tmp_path, provenance, dict(receipt, toolchain=wrong), git, source, executable, backend)
+    # A previously valid provenance without final binding must not be accepted.
+    binding_bytes = (state / 'binding.json').read_bytes()
+    normalized_bytes = (state / 'backend.normalized').read_bytes()
+    (state / 'binding.json').unlink()
+    (state / 'backend.normalized').unlink()
+    unbound = dict(provenance, arm_startup=compiler.link_evidence(state))
+    (tmp_path / 'provenance.json').write_text(json.dumps(unbound))
+    with pytest.raises(ValueError, match='binding'):
+        module.verify_arm_build(tmp_path, unbound, receipt, git, source, executable, backend)
+    with pytest.raises(ValueError, match='binding'):
+        arm_startup_from_build(inventory, receipt['toolchain'])
+    (state / 'binding.json').write_bytes(binding_bytes)
+    (state / 'backend.normalized').write_bytes(normalized_bytes)
+    (tmp_path / 'provenance.json').write_text(json.dumps(provenance))
+    with pytest.raises(ValueError):
+        module.verify_arm_build(tmp_path, provenance, receipt, git, source, tmp_path / 'wrong', backend)
+    with pytest.raises(ValueError):
+        module.verify_arm_build(tmp_path, provenance, receipt, git, source, executable, tmp_path / 'wrong')
+    altered = json.loads(json.dumps(provenance))
+    altered['arm_startup']['files']['onefile.raw'] = '0' * 64
+    with pytest.raises(ValueError):
+        module.verify_arm_build(tmp_path, altered, receipt, git, source, executable, backend)
+    for path, bad in ((executable, b'wrong'), (backend, b'wrong'), (state / 'backend.raw', b'wrong'), (state / 'binding.json', b'{}')):
+        original = path.read_bytes()
+        path.write_bytes(bad)
+        with pytest.raises(ValueError):
+            module.verify_arm_build(tmp_path, provenance, receipt, git, source, executable, backend)
+        path.write_bytes(original)
+    with pytest.raises(ValueError):
+        module.verify_arm_build(tmp_path, provenance, dict(receipt, toolchain={'compiler_sha256': '0' * 64, 'compiler_version': '1.0'}), git, source, executable, backend)
+    with pytest.raises(ValueError):
+        arm_startup_from_build(inventory, {'compiler_sha256': '0' * 64, 'compiler_version': '1.0'})
     (state / 'backend.map').write_text('forged')
     with pytest.raises(ValueError):
-        module.verify_arm_build(tmp_path, provenance, receipt, git, source)
+        module.verify_arm_build(tmp_path, provenance, receipt, git, source, executable, backend)
     with pytest.raises(ValueError):
-        arm_startup_from_build(inventory)
+        arm_startup_from_build(inventory, receipt['toolchain'])

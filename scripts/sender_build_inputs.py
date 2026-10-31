@@ -55,7 +55,7 @@ def archive_metadata(path):
     return normalize(name), version
 
 
-def arm_startup_from_build(inventory):
+def arm_startup_from_build(inventory, toolchain):
     if __package__:
         from .linux_arm64.gcc import verify_link_evidence
     else:
@@ -65,7 +65,13 @@ def arm_startup_from_build(inventory):
         evidence = provenance['arm_startup']
         if provenance['inventory_sha256'] != digest(inventory) or evidence['startup'] != ARM_STARTUP:
             raise ValueError('ARM startup provenance mismatch')
-        verify_link_evidence(inventory.parent / 'arm-startup', evidence)
+        state = inventory.parent / 'arm-startup'
+        verify_link_evidence(state, evidence)
+        if not {'binding.json', 'backend.normalized'} <= evidence['files'].keys():
+            raise ValueError('missing ARM final binding')
+        compiler = json.loads((state / 'inputs.json').read_text(encoding='utf-8'))['compiler']
+        if (toolchain['compiler_sha256'], toolchain['compiler_version']) != (compiler['cc1_sha256'], compiler['version']):
+            raise ValueError('ARM receipt compiler mismatch')
         return evidence['startup']
     except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
         raise ValueError('missing ARM startup provenance') from error
@@ -84,7 +90,7 @@ def make_receipt(wheels, runtime, runtime_kind, platform, source, version, inven
               'runtime_archive': {'kind': runtime_kind, 'filename': runtime.name, 'sha256': digest(runtime)},
               'packages': packages, 'toolchain': toolchain}
     if platform == 'linux-arm64':
-        result['startup'] = arm_startup_from_build(inventory)
+        result['startup'] = arm_startup_from_build(inventory, toolchain)
     return result
 
 

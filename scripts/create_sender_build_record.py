@@ -14,7 +14,7 @@ from pathlib import Path
 
 from capture_sender_build import capture
 from sender_build_inputs import ARM_STARTUP, verify_windows_compiler
-from linux_arm64.gcc import verify_link_evidence, verify_scons_log
+from linux_arm64.gcc import verify_final_binding, verify_link_evidence, verify_scons_log
 from inspect_sender_candidate import (LINUX_ARCHIVE_PATHS, MAX_ARCHIVE_MEMBERS, PLATFORMS, WINDOWS_ARCHIVE_PATHS,
                                       inspect_build_evidence, inspect_runtime_files, receipt_inputs, strict_json)
 
@@ -60,13 +60,21 @@ def windows_assets(git, source, assets):
     return result
 
 
-def verify_arm_build(evidence_dir, provenance, receipt, git, source):
+def verify_arm_build(evidence_dir, provenance, receipt, git, source, executable, backend):
     try:
         evidence = provenance['arm_startup']
         if evidence['startup'] != ARM_STARTUP or receipt['startup'] != ARM_STARTUP:
             raise ValueError('ARM startup receipt mismatch')
         verify_link_evidence(evidence_dir / 'arm-startup', evidence)
-        inputs = strict_json((evidence_dir / 'arm-startup/inputs.json').read_bytes())
+        state = evidence_dir / 'arm-startup'
+        if not {'binding.json', 'backend.normalized'} <= evidence['files'].keys():
+            raise ValueError('missing ARM final binding')
+        verify_final_binding(state, executable, backend)
+        inputs = strict_json((state / 'inputs.json').read_bytes())
+        compiler = inputs['compiler']
+        toolchain = receipt['toolchain']
+        if (toolchain['compiler_sha256'], toolchain['compiler_version']) != (compiler['cc1_sha256'], compiler['version']):
+            raise ValueError('ARM receipt compiler mismatch')
         for name, expected in (('crt_arch.h', ARM_STARTUP['entry_sha256']), ('LICENSE.musl', ARM_STARTUP['license_sha256']), ('entry.c', inputs['glue_sha256'])):
             path = 'scripts/linux_arm64/startup/' + name
             committed = subprocess.check_output(git + ['show', f'{source}:{path}'])
@@ -161,7 +169,7 @@ def main():
     if args.platform == 'windows-x64':
         verify_windows_compiler(record['selected_inputs']['toolchain'], provenance, args.compiler_log)
     elif args.platform == 'linux-arm64':
-        verify_arm_build(args.provenance.parent, provenance, record['selected_inputs'], git, source)
+        verify_arm_build(args.provenance.parent, provenance, record['selected_inputs'], git, source, args.executable, args.runtime_dir / 'sender.bin')
     args.output.write_text(json.dumps(record, indent=2, sort_keys=True) + '\n', encoding='utf-8')
 
 

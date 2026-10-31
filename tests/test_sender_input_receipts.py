@@ -102,10 +102,10 @@ def test_arm_receipt_rejects_missing_and_forged_same_invocation_evidence(tmp_pat
     inventory = tmp_path / 'inventory.json'
     inventory.write_text('[]')
     with pytest.raises(ValueError):
-        inputs.arm_startup_from_build(inventory)
+        inputs.arm_startup_from_build(inventory, {})
     (tmp_path / 'provenance.json').write_text(json.dumps({'inventory_sha256': hashlib.sha256(inventory.read_bytes()).hexdigest(), 'arm_startup': {'startup': inputs.ARM_STARTUP, 'files': {}}}))
     with pytest.raises(ValueError):
-        inputs.arm_startup_from_build(inventory)
+        inputs.arm_startup_from_build(inventory, {})
 
 
 def test_arm_toolchain_identity_uses_the_driver_selected_for_links(tmp_path, monkeypatch):
