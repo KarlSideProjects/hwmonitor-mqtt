@@ -164,7 +164,7 @@ def test_arm_record_binds_receipt_committed_inputs_and_link_files(tmp_path, monk
     import pytest
     root = Path(__file__).resolve().parents[1]
     monkeypatch.syspath_prepend(str(root / 'scripts'))
-    from linux_arm64 import compiler
+    from linux_arm64 import gcc as compiler
     spec = importlib.util.spec_from_file_location('build_record', root / 'scripts/create_sender_build_record.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

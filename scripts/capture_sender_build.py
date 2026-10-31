@@ -92,7 +92,7 @@ def compile_and_capture(command, source, build_dir, executable, report, dist, ru
         raise ValueError('build and evidence paths must be fresh')
     env = None
     if arm_state is not None:
-        env = {**os.environ, 'CC': str(source / 'scripts/linux_arm64/compiler.py'), 'HWMONITOR_ARM_STATE': str(arm_state)}
+        env = {**os.environ, 'CC': str(source / 'scripts/linux_arm64/gcc.py'), 'HWMONITOR_ARM_STATE': str(arm_state)}
     if compiler_log is None:
         subprocess.run(command, cwd=source, check=True, env=env)
     else:
@@ -102,9 +102,9 @@ def compile_and_capture(command, source, build_dir, executable, report, dist, ru
             raise ValueError('compiler log too large')
     if arm_state is not None:
         if __package__:
-            from .linux_arm64.compiler import link_evidence, verify_local_crt, verify_scons_log
+            from .linux_arm64.gcc import link_evidence, verify_local_crt, verify_scons_log
         else:
-            from linux_arm64.compiler import link_evidence, verify_local_crt, verify_scons_log
+            from linux_arm64.gcc import link_evidence, verify_local_crt, verify_scons_log
         arm_evidence = link_evidence(arm_state)
         verify_local_crt(arm_state)
         if compiler_log is None:

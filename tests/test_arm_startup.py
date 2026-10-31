@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location('arm_compiler', ROOT / 'scripts/linux_arm64/compiler.py')
+SPEC = importlib.util.spec_from_file_location('arm_compiler', ROOT / 'scripts/linux_arm64/gcc.py')
 compiler = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(compiler)
 

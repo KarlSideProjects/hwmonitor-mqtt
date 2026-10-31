@@ -57,9 +57,9 @@ def archive_metadata(path):
 
 def arm_startup_from_build(inventory):
     if __package__:
-        from .linux_arm64.compiler import verify_link_evidence
+        from .linux_arm64.gcc import verify_link_evidence
     else:
-        from linux_arm64.compiler import verify_link_evidence
+        from linux_arm64.gcc import verify_link_evidence
     try:
         provenance = json.loads((inventory.parent / 'provenance.json').read_text(encoding='utf-8'))
         evidence = provenance['arm_startup']

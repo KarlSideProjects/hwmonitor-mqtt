@@ -110,9 +110,9 @@ def main():
         command = [sys.executable, "-m", "nuitka", "--onefile", "--include-module=hwmonitor_mqtt.agents.agent_sender_async", f"--report={report}", "--output-filename=sender", f"--output-dir={build_dir}", str(entrypoint)]
         if target_platform == "linux-arm64":
             if __package__:
-                from .linux_arm64.compiler import prepare
+                from .linux_arm64.gcc import prepare
             else:
-                from linux_arm64.compiler import prepare
+                from linux_arm64.gcc import prepare
             state = evidence / "arm-startup"
             prepare('/usr/bin/gcc', source_dir / 'scripts/linux_arm64/startup', state, os.environ.copy(), build_dir)
             command.insert(3, '--show-scons')

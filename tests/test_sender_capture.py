@@ -95,3 +95,50 @@ def test_arm_capture_requires_link_evidence_before_provenance(tmp_path, monkeypa
     with pytest.raises(ValueError):
         module.compile_and_capture(['compiler'], tmp_path, build, build / 'sender', build / 'report', build / 'dist', runtime, inventory, provenance, [], arm_state=state)
     assert not provenance.exists()
+
+
+def test_arm_cc_selects_pinned_nuitka_gcc_c11_route(tmp_path, monkeypatch):
+    import ast
+    import os
+    from types import SimpleNamespace
+
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / 'scripts'))
+    import capture_sender_build as module
+
+    class Captured(Exception):
+        pass
+
+    def capture_command(*args, **kwargs):
+        raise Captured(kwargs['env']['CC'])
+
+    monkeypatch.setattr(module.subprocess, 'run', capture_command)
+    with pytest.raises(Captured) as caught:
+        module.compile_and_capture(['nuitka'], Path(__file__).resolve().parents[1],
+                                   tmp_path / 'build', tmp_path / 'sender', tmp_path / 'report',
+                                   tmp_path / 'dist', tmp_path / 'runtime', tmp_path / 'inventory',
+                                   tmp_path / 'provenance', [], arm_state=tmp_path / 'state')
+    cc = caught.value.args[0]
+    fixture = Path(__file__).parent / 'fixtures/nuitka-2.7.16'
+    namespace = {'os': os, 'hasFilenameExtension': lambda path, ext: path.endswith(ext),
+                 'cheapCopyFile': lambda *args: None, 'isWin32Windows': lambda: False}
+    exec(compile(ast.parse((fixture / 'SconsUtils.py').read_text()), 'SconsUtils.py', 'exec'), namespace)
+    assert Path(cc).is_file() and os.access(cc, os.X_OK)
+    monkeypatch.setenv('CC', cc)
+    for script in ('Backend.scons', 'Onefile.scons'):
+        class Environment(dict):
+            pass
+        env = Environment(CC='default-cc', CXX='default-c++')
+        env.experimental_flags = ()
+        env.clangcl_mode = env.msvc_mode = False
+        env.gcc_version = (12,)
+        env.nuitka_src = env.source_dir = str(tmp_path)
+        scope = {**namespace, 'env': env, 'clang_mode': False,
+                 'scons_details_logger': SimpleNamespace(info=lambda *args: None)}
+        exec(compile(ast.parse((fixture / script).read_text()), script, 'exec'), scope)
+        exec(compile(ast.parse((fixture / 'SconsCompilerSettings.py').read_text()), 'settings', 'exec'), scope)
+        assert env.the_compiler == cc and env['CC'] == cc
+        assert env.gcc_mode and scope['c11_mode']
+        env.c11_mode = scope['c11_mode']
+        (tmp_path / 'module.sample.c').touch()
+        assert list(scope['scanSourceDir'](env, str(tmp_path), [])) == [str(tmp_path / 'module.sample.c')]
+        assert scope['provideStaticSourceFile'](env, 'OnefileBootstrap.c', env.c11_mode).endswith('.c')

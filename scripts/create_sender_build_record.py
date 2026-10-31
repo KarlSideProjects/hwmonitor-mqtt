@@ -14,7 +14,7 @@ from pathlib import Path
 
 from capture_sender_build import capture
 from sender_build_inputs import ARM_STARTUP, verify_windows_compiler
-from linux_arm64.compiler import verify_link_evidence, verify_scons_log
+from linux_arm64.gcc import verify_link_evidence, verify_scons_log
 from inspect_sender_candidate import (LINUX_ARCHIVE_PATHS, MAX_ARCHIVE_MEMBERS, PLATFORMS, WINDOWS_ARCHIVE_PATHS,
                                       inspect_build_evidence, inspect_runtime_files, receipt_inputs, strict_json)
 

@@ -151,7 +151,7 @@ def test_builder_main_packages_both_platforms(tmp_path, monkeypatch):
     import tarfile
     from types import SimpleNamespace
     from scripts import build_sender_package as builder
-    from scripts.linux_arm64 import compiler
+    from scripts.linux_arm64 import gcc as compiler
     calls = []
     monkeypatch.setattr(compiler, "prepare", lambda *args: calls.append(args))
 
