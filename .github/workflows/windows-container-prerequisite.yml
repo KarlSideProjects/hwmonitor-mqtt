@@ -1,7 +1,7 @@
 name: Private Windows container prerequisite QA
 on:
   push:
-    branches: [disabled-windows-container-prerequisite-placeholder]
+    branches: [qa/windows-container-prerequisite-20261031]
 permissions:
   contents: read
   actions: read

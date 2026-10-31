@@ -19,7 +19,7 @@ if ($InsideContainer) {
             [ordered]@{ name = $name; exists = [bool]$file; version = if ($file) { $file.VersionInfo.FileVersion } else { $null } }
         }
         $uninstall = foreach ($key in @('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*', 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*')) {
-            Get-ItemProperty $key -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match 'Microsoft Visual C\+\+ 20(15|17|19|22).*Redistributable.*(x64|X64)' } | Select-Object DisplayName, DisplayVersion, PSChildName
+            Get-ItemProperty $key -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match '(?i)^Microsoft Visual C\+\+(?=.*(Redistributable|Runtime))(?=.*(x64|64-bit))' } | Select-Object DisplayName, DisplayVersion, PSChildName
         }
         $task = try {
             $service = Get-Service Schedule -ErrorAction Stop
@@ -93,9 +93,14 @@ try {
     $created = $true
     docker start -a $name *> (Join-Path $EvidenceDir 'test.log')
     $exitCode = $LASTEXITCODE
+    $state = docker inspect --format '{{json .State}}' $name | ConvertFrom-Json
+    $inspectExitCode = $LASTEXITCODE
     docker cp "${name}:C:\qa-evidence\." $EvidenceDir
     if ($LASTEXITCODE -ne 0) { throw 'Container evidence unavailable' }
+    if ($inspectExitCode -ne 0 -or $null -eq $state -or $state.Running -ne $false -or $state.Status -cne 'exited' -or $state.ExitCode -ne 0) { throw 'Container state did not establish a successful exit' }
     if ($exitCode -ne 0) { throw "Container test failed: $exitCode" }
+    $result = Get-Content -LiteralPath (Join-Path $EvidenceDir 'container.json') -Raw | ConvertFrom-Json
+    if ($null -eq $result -or $result.failure -or $result.negative -cne 'passed: exact prerequisite error and unchanged inventory' -or $result.positive -cne 'passed: prerequisite check and unchanged inventory') { throw 'Container evidence is missing, incomplete, or reports failure' }
 } finally {
     $cleanupFailed = $false
     foreach ($file in @(Get-ChildItem -LiteralPath $EvidenceDir -File)) {

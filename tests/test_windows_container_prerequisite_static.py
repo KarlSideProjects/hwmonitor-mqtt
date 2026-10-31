@@ -1,4 +1,4 @@
-"""Guard the disabled, private container QA against host-side execution and drift."""
+"""Guard the private container QA against host-side execution and drift."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_private_container_qa_guards():
     workflow = (ROOT / '.github/workflows/windows-container-prerequisite.yml').read_text()
     script = (ROOT / 'tests/windows_container_prerequisite.ps1').read_text()
-    assert 'disabled-windows-container-prerequisite-placeholder' in workflow
+    assert 'qa/windows-container-prerequisite-20261031' in workflow
     assert 'actions: read' in workflow and 'contents: read' in workflow
     assert 'run-id: 41148709956' in workflow
     assert '31b8ebebc9004896438bed9c531313a1403df15adb648e5db2c7c6fcb173328c' in script
@@ -20,3 +20,13 @@ def test_private_container_qa_guards():
     assert 'if ($process.ExitCode -ne 0)' in inside
     assert '$_.Exception.Message -cne $expectedError' in inside
     assert inside.count("(Inventory 'C:\\stage') -cne $inventory") == 2
+
+
+def test_container_result_and_runtime_inventory_guards():
+    script = (ROOT / 'tests/windows_container_prerequisite.ps1').read_text()
+    assert 'docker inspect --format' in script
+    assert '$state.Running' in script and "$state.Status -cne 'exited'" in script and '$state.ExitCode -ne 0' in script
+    assert "ConvertFrom-Json" in script and "$result.negative -cne 'passed: exact prerequisite error and unchanged inventory'" in script
+    assert "$result.positive -cne 'passed: prerequisite check and unchanged inventory'" in script and '$result.failure' in script
+    assert 'WOW6432Node' in script and 'CurrentVersion\\Uninstall' in script
+    assert "Microsoft Visual C\\+\\+" in script and 'Redistributable|Runtime' in script
