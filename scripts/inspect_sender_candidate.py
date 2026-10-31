@@ -129,7 +129,7 @@ ARCHIVE_NOTICE_HASHES = {'linux-x64': {'licenses/paho-mqtt.txt': '3c3ce20f2f04eb
                  'licenses/psutil-0.txt': 'c7adc4d5d1337a548b967421f1fbe258b93033a0417708fd6f4e38f8ecbceb80',
                  'licenses/pycparser-0.txt': '0c846399369ea76ddd7b5c44fe6d16497415fcf015f5cbb508c24bf98b81c5b1',
                  'licenses/python-dotenv-0.txt': '80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9',
-                 'licenses/python.txt': '359d4441518f0522a43adb96b48856ccba3fedef355fd9fd7d4f571c57367bda',
+                 'licenses/python.txt': 'fafca1da78d44368edbb3e5fbcc6d505411ed5d5e5177799fa92afe5fc2cd2e7',
                  'licenses/pythonnet-0.txt': 'e1dc3a6ff017a6800dc27a7220500f512b95fbcd996d38ebbbff85c693245369',
                  'licenses/pywin32-0.txt': '5ea2f23c7f00c3006bacf267183e816d8d4b6dc95ea57a4ddb0ff81de6d8719e',
                  'licenses/pywin32-1.txt': '11d8462e134e8efe8f4bd52372292a72ff0b670753d2f49f71675eed0dbfd085',

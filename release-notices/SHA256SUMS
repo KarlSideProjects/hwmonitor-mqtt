@@ -22,5 +22,6 @@ deaf3a42effb551a5b140fa9afefed183a27f1341c6d1bf430d106a5e6931fc0  linux-x64-cpyt
 31b15de82aa19a845156169a17a5488bf597e561b2c318d159ed583139b25e87  windows-x64-cpython-3.13.17/cpython-3.13.17-expat-COPYING
 2713324211652ce4a60e6e21e54f9dc3004299e591b0933a352f1a89c5fb53c2  windows-x64-cpython-3.13.17/mpdecimal-4.0.0-COPYRIGHT.txt
 7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a  windows-x64-cpython-3.13.17/openssl-3.5.9-LICENSE.txt
-359d4441518f0522a43adb96b48856ccba3fedef355fd9fd7d4f571c57367bda  windows-x64-cpython-3.13.17/runtime-bundle.txt
+fafca1da78d44368edbb3e5fbcc6d505411ed5d5e5177799fa92afe5fc2cd2e7  windows-x64-cpython-3.13.17/runtime-bundle.txt
 bcb02973ef6e87ea73d331b3a80df7748407f17efdb784b61b47e0e610d3bb5c  windows-x64-cpython-3.13.17/xz-5.2.5-COPYING
+6145f9941c8c3991d0987726127e3079f810576c5398fa691ab2de0094ccb4b2  windows-x64-cpython-3.13.17/cffi-2.0.0-libffi-notices.txt

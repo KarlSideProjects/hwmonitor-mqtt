@@ -32,3 +32,20 @@ def test_gcc_runtime_terms_are_retained_as_conditional_evidence():
     assert gcc['file_terms']['license'] == 'GPL-3.0-or-later WITH GCC-exception-3.1'
     for entry in gcc['notices']:
         assert hashlib.sha256((ROOT / entry['path']).read_bytes()).hexdigest() == entry['sha256']
+
+
+def test_windows_cffi_libffi_file_notices_are_bundled():
+    notice = (ROOT / 'release-notices/windows-x64-cpython-3.13.17/cffi-2.0.0-libffi-notices.txt').read_bytes()
+    bundle = (ROOT / 'release-notices/windows-x64-cpython-3.13.17/runtime-bundle.txt').read_bytes()
+    assert hashlib.sha256(notice).hexdigest() == '6145f9941c8c3991d0987726127e3079f810576c5398fa691ab2de0094ccb4b2'
+    for attribution in (b'Copyright (c) 1996, 1998, 1999, 2001  Red Hat, Inc.',
+                        b'Copyright (c) 2002  Ranjit Mathew',
+                        b'Copyright (c) 2002  Bo Thorsen',
+                        b'Copyright (c) 2002  Roger Sayle',
+                        b'Copyright (c) 1996-2003  Red Hat, Inc.',
+                        b'Copyright (c) 1996, 1998  Red Hat, Inc.',
+                        b'Copyright (c) 1996  Red Hat, Inc.'):
+        assert attribution in notice
+    assert b'The above copyright notice and this permission notice shall be included' in notice
+    assert b'IN NO EVENT SHALL CYGNUS SOLUTIONS BE LIABLE' in notice
+    assert notice in bundle
