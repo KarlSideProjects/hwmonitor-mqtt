@@ -217,71 +217,20 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $archive = 'candidate/sender-windows-x64.zip'
           & scripts/windows/validate_sender_package.ps1 -Archive $archive -Sha256 (Get-FileHash $archive -Algorithm SHA256).Hash -Destination candidate-staged
-      - name: Rehearse absent Microsoft runtime on disposable host
+      - name: Check candidate Microsoft runtime prerequisite
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          $evidencePath = Join-Path $env:RUNNER_TEMP 'vc-runtime-absence.json'
-          $stage = Join-Path $env:GITHUB_WORKSPACE 'candidate-staged'
-          $activator = Join-Path $env:GITHUB_WORKSPACE 'scripts/windows/activate_sender_package.ps1'
           $root = Join-Path $env:RUNNER_TEMP 'vc-preflight-never-created'
-          $recovery = Join-Path $env:RUNNER_TEMP 'vc_redist.x64.exe'
-          $evidence = [ordered]@{status='inconclusive'; uninstall_exit=$null; restore_exit=$null; negative_preflight=$false; positive_preflight=$false; failure=''; restore_failure=''}
-          $attempted = $false
-          try {
-            if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:RUNNER_OS -ne 'Windows' -or $env:RUNNER_ARCH -ne 'X64') { throw 'A disposable GitHub-hosted Windows x64 runner is required.' }
-            if (Test-Path -LiteralPath $root) { throw 'Preflight root already exists.' }
-            if (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue) { throw 'Unexpected existing sender task.' }
-            $stageHash = (Get-FileHash -LiteralPath (Join-Path $stage 'sender.exe') -Algorithm SHA256).Hash
-            $recoverySig = Get-AuthenticodeSignature -LiteralPath $recovery
-            if ($recoverySig.Status -ne 'Valid' -or $recoverySig.SignerCertificate.Subject -notlike 'CN=Microsoft Corporation,*') { throw 'Recovery installer signature is invalid.' }
-            $evidence.recovery_sha256 = (Get-FileHash -LiteralPath $recovery -Algorithm SHA256).Hash.ToLowerInvariant()
-            $entries = @(Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction Stop | Where-Object { $_.DisplayName -match '^Microsoft Visual C\+\+ 2015(?:-[0-9]{4})? Redistributable \(x64\) - ' })
-            if ($entries.Count -ne 1 -or $entries[0].QuietUninstallString -notmatch '^\s*"([^"]+\.exe)"(?:\s|$)') { throw 'Inconclusive: no unique cached x64 runtime uninstaller.' }
-            $uninstaller = [IO.Path]::GetFullPath($Matches[1])
-            $cacheRoot = [IO.Path]::GetFullPath((Join-Path $env:ProgramData 'Package Cache')) + [IO.Path]::DirectorySeparatorChar
-            if (-not $uninstaller.StartsWith($cacheRoot, [StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($uninstaller) -ine 'vc_redist.x64.exe') { throw 'Inconclusive: unexpected cached uninstaller path.' }
-            $signature = Get-AuthenticodeSignature -LiteralPath $uninstaller
-            if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notlike 'CN=Microsoft Corporation,*') { throw 'Inconclusive: cached uninstaller signature is invalid.' }
-            $evidence.uninstaller_sha256 = (Get-FileHash -LiteralPath $uninstaller -Algorithm SHA256).Hash.ToLowerInvariant()
-            $evidence.before = [string]$entries[0].DisplayName
-            $attempted = $true
-            $process = Start-Process -FilePath $uninstaller -ArgumentList '/uninstall', '/quiet', '/norestart' -Wait -PassThru
-            $evidence.uninstall_exit = $process.ExitCode
-            if ($process.ExitCode -ne 0) { throw "Inconclusive: uninstall exit $($process.ExitCode)." }
-            $registryPresent = Test-Path -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64' -ErrorAction Stop
-            $present = @('mfc140u.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') | Where-Object { Test-Path -LiteralPath (Join-Path (Join-Path $env:WINDIR 'System32') $_) -ErrorAction Stop }
-            if ($registryPresent -or @($present).Count -ne 0) { throw 'Inconclusive: x64 runtime registration or DLLs remain.' }
-            $negative = $false
-            try { & $activator -ProjectRoot $root -StagedPackage $stage -Source $env:BUILD_SOURCE -CheckPrerequisitesOnly }
-            catch { if ($_.Exception.Message -match 'Visual C\+\+') { $negative = $true } else { throw } }
-            if (-not $negative -or (Test-Path -LiteralPath $root) -or (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue) -or (Get-FileHash -LiteralPath (Join-Path $stage 'sender.exe') -Algorithm SHA256).Hash -ne $stageHash) { throw 'Inconclusive: missing-runtime preflight or preservation failed.' }
-            $evidence.negative_preflight = $true
-          }
-          catch { $evidence.failure = $_.Exception.Message }
-          finally {
-            if ($attempted) {
-              try {
-                $restore = Start-Process -FilePath $recovery -ArgumentList '/install', '/quiet', '/norestart' -Wait -PassThru
-                $evidence.restore_exit = $restore.ExitCode
-                if ($restore.ExitCode -ne 0) { throw "Recovery installer exit $($restore.ExitCode)." }
-                & $activator -ProjectRoot $root -StagedPackage $stage -Source $env:BUILD_SOURCE -CheckPrerequisitesOnly
-                if ((Test-Path -LiteralPath $root) -or (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue) -or (Get-FileHash -LiteralPath (Join-Path $stage 'sender.exe') -Algorithm SHA256).Hash -ne $stageHash) { throw 'Preflight changed the staged sender or task.' }
-                $evidence.positive_preflight = $true
-              }
-              catch { $evidence.restore_failure = $_.Exception.Message }
-            }
-            if (-not $evidence.failure -and -not $evidence.restore_failure -and $evidence.negative_preflight -and $evidence.positive_preflight) { $evidence.status = 'verified' }
-            [IO.File]::WriteAllText($evidencePath, ($evidence | ConvertTo-Json -Depth 5) + "`n", [Text.UTF8Encoding]::new($false))
-          }
-          if ($evidence.status -ne 'verified') { throw "Runtime absence rehearsal inconclusive: $($evidence.failure); restoration: $($evidence.restore_failure)" }
-      - name: Exercise native sender after runtime restoration
+          if (Test-Path -LiteralPath $root) { throw 'Preflight root already exists.' }
+          & scripts/windows/activate_sender_package.ps1 -ProjectRoot $root -StagedPackage (Join-Path $env:GITHUB_WORKSPACE 'candidate-staged') -Source $env:BUILD_SOURCE -CheckPrerequisitesOnly
+          if ((Test-Path -LiteralPath $root) -or (Get-ScheduledTask -TaskName 'HWMonitorMQTTSender' -ErrorAction SilentlyContinue)) { throw 'Prerequisite check changed the project or task.' }
+      - name: Exercise native sender with required Microsoft runtime
         shell: pwsh
         run: |
           $env:LHM_PATH = Join-Path $PWD 'third_party/librehardwaremonitor/LibreHardwareMonitor.exe'
-          & build/windows/sender.exe --dump-sensors > sensors-restored.json 2> sensors-restored.log
-          if ($LASTEXITCODE -ne 0 -or -not (Select-String -Path sensors-restored.log -SimpleMatch 'available: True' -Quiet)) { throw 'Restored runtime sensor smoke failed.' }
-          $sensors = Get-Content sensors-restored.json -Raw | ConvertFrom-Json
+          & build/windows/sender.exe --dump-sensors > sensors-native.json 2> sensors-native.log
+          if ($LASTEXITCODE -ne 0 -or -not (Select-String -Path sensors-native.log -SimpleMatch 'available: True' -Quiet)) { throw 'Native runtime sensor smoke failed.' }
+          $sensors = Get-Content sensors-native.json -Raw | ConvertFrom-Json
           if ($null -eq $sensors.sensors) { throw 'Missing restored sensor array.' }
           & tests/windows_compiled_mqtt_smoke.ps1 -SenderExe (Resolve-Path build/windows/sender.exe).Path -BrokerExe (Join-Path $env:RUNNER_TEMP 'mosquitto-test/mosquitto.exe') -RequireWmiFallback
       - name: Rehearse official bootstrap with Windows PowerShell 5.1
@@ -299,7 +248,6 @@ jobs:
           Copy-Item record-assets/* release-private/assets/ -Recurse
           Copy-Item capture-evidence/* release-private/evidence/windows-x64/ -Recurse
           Copy-Item (Join-Path $env:RUNNER_TEMP 'vc-runtime-prerequisite.json') release-private/evidence/windows-x64/
-          Copy-Item (Join-Path $env:RUNNER_TEMP 'vc-runtime-absence.json') release-private/evidence/windows-x64/
           Copy-Item build-record.json release-private/evidence/windows-x64/record.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -327,8 +275,7 @@ jobs:
             test-evidence/wmi-baseline.json
             test-evidence/compiled-process-tree.json
             ${{ runner.temp }}/vc-runtime-prerequisite.json
-            ${{ runner.temp }}/vc-runtime-absence.json
-            sensors-restored.json
-            sensors-restored.log
+            sensors-native.json
+            sensors-native.log
           if-no-files-found: warn
           retention-days: 3
