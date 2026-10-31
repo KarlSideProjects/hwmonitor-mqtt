@@ -139,7 +139,7 @@ ARCHIVE_NOTICE_HASHES = {'linux-x64': {'licenses/paho-mqtt.txt': '3c3ce20f2f04eb
                  'licenses/xz-5.2.5-COPYING': 'bcb02973ef6e87ea73d331b3a80df7748407f17efdb784b61b47e0e610d3bb5c'}}
 
 
-ARCHIVE_NOTICE_HASHES['linux-arm64'] = {**ARCHIVE_NOTICE_HASHES['linux-x64'], 'licenses/python.txt': 'c83e087151c1b7ce752e06144d8f747a239746af59d6b6bc2960734c58f64dad'}
+ARCHIVE_NOTICE_HASHES['linux-arm64'] = {**ARCHIVE_NOTICE_HASHES['linux-x64'], 'licenses/python.txt': 'e0c7b89fdac393ca782e2b03ca04313a216c59c525f548b43d51aab49ae4b758'}
 
 def check_archive_notices(platform, found):
     expected = ARCHIVE_NOTICE_HASHES.get(platform)

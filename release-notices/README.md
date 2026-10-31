@@ -15,3 +15,5 @@ Exact selected wheel archives and compiler runtime inputs still need producer re
 The public asset set does not contain private Docker-save images. Linux recipients obtain Debian packages from signed dated snapshots. The Windows installer fetches LibreHardwareMonitor 0.9.6 and PawnIO 2.2.0 directly from their vendors; neither executable is in the application archive allowlist. Their terms and installation requirements remain independent of the Sender notice set.
 
 The Windows runtime bundle retains the file-specific notices from the cffi 2.0.0 x64 libffi sources. The [Windows notice decision](../docs/release/windows-x64-notice-decision.md) records the source and the observed candidate's missing attribution. This correction does not approve a Windows candidate.
+
+The ARM64 bundle includes the GNU C Library use notice, the pinned AArch64 startup source copyright and license header, and the complete LGPL 2.1 text. The applicable section 6 route, required permission and relink or source arrangement, and operation with an interface-compatible modified libc remain unresolved. This notice correction does not approve an ARM candidate.

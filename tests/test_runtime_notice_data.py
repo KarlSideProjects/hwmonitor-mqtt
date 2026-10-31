@@ -49,3 +49,23 @@ def test_windows_cffi_libffi_file_notices_are_bundled():
     assert b'The above copyright notice and this permission notice shall be included' in notice
     assert b'IN NO EVENT SHALL CYGNUS SOLUTIONS BE LIABLE' in notice
     assert notice in bundle
+
+
+def test_arm_glibc_notice_retains_exact_source_terms():
+    inputs = ROOT / 'release-notices/linux-arm64-cpython-3.11.15-pbs-20260728'
+    license_bytes = (inputs / 'glibc-2.31-COPYING.LIB').read_bytes()
+    header = (inputs / 'glibc-2.31-aarch64-start-notice.txt').read_bytes()
+    bundle = (inputs / 'runtime-bundle.txt').read_bytes()
+    assert hashlib.sha256(license_bytes).hexdigest() == 'dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551'
+    assert hashlib.sha256(header).hexdigest() == 'b8a6a3a65915eabf1ff46028103092e53d487b0ef81dfadf54e3b355143ff1c1'
+    assert b'Copyright (C) 1995-2020 Free Software Foundation, Inc.' in header
+    assert b'GNU C Library' in header and b'version 2.1' in header
+    assert b'This ARM64 Sender uses the GNU C Library' in bundle
+    assert license_bytes in bundle and header in bundle
+
+
+def test_arm_glibc_notice_map_binds_retained_bytes():
+    data = json.loads((ROOT / 'release-notices/runtime-components.json').read_text())
+    arm = data['platforms']['linux-arm64']
+    for entry in [arm['runtime_bundle'], *arm['glibc_startup']['notices']]:
+        assert hashlib.sha256((ROOT / entry['path']).read_bytes()).hexdigest() == entry['sha256']

@@ -359,7 +359,7 @@
       },
       "runtime_bundle": {
         "path": "release-notices/linux-arm64-cpython-3.11.15-pbs-20260728/runtime-bundle.txt",
-        "sha256": "c83e087151c1b7ce752e06144d8f747a239746af59d6b6bc2960734c58f64dad"
+        "sha256": "e0c7b89fdac393ca782e2b03ca04313a216c59c525f548b43d51aab49ae4b758"
       },
       "archive_path": "licenses/python.txt",
       "packages": [
@@ -459,6 +459,27 @@
         "gcc_license_reference": "https://github.com/gcc-mirror/gcc/blob/releases/gcc-10.2.0/COPYING3",
         "gcc_exception_reference": "https://github.com/gcc-mirror/gcc/blob/releases/gcc-10.2.0/COPYING.RUNTIME",
         "reference_scope": "Upstream GCC 10.2.0 texts identify the license and exception; they do not prove exact Debian package file provenance or that any particular routine was included."
+      },
+      "glibc_startup": {
+        "source": "Debian glibc 2.31-13+deb11u14, sysdeps/aarch64/start.S",
+        "license": "LGPL-2.1-or-later",
+        "source_file_sha256": "1354965d93e9517299681fa6ac35456114426dedf68c0c28338c7e4182fe6953",
+        "debian_dsc_sha256": "f3cb6255cbf60297fae7dfdb6f8c6f72b3692b89429fe2536f15fad238e10ec3",
+        "upstream_archive_sha256": "3dc7704b6166839c37d7047626fd199f3d4c09aca0d90e48c51c31c967dce34e",
+        "debian_archive_sha256": "b173a5551de5c569738ee545beda2988769ed3f83c2b67def5cf862408bebe95",
+        "toolchain_sha256": "3dd341df84cc09a99aff21f3aa712f610bd3e580836562c362748624a3ccf247",
+        "package_copyright_sha256": "40c7e1f2118531f038ca22999bd976901254e1bc5cd1b0f0211bdd064c599987",
+        "notices": [
+          {
+            "path": "release-notices/linux-arm64-cpython-3.11.15-pbs-20260728/glibc-2.31-COPYING.LIB",
+            "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"
+          },
+          {
+            "path": "release-notices/linux-arm64-cpython-3.11.15-pbs-20260728/glibc-2.31-aarch64-start-notice.txt",
+            "sha256": "b8a6a3a65915eabf1ff46028103092e53d487b0ef81dfadf54e3b355143ff1c1"
+          }
+        ],
+        "status": "Observed ARM executable entry points correspond to Scrt1.o. The section 6 route, required permissions and relink or source arrangement, and compatible-libc tests remain unresolved."
       }
     },
     "windows-x64": {
