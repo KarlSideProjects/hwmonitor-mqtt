@@ -13,7 +13,8 @@ import zipfile
 from pathlib import Path
 
 from capture_sender_build import capture
-from sender_build_inputs import verify_windows_compiler
+from sender_build_inputs import ARM_STARTUP, verify_windows_compiler
+from linux_arm64.gcc import verify_final_binding, verify_link_evidence, verify_scons_log
 from inspect_sender_candidate import (LINUX_ARCHIVE_PATHS, MAX_ARCHIVE_MEMBERS, PLATFORMS, WINDOWS_ARCHIVE_PATHS,
                                       inspect_build_evidence, inspect_runtime_files, receipt_inputs, strict_json)
 
@@ -57,6 +58,37 @@ def windows_assets(git, source, assets):
         if hashlib.sha256(committed).hexdigest() != result[name]:
             raise ValueError(f'asset differs from committed source: {name}')
     return result
+
+
+def verify_arm_build(evidence_dir, provenance, receipt, git, source, executable, backend):
+    try:
+        evidence = provenance['arm_startup']
+        if evidence['startup'] != ARM_STARTUP or receipt['startup'] != ARM_STARTUP:
+            raise ValueError('ARM startup receipt mismatch')
+        verify_link_evidence(evidence_dir / 'arm-startup', evidence)
+        state = evidence_dir / 'arm-startup'
+        if not {'binding.json', 'backend.normalized'} <= evidence['files'].keys():
+            raise ValueError('missing ARM final binding')
+        verify_final_binding(state, executable, backend)
+        inputs = strict_json((state / 'inputs.json').read_bytes())
+        compiler = inputs['compiler']
+        toolchain = receipt['toolchain']
+        if (toolchain['compiler_sha256'], toolchain['compiler_version']) != (compiler['cc1_sha256'], compiler['version']):
+            raise ValueError('ARM receipt compiler mismatch')
+        for name, expected in (('crt_arch.h', ARM_STARTUP['entry_sha256']), ('LICENSE.musl', ARM_STARTUP['license_sha256']), ('entry.c', inputs['glue_sha256'])):
+            path = 'scripts/linux_arm64/startup/' + name
+            committed = subprocess.check_output(git + ['show', f'{source}:{path}'])
+            if hashlib.sha256(committed).hexdigest() != expected:
+                raise ValueError('ARM startup source mismatch')
+        committed = subprocess.check_output(git + ['show', f'{source}:scripts/linux_arm64/gcc.py'])
+        if hashlib.sha256(committed).hexdigest() != inputs['launcher']['helper_sha256']:
+            raise ValueError('ARM compiler helper source mismatch')
+        log = evidence_dir / 'compiler.log'
+        if log.is_symlink() or not log.is_file() or digest(log) != provenance['compiler_log_sha256']:
+            raise ValueError('ARM compiler log mismatch')
+        verify_scons_log(log)
+    except (OSError, KeyError, TypeError, subprocess.CalledProcessError) as error:
+        raise ValueError('missing ARM build evidence') from error
 
 
 def main():
@@ -120,6 +152,11 @@ def main():
         if args.compiler_log is None or args.compiler_log.is_symlink() or not args.compiler_log.is_file() or args.compiler_log.stat().st_size > 64 * 1024 * 1024:
             parser.error('actual compiler log is required')
         expected_provenance['compiler_log_sha256'] = digest(args.compiler_log)
+    if args.platform == 'linux-arm64':
+        if not isinstance(provenance, dict) or 'arm_startup' not in provenance or 'compiler_log_sha256' not in provenance:
+            parser.error('ARM startup provenance missing')
+        expected_provenance['arm_startup'] = provenance['arm_startup']
+        expected_provenance['compiler_log_sha256'] = provenance['compiler_log_sha256']
     if provenance != expected_provenance:
         parser.error('compiler invocation provenance mismatch')
     entries = inspect_build_evidence(args.platform, args.report, args.inventory, record)
@@ -134,6 +171,8 @@ def main():
     receipt_inputs(args.platform, record)
     if args.platform == 'windows-x64':
         verify_windows_compiler(record['selected_inputs']['toolchain'], provenance, args.compiler_log)
+    elif args.platform == 'linux-arm64':
+        verify_arm_build(args.provenance.parent, provenance, record['selected_inputs'], git, source, args.executable, args.runtime_dir / 'sender.bin')
     args.output.write_text(json.dumps(record, indent=2, sort_keys=True) + '\n', encoding='utf-8')
 
 

@@ -69,3 +69,30 @@ def test_arm_glibc_notice_map_binds_retained_bytes():
     arm = data['platforms']['linux-arm64']
     for entry in [arm['runtime_bundle'], *arm['glibc_startup']['notices']]:
         assert hashlib.sha256((ROOT / entry['path']).read_bytes()).hexdigest() == entry['sha256']
+
+
+def test_arm_bundle_contains_exact_musl_notice_and_historical_glibc_terms():
+    import hashlib
+    root = ROOT / 'release-notices/linux-arm64-cpython-3.11.15-pbs-20260728'
+    notice = (ROOT / 'scripts/linux_arm64/startup/LICENSE.musl').read_bytes()
+    assert hashlib.sha256(notice).hexdigest() == 'f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af'
+    bundle = (root / 'runtime-bundle.txt').read_bytes()
+    assert notice in bundle
+    assert (root / 'glibc-2.31-COPYING.LIB').read_bytes() in bundle
+    assert (root / 'glibc-2.31-aarch64-start-notice.txt').read_bytes() in bundle
+
+
+def test_x64_system_glibc_notice_and_exact_license_are_mapped():
+    root = ROOT / 'release-notices/linux-x64-cpython-3.11.15-pbs-20260728'
+    license_bytes = (ROOT / 'release-notices/linux-arm64-cpython-3.11.15-pbs-20260728/glibc-2.31-COPYING.LIB').read_bytes()
+    bundle = (root / 'runtime-bundle.txt').read_bytes()
+    assert b'This Linux x64 Sender uses the system-provided GNU C Library dynamically' in bundle
+    assert license_bytes in bundle
+    entry = json.loads((ROOT / 'release-notices/runtime-components.json').read_text())['platforms']['linux-x64']['system_glibc']
+    assert hashlib.sha256((ROOT / entry['notice']['path']).read_bytes()).hexdigest() == entry['notice']['sha256']
+
+
+def test_other_runtime_bundles_remain_pinned():
+    root = ROOT / 'release-notices'
+    for platform, expected in [('linux-arm64-cpython-3.11.15-pbs-20260728', 'a73e28bbd17a69d1b6a8b9882757f9b0472b69c1039181309e33788a05ed20c3'), ('windows-x64-cpython-3.13.17', 'fafca1da78d44368edbb3e5fbcc6d505411ed5d5e5177799fa92afe5fc2cd2e7')]:
+        assert hashlib.sha256((root / platform / 'runtime-bundle.txt').read_bytes()).hexdigest() == expected

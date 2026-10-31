@@ -110,10 +110,10 @@ WINDOWS_ARCHIVE_PATHS = {
 
 
 ARCHIVE_NOTICE_HASHES = {'linux-x64': {'licenses/paho-mqtt.txt': '3c3ce20f2f04eb331f297297c0cc235bb3d1e4365e2b402377a7481a442d7746',
-               'licenses/project.md': 'ffa814dce11f3be832bacb7dc2511c36c935b77845c4f16a7c9d8cfd3ae8ce36',
+               'licenses/project.md': '30aea7f7db6d86c8eb014b92cd87058bb0798b256ca9408faf0f8aba7838f678',
                'licenses/psutil.txt': 'b89c063b3786e28e0c0a38f1931db61fed35e69dd2a2966fbecffee0f46c8d10',
                'licenses/python-dotenv.txt': '80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9',
-               'licenses/python.txt': '7b6e2eb4ebcd365049b2ee508c5dc9ecbdcad0c8ed6dc3d8772841dcea02a671',
+               'licenses/python.txt': '2f7fbdf1d4bb7083bc737d9259a1c8bdef68cf5b8e412cb4949d301756493e10',
                'licenses/typing-extensions.txt': '3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf'},
  'windows-x64': {'licenses/WMI-0.txt': 'bf90809237a8ce1dac86bed7e34e4e76692d87ffd21aed16541105cd63ea533a',
                  'licenses/WMI-1.txt': 'b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5',
@@ -125,7 +125,7 @@ ARCHIVE_NOTICE_HASHES = {'linux-x64': {'licenses/paho-mqtt.txt': '3c3ce20f2f04eb
                  'licenses/epl-v20': '8c349f80764d0648e645f41ef23772a70c995a0924b5235f735f4a3d09df127c',
                  'licenses/openssl-3.5.9-LICENSE.txt': '7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a',
                  'licenses/paho-mqtt-0.txt': '66408b049249c3bdb0ba1ed285f5422ce67e371d40151bebd4d806af454ffe7c',
-                 'licenses/project.txt': 'ffa814dce11f3be832bacb7dc2511c36c935b77845c4f16a7c9d8cfd3ae8ce36',
+                 'licenses/project.txt': '30aea7f7db6d86c8eb014b92cd87058bb0798b256ca9408faf0f8aba7838f678',
                  'licenses/psutil-0.txt': 'c7adc4d5d1337a548b967421f1fbe258b93033a0417708fd6f4e38f8ecbceb80',
                  'licenses/pycparser-0.txt': '0c846399369ea76ddd7b5c44fe6d16497415fcf015f5cbb508c24bf98b81c5b1',
                  'licenses/python-dotenv-0.txt': '80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9',
@@ -139,7 +139,7 @@ ARCHIVE_NOTICE_HASHES = {'linux-x64': {'licenses/paho-mqtt.txt': '3c3ce20f2f04eb
                  'licenses/xz-5.2.5-COPYING': 'bcb02973ef6e87ea73d331b3a80df7748407f17efdb784b61b47e0e610d3bb5c'}}
 
 
-ARCHIVE_NOTICE_HASHES['linux-arm64'] = {**ARCHIVE_NOTICE_HASHES['linux-x64'], 'licenses/python.txt': 'e0c7b89fdac393ca782e2b03ca04313a216c59c525f548b43d51aab49ae4b758'}
+ARCHIVE_NOTICE_HASHES['linux-arm64'] = {**ARCHIVE_NOTICE_HASHES['linux-x64'], 'licenses/python.txt': 'a73e28bbd17a69d1b6a8b9882757f9b0472b69c1039181309e33788a05ed20c3'}
 
 def check_archive_notices(platform, found):
     expected = ARCHIVE_NOTICE_HASHES.get(platform)
@@ -659,8 +659,9 @@ def inspect_image_layers(image, expected, expected_sender, platform='linux-x64')
 
 
 # Runtime notice/source arrangements must be established in trusted code before release.
-APPROVED_NOTICE_SETS = frozenset({'94d9953267e552f29f7e3dbd055b4d487c2f29d600aec20ca26cad10faf3ad76',
-                                  '2d282750ea51e7de0af3caf1029cb9c3f12c3162b10893909f18089b12b35c3a'})
+APPROVED_NOTICE_SETS = frozenset({'c0db37d734108364af59cf858a30ba4bcff9fac817209ed970b6b3461d48f6ac',
+                                  'd681000a49ee24ac7a054b53a0a0bf22e15f62aed4530b49c19f64d3051656be',
+                                  'edadf7c760e09de96e71748617f8799803c5bc2d83075a57a2660438330f9eca'})
 
 
 def receipt_inputs(platform, record):

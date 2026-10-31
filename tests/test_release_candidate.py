@@ -810,7 +810,7 @@ def test_windows_project_notice_hash_matches_git_blob():
     spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
     checker = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(checker)
-    notice = subprocess.check_output(['git', '-C', str(CHECKER.parents[1]), 'show', 'HEAD:release-public/LICENSE-NOTICE.md'])
+    notice = (CHECKER.parents[1] / 'release-public/LICENSE-NOTICE.md').read_bytes()
     assert checker.ARCHIVE_NOTICE_HASHES['windows-x64']['licenses/project.txt'] == hashlib.sha256(notice).hexdigest()
 
 
@@ -842,7 +842,7 @@ def test_notice_readiness_binds_runtime_image_recipe(monkeypatch):
         checker.check_release_notice_readiness('linux-x64', record)
 
 
-def test_observed_linux_notice_set_and_identity_bindings(monkeypatch):
+def test_expected_linux_notice_set_and_identity_bindings(monkeypatch):
     import copy
     import importlib.util
 
@@ -852,7 +852,10 @@ def test_observed_linux_notice_set_and_identity_bindings(monkeypatch):
     fixtures = Path(__file__).parent / 'fixtures'
     record = json.loads((fixtures / 'linux-x64-notice-record.json').read_text())
     descriptor = json.loads((fixtures / 'linux-x64-notice-descriptor.json').read_text())
-    assert hashlib.sha256(json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()).hexdigest() == '94d9953267e552f29f7e3dbd055b4d487c2f29d600aec20ca26cad10faf3ad76'
+    expected = {'platform': 'linux-x64', 'compiler': record['compiler'], 'runtime': record['runtime'], 'notices': checker.ARCHIVE_NOTICE_HASHES['linux-x64'], 'selected_inputs': checker.receipt_inputs('linux-x64', record)}
+    expected['runtime_image_recipe'] = record['source_files']['Dockerfile']
+    assert descriptor == expected
+    assert hashlib.sha256(json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()).hexdigest() == 'd681000a49ee24ac7a054b53a0a0bf22e15f62aed4530b49c19f64d3051656be'
     checker.check_release_notice_readiness('linux-x64', record)
     for field in ('source', 'version', 'inventory_sha256'):
         changed = copy.deepcopy(record)
@@ -911,7 +914,7 @@ def test_old_arm_notice_and_descriptor_remain_rejected(monkeypatch):
     assert '6e5e5c88d72fb245a52afb67f54860c147c79927d8f5fd7efd82e53fab60d664' not in checker.APPROVED_NOTICE_SETS
 
 
-def test_observed_windows_notice_set_and_record_receipt_consistency(monkeypatch):
+def test_expected_windows_notice_set_and_record_receipt_consistency(monkeypatch):
     import copy
     import importlib.util
 
@@ -921,11 +924,14 @@ def test_observed_windows_notice_set_and_record_receipt_consistency(monkeypatch)
     fixtures = Path(__file__).parent / 'fixtures'
     record = json.loads((fixtures / 'windows-x64-notice-record.json').read_text())
     descriptor = json.loads((fixtures / 'windows-x64-notice-descriptor.json').read_text())
-    assert hashlib.sha256(json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()).hexdigest() == '2d282750ea51e7de0af3caf1029cb9c3f12c3162b10893909f18089b12b35c3a'
+    expected = {'platform': 'windows-x64', 'compiler': record['compiler'], 'runtime': record['runtime'], 'notices': checker.ARCHIVE_NOTICE_HASHES['windows-x64'], 'selected_inputs': checker.receipt_inputs('windows-x64', record)}
+    assert descriptor == expected
+    assert hashlib.sha256(json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()).hexdigest() == 'edadf7c760e09de96e71748617f8799803c5bc2d83075a57a2660438330f9eca'
     checker.check_release_notice_readiness('windows-x64', record)
     assert checker.APPROVED_NOTICE_SETS == frozenset({
-        '94d9953267e552f29f7e3dbd055b4d487c2f29d600aec20ca26cad10faf3ad76',
-        '2d282750ea51e7de0af3caf1029cb9c3f12c3162b10893909f18089b12b35c3a',
+        'c0db37d734108364af59cf858a30ba4bcff9fac817209ed970b6b3461d48f6ac',
+        'd681000a49ee24ac7a054b53a0a0bf22e15f62aed4530b49c19f64d3051656be',
+        'edadf7c760e09de96e71748617f8799803c5bc2d83075a57a2660438330f9eca',
     })
     for field in ('source', 'version', 'inventory_sha256'):
         changed = copy.deepcopy(record)
@@ -952,3 +958,104 @@ def test_observed_windows_notice_set_and_record_receipt_consistency(monkeypatch)
     monkeypatch.setitem(checker.ARCHIVE_NOTICE_HASHES, 'windows-x64', notices)
     with pytest.raises(ValueError, match='not established'):
         checker.check_release_notice_readiness('windows-x64', record)
+
+
+def test_arm_startup_pins_and_notice_change_invalidate_descriptor(monkeypatch):
+    import copy
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    record = json.loads((Path(__file__).parent / 'fixtures/linux-x64-notice-record.json').read_text())
+    record['platform'] = record['selected_inputs']['platform'] = 'linux-arm64'
+    record['selected_inputs']['runtime_archive']['sha256'] = 'a6decd180099e6768269bd8e8968aeaa84bb01511f00f6921dc204fe648729aa'
+    pins = dict(checker.validate_receipt.__globals__['ARM_STARTUP'])
+    record['selected_inputs']['startup'] = pins
+    descriptor = {'platform': 'linux-arm64', 'compiler': record['compiler'], 'runtime': record['runtime'],
+                  'notices': checker.ARCHIVE_NOTICE_HASHES['linux-arm64'], 'runtime_image_recipe': record['source_files']['Dockerfile'],
+                  'selected_inputs': checker.receipt_inputs('linux-arm64', record)}
+    fingerprint = hashlib.sha256(json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    monkeypatch.setattr(checker, 'APPROVED_NOTICE_SETS', frozenset({fingerprint}))
+    checker.check_release_notice_readiness('linux-arm64', record)
+    for field in ('entry_sha256', 'license_sha256'):
+        changed = copy.deepcopy(record)
+        changed['selected_inputs']['startup'][field] = '0' * 64
+        monkeypatch.setitem(checker.validate_receipt.__globals__, 'ARM_STARTUP', changed['selected_inputs']['startup'])
+        with pytest.raises(ValueError, match='not established'):
+            checker.check_release_notice_readiness('linux-arm64', changed)
+    monkeypatch.setitem(checker.validate_receipt.__globals__, 'ARM_STARTUP', pins)
+    notices = dict(checker.ARCHIVE_NOTICE_HASHES['linux-arm64'])
+    notices['licenses/python.txt'] = '0' * 64
+    monkeypatch.setitem(checker.ARCHIVE_NOTICE_HASHES, 'linux-arm64', notices)
+    with pytest.raises(ValueError, match='not established'):
+        checker.check_release_notice_readiness('linux-arm64', record)
+
+
+def test_project_notice_adds_only_approved_lgpl_permission():
+    root = CHECKER.parents[1]
+    old = subprocess.check_output(['git', '-C', str(root), 'show', '3f42f1ba09df21f49b62ebf863e0244930ce81ab:release-public/LICENSE-NOTICE.md']).decode()
+    reservation = 'This license does not grant permission to redistribute, sublicense, modify, or create derivative works of the self-owned software. All rights not expressly granted are reserved.\n'
+    permission = "Notwithstanding the restriction on modification above, for your copy of this software you may modify that copy for your own use and reverse engineer it for debugging such modifications, to the extent required by the GNU Lesser General Public License applicable to a dynamically linked component. The existing requirement for prior written permission for commercial use of Karl's self-owned software remains in force.\n"
+    assert (root / 'release-public/LICENSE-NOTICE.md').read_text() == old.replace(reservation, reservation + '\n' + permission)
+
+
+@pytest.mark.parametrize('platform,project_path', [('linux-x64', 'licenses/project.md'), ('linux-arm64', 'licenses/project.md'), ('windows-x64', 'licenses/project.txt')])
+def test_old_project_notice_rejected_by_full_notice_checker(monkeypatch, platform, project_path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    root = CHECKER.parents[1]
+    old = subprocess.check_output(['git', '-C', str(root), 'show', '3f42f1ba09df21f49b62ebf863e0244930ce81ab:release-public/LICENSE-NOTICE.md'])
+    expected = checker.ARCHIVE_NOTICE_HASHES[platform]
+    assert expected[project_path] == hashlib.sha256((root / 'release-public/LICENSE-NOTICE.md').read_bytes()).hexdigest()
+    monkeypatch.setitem(checker.ARCHIVE_NOTICE_HASHES, platform, {project_path: expected[project_path], **expected})
+    with pytest.raises(ValueError, match='notice differs from pinned input: ' + project_path):
+        checker.check_archive_notices(platform, {project_path: old})
+    assert '698f348064de231138d256591c327c9f18e30aa3171c5e3fe099e8c193ee2e12' not in checker.APPROVED_NOTICE_SETS
+
+
+def test_expected_arm_notice_set_is_approved_and_bound(monkeypatch):
+    import copy
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    fixtures = Path(__file__).parent / 'fixtures'
+    record = json.loads((fixtures / 'linux-arm64-notice-record.json').read_text())
+    descriptor = json.loads((fixtures / 'linux-arm64-notice-descriptor.json').read_text())
+    expected = {'platform': 'linux-arm64', 'compiler': record['compiler'], 'runtime': record['runtime'], 'notices': checker.ARCHIVE_NOTICE_HASHES['linux-arm64'], 'selected_inputs': checker.receipt_inputs('linux-arm64', record), 'runtime_image_recipe': record['source_files']['Dockerfile']}
+    assert descriptor == expected
+    assert hashlib.sha256(json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()).hexdigest() == 'c0db37d734108364af59cf858a30ba4bcff9fac817209ed970b6b3461d48f6ac'
+    checker.check_release_notice_readiness('linux-arm64', record)
+    for section, field in (('startup', 'entry_sha256'), ('toolchain', 'compiler_sha256'), ('runtime_archive', 'sha256')):
+        changed = copy.deepcopy(record)
+        changed['selected_inputs'][section][field] = '0' * 64
+        with pytest.raises(ValueError):
+            checker.check_release_notice_readiness('linux-arm64', changed)
+    changed = copy.deepcopy(record)
+    changed['selected_inputs']['packages'][0]['sha256'] = '0' * 64
+    with pytest.raises(ValueError):
+        checker.check_release_notice_readiness('linux-arm64', changed)
+    for field in ('source', 'version', 'inventory_sha256'):
+        changed = copy.deepcopy(record)
+        changed[field] = '0' * len(changed[field])
+        with pytest.raises(ValueError):
+            checker.check_release_notice_readiness('linux-arm64', changed)
+    notices = dict(checker.ARCHIVE_NOTICE_HASHES['linux-arm64'])
+    notices['licenses/python.txt'] = '0' * 64
+    monkeypatch.setitem(checker.ARCHIVE_NOTICE_HASHES, 'linux-arm64', notices)
+    with pytest.raises(ValueError, match='not established'):
+        checker.check_release_notice_readiness('linux-arm64', record)
+
+
+def test_old_x64_bundle_and_descriptor_remain_rejected(monkeypatch):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    old = subprocess.check_output(['git', 'show', '1d1620cf73b9f3ce6066ec2ddfea36b13d753a46:release-notices/linux-x64-cpython-3.11.15-pbs-20260728/runtime-bundle.txt'])
+    monkeypatch.setitem(checker.ARCHIVE_NOTICE_HASHES, 'linux-x64', {'licenses/python.txt': checker.ARCHIVE_NOTICE_HASHES['linux-x64']['licenses/python.txt']})
+    with pytest.raises(ValueError, match='notice differs'):
+        checker.check_archive_notices('linux-x64', {'licenses/python.txt': old})
+    assert 'a1eaec55ea4a6e30b6e58600a2766cedf2f9017ecb5c4389a19f9c874900ff57' not in checker.APPROVED_NOTICE_SETS

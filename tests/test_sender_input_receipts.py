@@ -73,3 +73,53 @@ def test_receipt_cannot_swap_actual_compiler_log(tmp_path):
     log.write_text(log.read_text() + 'changed\n')
     with pytest.raises(ValueError, match='compiler'):
         inputs.verify_windows_compiler(evidence, provenance, log)
+
+
+def test_arm_receipt_requires_pinned_startup_and_preserves_other_platform_schema():
+    startup = {'commit': '0784374d561435f7c787a555aeab8ede699ed298',
+               'entry_sha256': '14dcdc316f356e3d51217c1a2d73e7942d852d7f42be3308afce19e927a97999',
+               'license_sha256': 'f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af'}
+    base = {'platform': 'linux-arm64', 'source': 'a' * 40, 'version': '1.2.3', 'inventory_sha256': 'b' * 64,
+            'runtime_archive': {'kind': 'runtime-install', 'filename': 'python.tar.gz', 'sha256': 'c' * 64},
+            'packages': [{'name': 'example', 'version': '1', 'filename': 'example.whl', 'sha256': 'd' * 64}],
+            'toolchain': {'gcc': '10'}}
+    with pytest.raises(ValueError):
+        inputs.validate_receipt(base, 'linux-arm64', 'a' * 40, '1.2.3', 'b' * 64, {'example': '1'})
+    base['startup'] = startup
+    assert inputs.validate_receipt(base, 'linux-arm64', 'a' * 40, '1.2.3', 'b' * 64, {'example': '1'})['startup'] == startup
+    for key in startup:
+        changed = json.loads(json.dumps(base))
+        changed['startup'][key] = '0' * len(startup[key])
+        with pytest.raises(ValueError):
+            inputs.validate_receipt(changed, 'linux-arm64', 'a' * 40, '1.2.3', 'b' * 64, {'example': '1'})
+    base['platform'] = 'linux-x64'
+    with pytest.raises(ValueError):
+        inputs.validate_receipt(base, 'linux-x64', 'a' * 40, '1.2.3', 'b' * 64, {'example': '1'})
+
+
+def test_arm_receipt_rejects_missing_and_forged_same_invocation_evidence(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT / 'scripts'))
+    inventory = tmp_path / 'inventory.json'
+    inventory.write_text('[]')
+    with pytest.raises(ValueError):
+        inputs.arm_startup_from_build(inventory, {})
+    (tmp_path / 'provenance.json').write_text(json.dumps({'inventory_sha256': hashlib.sha256(inventory.read_bytes()).hexdigest(), 'arm_startup': {'startup': inputs.ARM_STARTUP, 'files': {}}}))
+    with pytest.raises(ValueError):
+        inputs.arm_startup_from_build(inventory, {})
+
+
+def test_arm_toolchain_identity_uses_the_driver_selected_for_links(tmp_path, monkeypatch):
+    cc1 = tmp_path / 'cc1'
+    cc1.write_bytes(b'compiler')
+    calls = []
+    def output(args, **kwargs):
+        calls.append(args)
+        if args[0] == 'dpkg-query':
+            return 'gcc=10'
+        if args[-1] == '-print-prog-name=cc1':
+            return str(cc1)
+        return '10.2.1'
+    monkeypatch.setattr(inputs.subprocess, 'check_output', output)
+    monkeypatch.setattr(inputs.sys, 'platform', 'linux')
+    inputs.observed_toolchain(arm=True)
+    assert [call[0] for call in calls[1:]] == ['/usr/bin/gcc', '/usr/bin/gcc']

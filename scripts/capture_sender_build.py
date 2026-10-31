@@ -6,6 +6,8 @@ import json
 import os
 from pathlib import Path
 import shutil
+import shlex
+import sys
 import signal
 import socket
 import subprocess
@@ -87,16 +89,57 @@ def capture(command, dist, output, timeout=30):
         raise ValueError('onefile capture did not match this build distribution')
 
 
-def compile_and_capture(command, source, build_dir, executable, report, dist, runtime, inventory_path, provenance, smoke_args, compiler_log=None):
+def arm_launcher(source, state):
+    helper = (source / 'scripts/linux_arm64/gcc.py').resolve(strict=True)
+    python = Path(sys.executable).absolute()
+    state = state.resolve(strict=True)
+    launcher = state / 'gcc'
+    content = f"#!/bin/sh\nHWMONITOR_ARM_STATE={shlex.quote(str(state))} exec {shlex.quote(str(python))} {shlex.quote(str(helper))} \"$@\"\n"
+    launcher.write_text(content, encoding='utf-8')
+    launcher.chmod(0o700)
+    inputs_path = state / 'inputs.json'
+    inputs = json.loads(inputs_path.read_text(encoding='utf-8'))
+    inputs['launcher'] = {'path': str(launcher), 'python': str(python), 'helper': str(helper),
+                          'helper_sha256': hashlib.sha256(helper.read_bytes()).hexdigest(),
+                          'sha256': hashlib.sha256(launcher.read_bytes()).hexdigest()}
+    inputs_path.write_text(json.dumps(inputs, sort_keys=True) + '\n', encoding='utf-8')
+    return launcher
+
+
+def compile_and_capture(command, source, build_dir, executable, report, dist, runtime, inventory_path, provenance, smoke_args, compiler_log=None, arm_state=None):
     if build_dir.exists() or runtime.exists() or inventory_path.exists() or provenance.exists():
         raise ValueError('build and evidence paths must be fresh')
+    env = None
+    if arm_state is not None:
+        if __package__:
+            from .linux_arm64.gcc import patchelf_identity
+        else:
+            from linux_arm64.gcc import patchelf_identity
+        tool_identity = patchelf_identity()
+        launcher = arm_launcher(source, arm_state)
+        probe_env = {'PATH': '/nonexistent'}
+        version = subprocess.check_output([str(launcher), '-dumpversion', '-dumpfullversion'], env=probe_env, text=True, timeout=10).strip()
+        expected = subprocess.check_output(['/usr/bin/gcc', '-dumpversion', '-dumpfullversion'], env=probe_env, text=True, timeout=10).strip()
+        if not version or version != expected:
+            raise ValueError('ARM compiler version probe mismatch')
+        env = {**os.environ, 'CC': str(launcher)}
     if compiler_log is None:
-        subprocess.run(command, cwd=source, check=True)
+        subprocess.run(command, cwd=source, check=True, env=env)
     else:
         with compiler_log.open('xb') as output:
-            subprocess.run(command, cwd=source, check=True, stdout=output, stderr=subprocess.STDOUT)
+            subprocess.run(command, cwd=source, check=True, stdout=output, stderr=subprocess.STDOUT, env=env)
         if compiler_log.stat().st_size > 64 * 1024 * 1024:
             raise ValueError('compiler log too large')
+    if arm_state is not None:
+        if __package__:
+            from .linux_arm64.gcc import bind_final_outputs, link_evidence, verify_final_binding, verify_local_crt, verify_scons_log
+        else:
+            from linux_arm64.gcc import bind_final_outputs, link_evidence, verify_final_binding, verify_local_crt, verify_scons_log
+        arm_evidence = link_evidence(arm_state)
+        verify_local_crt(arm_state)
+        if compiler_log is None:
+            raise ValueError('ARM compiler log required')
+        verify_scons_log(compiler_log)
     if not executable.is_file() or not report.is_file() or not dist.is_dir():
         raise ValueError('fresh compiler outputs missing')
     exe_hash = hashlib.sha256(executable.read_bytes()).hexdigest()
@@ -104,9 +147,15 @@ def compile_and_capture(command, source, build_dir, executable, report, dist, ru
     entries = capture([str(executable.resolve()), *smoke_args], dist, runtime)
     if hashlib.sha256(executable.read_bytes()).hexdigest() != exe_hash or hashlib.sha256(report.read_bytes()).hexdigest() != report_hash:
         raise ValueError('compiler outputs changed during capture')
+    if arm_state is not None:
+        bind_final_outputs(arm_state, executable, dist / 'sender.bin', tool_identity)
+        verify_final_binding(arm_state, executable, runtime / 'sender.bin')
+        arm_evidence = link_evidence(arm_state)
     inventory_path.write_text(json.dumps(entries, indent=2) + '\n', encoding='utf-8')
     data = {'executable_sha256': exe_hash, 'report_sha256': report_hash,
             'inventory_sha256': hashlib.sha256(inventory_path.read_bytes()).hexdigest()}
+    if arm_state is not None:
+        data['arm_startup'] = arm_evidence
     if compiler_log is not None:
         data['compiler_log_sha256'] = hashlib.sha256(compiler_log.read_bytes()).hexdigest()
     provenance.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')

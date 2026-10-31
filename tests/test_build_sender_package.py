@@ -151,6 +151,9 @@ def test_builder_main_packages_both_platforms(tmp_path, monkeypatch):
     import tarfile
     from types import SimpleNamespace
     from scripts import build_sender_package as builder
+    from scripts.linux_arm64 import gcc as compiler
+    calls = []
+    monkeypatch.setattr(compiler, "prepare", lambda *args: calls.append(args))
 
     monkeypatch.setattr(builder.sys, "version_info", (3, 11, 15))
     monkeypatch.setattr(builder.platform, "system", lambda: "Linux")
@@ -172,7 +175,10 @@ def test_builder_main_packages_both_platforms(tmp_path, monkeypatch):
         (build_dir / "sender").write_bytes(b"compiled executable")
         return SimpleNamespace(returncode=0)
     monkeypatch.setattr(builder.subprocess, "run", run)
-    def capture(command, source, build_dir, executable, report, dist, runtime, inventory, provenance, smoke_args):
+    def capture(command, source, build_dir, executable, report, dist, runtime, inventory, provenance, smoke_args, **kwargs):
+        if kwargs:
+            assert kwargs["arm_state"].name == "arm-startup"
+            assert "--show-scons" in command
         build_dir.mkdir(parents=True)
         executable.write_bytes(b"compiled executable")
         report.write_text("report")
@@ -188,6 +194,7 @@ def test_builder_main_packages_both_platforms(tmp_path, monkeypatch):
             assert package.extractfile("licenses/python.txt").read() == bundle.read_bytes()
         assert manifest["platform"] == target
         assert manifest["source"] == "a" * 40
+    assert len(calls) == 1
 
 
 def test_dockerfile_installs_intel_tools_only_on_amd64(tmp_path):

@@ -5,6 +5,7 @@ import hashlib
 import io
 import importlib.metadata
 import json
+import os
 from pathlib import Path
 import platform
 import re
@@ -107,7 +108,17 @@ def main():
         write_entrypoint(entrypoint, args.version, source)
         report = build_dir / "build-report.xml"
         command = [sys.executable, "-m", "nuitka", "--onefile", "--include-module=hwmonitor_mqtt.agents.agent_sender_async", f"--report={report}", "--output-filename=sender", f"--output-dir={build_dir}", str(entrypoint)]
-        compile_and_capture(command, source_dir, build_dir, build_dir / "sender", report, build_dir / "sender_entrypoint.dist", evidence / "runtime", evidence / "inventory.json", evidence / "provenance.json", [])
+        if target_platform == "linux-arm64":
+            if __package__:
+                from .linux_arm64.gcc import prepare
+            else:
+                from linux_arm64.gcc import prepare
+            state = evidence / "arm-startup"
+            prepare('/usr/bin/gcc', source_dir / 'scripts/linux_arm64/startup', state, os.environ.copy(), build_dir)
+            command.insert(3, '--show-scons')
+            compile_and_capture(command, source_dir, build_dir, build_dir / "sender", report, build_dir / "sender_entrypoint.dist", evidence / "runtime", evidence / "inventory.json", evidence / "provenance.json", [], compiler_log=evidence / 'compiler.log', arm_state=state)
+        else:
+            compile_and_capture(command, source_dir, build_dir, build_dir / "sender", report, build_dir / "sender_entrypoint.dist", evidence / "runtime", evidence / "inventory.json", evidence / "provenance.json", [])
         shutil.copy2(report, output / "build-report.xml")
         shutil.copy2(report, evidence / "report.xml")
         candidate = Path(directory) / "candidate"

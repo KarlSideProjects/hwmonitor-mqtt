@@ -14,6 +14,11 @@ from pathlib import Path
 import zipfile
 
 
+ARM_STARTUP = {'commit': '0784374d561435f7c787a555aeab8ede699ed298',
+               'entry_sha256': '14dcdc316f356e3d51217c1a2d73e7942d852d7f42be3308afce19e927a97999',
+               'license_sha256': 'f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af'}
+
+
 def digest(path):
     value = hashlib.sha256()
     with path.open('rb') as stream:
@@ -50,6 +55,28 @@ def archive_metadata(path):
     return normalize(name), version
 
 
+def arm_startup_from_build(inventory, toolchain):
+    if __package__:
+        from .linux_arm64.gcc import verify_link_evidence
+    else:
+        from linux_arm64.gcc import verify_link_evidence
+    try:
+        provenance = json.loads((inventory.parent / 'provenance.json').read_text(encoding='utf-8'))
+        evidence = provenance['arm_startup']
+        if provenance['inventory_sha256'] != digest(inventory) or evidence['startup'] != ARM_STARTUP:
+            raise ValueError('ARM startup provenance mismatch')
+        state = inventory.parent / 'arm-startup'
+        verify_link_evidence(state, evidence)
+        if not {'binding.json', 'backend.normalized'} <= evidence['files'].keys():
+            raise ValueError('missing ARM final binding')
+        compiler = json.loads((state / 'inputs.json').read_text(encoding='utf-8'))['compiler']
+        if (toolchain['compiler_sha256'], toolchain['compiler_version']) != (compiler['cc1_sha256'], compiler['version']):
+            raise ValueError('ARM receipt compiler mismatch')
+        return evidence['startup']
+    except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+        raise ValueError('missing ARM startup provenance') from error
+
+
 def make_receipt(wheels, runtime, runtime_kind, platform, source, version, inventory, expected, toolchain):
     packages = []
     for path in sorted(wheels.iterdir()):
@@ -59,13 +86,19 @@ def make_receipt(wheels, runtime, runtime_kind, platform, source, version, inven
         raise ValueError('selected packages differ from installed inputs')
     if runtime.is_symlink() or not runtime.is_file() or runtime.stat().st_size > 1024 * 1024 * 1024:
         raise ValueError('invalid runtime archive')
-    return {'platform': platform, 'source': source, 'version': version, 'inventory_sha256': digest(inventory),
-            'runtime_archive': {'kind': runtime_kind, 'filename': runtime.name, 'sha256': digest(runtime)},
-            'packages': packages, 'toolchain': toolchain}
+    result = {'platform': platform, 'source': source, 'version': version, 'inventory_sha256': digest(inventory),
+              'runtime_archive': {'kind': runtime_kind, 'filename': runtime.name, 'sha256': digest(runtime)},
+              'packages': packages, 'toolchain': toolchain}
+    if platform == 'linux-arm64':
+        result['startup'] = arm_startup_from_build(inventory, toolchain)
+    return result
 
 
 def validate_receipt(receipt, platform, source, version, inventory_sha256, expected):
-    if not isinstance(receipt, dict) or set(receipt) != {'platform', 'source', 'version', 'inventory_sha256', 'runtime_archive', 'packages', 'toolchain'}:
+    fields = {'platform', 'source', 'version', 'inventory_sha256', 'runtime_archive', 'packages', 'toolchain'}
+    if platform == 'linux-arm64':
+        fields.add('startup')
+    if not isinstance(receipt, dict) or set(receipt) != fields or (platform == 'linux-arm64' and receipt.get('startup') != ARM_STARTUP):
         raise ValueError('invalid selected input receipt')
     if (not isinstance(source, str) or not re.fullmatch(r'[a-f0-9]{40}', source) or not isinstance(version, str)
             or not re.fullmatch(r'(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)', version)
@@ -87,7 +120,10 @@ def validate_receipt(receipt, platform, source, version, inventory_sha256, expec
         raise ValueError('selected packages differ from expected inputs')
     if not isinstance(receipt['toolchain'], dict) or not receipt['toolchain'] or any(not isinstance(k, str) or not isinstance(v, str) or not v or len(v) > 512 for k, v in receipt['toolchain'].items()):
         raise ValueError('invalid toolchain identity')
-    return {'runtime_archive': runtime, 'packages': packages, 'toolchain': receipt['toolchain']}
+    result = {'runtime_archive': runtime, 'packages': packages, 'toolchain': receipt['toolchain']}
+    if platform == 'linux-arm64':
+        result['startup'] = receipt['startup']
+    return result
 
 
 
@@ -111,17 +147,18 @@ def verify_windows_compiler(toolchain, provenance, log):
         raise ValueError('receipt compiler differs from actual build')
 
 
-def observed_toolchain(compiler_log=None):
+def observed_toolchain(compiler_log=None, arm=False):
     python = {'python_sha256': digest(Path(sys.executable)), 'python_version': sys.version}
     if sys.platform == 'win32':
         if compiler_log is None:
             raise ValueError('actual compiler log is required')
         return {**windows_compiler_evidence(compiler_log), **python}
     packages = subprocess.check_output(['dpkg-query', '-W', '-f=${Package}=${Version}\n', 'gcc', 'gcc-10', 'libgcc-10-dev', 'libgcc-s1', 'binutils'], text=True).strip()
-    compiler = Path(subprocess.check_output(['gcc', '-print-prog-name=cc1'], text=True).strip())
+    gcc = '/usr/bin/gcc' if arm else 'gcc'
+    compiler = Path(subprocess.check_output([gcc, '-print-prog-name=cc1'], text=True).strip())
     if not compiler.is_file():
         raise ValueError('compiler identity unavailable')
-    return {'packages': packages, 'compiler_sha256': digest(compiler), 'compiler_version': subprocess.check_output(['gcc', '-dumpfullversion'], text=True).strip(), **python}
+    return {'packages': packages, 'compiler_sha256': digest(compiler), 'compiler_version': subprocess.check_output([gcc, '-dumpfullversion'], text=True).strip(), **python}
 
 
 def main():
@@ -142,7 +179,7 @@ def main():
         if name in expected or importlib.metadata.version(name) != version:
             raise ValueError('installed distribution differs from selected archive')
         expected[name] = version
-    toolchain = observed_toolchain(args.compiler_log)
+    toolchain = observed_toolchain(args.compiler_log, arm=args.platform == 'linux-arm64')
     receipt = make_receipt(args.packages, args.runtime, args.runtime_kind, args.platform, args.source,
                            args.version, args.inventory, expected, toolchain)
     validate_receipt(receipt, args.platform, args.source, args.version, digest(args.inventory), expected)
