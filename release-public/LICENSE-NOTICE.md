@@ -6,6 +6,8 @@ Karl grants you permission to install and use the self-owned software distribute
 
 This license does not grant permission to redistribute, sublicense, modify, or create derivative works of the self-owned software. All rights not expressly granted are reserved.
 
+Notwithstanding the restriction on modification above, for your copy of this software you may modify that copy for your own use and reverse engineer it for debugging such modifications, to the extent required by the GNU Lesser General Public License applicable to a dynamically linked component. The existing requirement for prior written permission for commercial use of Karl's self-owned software remains in force.
+
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. TO THE EXTENT PERMITTED BY LAW, KARL IS NOT LIABLE FOR CLAIMS OR DAMAGES ARISING FROM USE OF THE SOFTWARE.
 
 These terms apply only to Karl's self-owned material distributed under them. Third-party components retain their own licenses. They do not revoke or restrict rights already granted under the GPL for previously distributed versions.
