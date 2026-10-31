@@ -893,3 +893,19 @@ def test_old_windows_notice_and_descriptor_remain_rejected(monkeypatch):
     with pytest.raises(ValueError, match='notice differs'):
         checker.check_archive_notices('windows-x64', {'licenses/python.txt': old})
     assert 'd32cad7654cc32027037ec3f7b412823b177396c3252f1353eba5d5f48872bd9' not in checker.APPROVED_NOTICE_SETS
+
+
+def test_old_arm_notice_and_descriptor_remain_rejected(monkeypatch):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    bundle = (Path(__file__).parents[1] / 'release-notices/linux-arm64-cpython-3.11.15-pbs-20260728/runtime-bundle.txt').read_bytes()
+    old = bundle.split(b'\nGNU C Library use notice\n\n')[0]
+    assert hashlib.sha256(old).hexdigest() == 'c83e087151c1b7ce752e06144d8f747a239746af59d6b6bc2960734c58f64dad'
+    monkeypatch.setitem(checker.ARCHIVE_NOTICE_HASHES, 'linux-arm64', {'licenses/python.txt': checker.ARCHIVE_NOTICE_HASHES['linux-arm64']['licenses/python.txt']})
+    checker.check_archive_notices('linux-arm64', {'licenses/python.txt': bundle})
+    with pytest.raises(ValueError, match='notice differs'):
+        checker.check_archive_notices('linux-arm64', {'licenses/python.txt': old})
+    assert '6e5e5c88d72fb245a52afb67f54860c147c79927d8f5fd7efd82e53fab60d664' not in checker.APPROVED_NOTICE_SETS
