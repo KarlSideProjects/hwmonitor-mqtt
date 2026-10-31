@@ -909,3 +909,46 @@ def test_old_arm_notice_and_descriptor_remain_rejected(monkeypatch):
     with pytest.raises(ValueError, match='notice differs'):
         checker.check_archive_notices('linux-arm64', {'licenses/python.txt': old})
     assert '6e5e5c88d72fb245a52afb67f54860c147c79927d8f5fd7efd82e53fab60d664' not in checker.APPROVED_NOTICE_SETS
+
+
+def test_observed_windows_notice_set_and_record_receipt_consistency(monkeypatch):
+    import copy
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    fixtures = Path(__file__).parent / 'fixtures'
+    record = json.loads((fixtures / 'windows-x64-notice-record.json').read_text())
+    descriptor = json.loads((fixtures / 'windows-x64-notice-descriptor.json').read_text())
+    assert hashlib.sha256(json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()).hexdigest() == '2d282750ea51e7de0af3caf1029cb9c3f12c3162b10893909f18089b12b35c3a'
+    checker.check_release_notice_readiness('windows-x64', record)
+    assert checker.APPROVED_NOTICE_SETS == frozenset({
+        '94d9953267e552f29f7e3dbd055b4d487c2f29d600aec20ca26cad10faf3ad76',
+        '2d282750ea51e7de0af3caf1029cb9c3f12c3162b10893909f18089b12b35c3a',
+    })
+    for field in ('source', 'version', 'inventory_sha256'):
+        changed = copy.deepcopy(record)
+        changed[field] = '0' * len(changed[field])
+        with pytest.raises(ValueError):
+            checker.check_release_notice_readiness('windows-x64', changed)
+    # Candidate identities can change together without changing the dependency fingerprint.
+    changed = copy.deepcopy(record)
+    for field, value in (('source', 'b' * 40), ('version', '2.0.0'), ('inventory_sha256', 'c' * 64)):
+        changed[field] = changed['selected_inputs'][field] = value
+    assert checker.receipt_inputs('windows-x64', changed) == checker.receipt_inputs('windows-x64', record)
+    checker.check_release_notice_readiness('windows-x64', changed)
+    for section, field in (('runtime_archive', 'sha256'), ('toolchain', 'compiler_sha256')):
+        changed = copy.deepcopy(record)
+        changed['selected_inputs'][section][field] = '0' * 64
+        with pytest.raises(ValueError):
+            checker.check_release_notice_readiness('windows-x64', changed)
+    changed = copy.deepcopy(record)
+    changed['selected_inputs']['packages'][0]['sha256'] = '0' * 64
+    with pytest.raises(ValueError, match='not established'):
+        checker.check_release_notice_readiness('windows-x64', changed)
+    notices = dict(checker.ARCHIVE_NOTICE_HASHES['windows-x64'])
+    notices['licenses/python.txt'] = '0' * 64
+    monkeypatch.setitem(checker.ARCHIVE_NOTICE_HASHES, 'windows-x64', notices)
+    with pytest.raises(ValueError, match='not established'):
+        checker.check_release_notice_readiness('windows-x64', record)
