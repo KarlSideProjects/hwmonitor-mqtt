@@ -840,3 +840,40 @@ def test_notice_readiness_binds_runtime_image_recipe(monkeypatch):
     record['source_files']['Dockerfile'] = 'b' * 64
     with pytest.raises(ValueError, match='not established'):
         checker.check_release_notice_readiness('linux-x64', record)
+
+
+def test_observed_linux_notice_set_and_identity_bindings(monkeypatch):
+    import copy
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    fixtures = Path(__file__).parent / 'fixtures'
+    record = json.loads((fixtures / 'linux-x64-notice-record.json').read_text())
+    descriptor = json.loads((fixtures / 'linux-x64-notice-descriptor.json').read_text())
+    assert hashlib.sha256(json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()).hexdigest() == '94d9953267e552f29f7e3dbd055b4d487c2f29d600aec20ca26cad10faf3ad76'
+    checker.check_release_notice_readiness('linux-x64', record)
+    for field in ('source', 'version', 'inventory_sha256'):
+        changed = copy.deepcopy(record)
+        changed[field] = '0' * len(changed[field])
+        with pytest.raises(ValueError):
+            checker.check_release_notice_readiness('linux-x64', changed)
+    for section, field in (('runtime_archive', 'sha256'), ('toolchain', 'compiler_sha256')):
+        changed = copy.deepcopy(record)
+        changed['selected_inputs'][section][field] = '0' * 64
+        with pytest.raises(ValueError):
+            checker.check_release_notice_readiness('linux-x64', changed)
+    changed = copy.deepcopy(record)
+    changed['selected_inputs']['packages'][0]['sha256'] = '0' * 64
+    with pytest.raises(ValueError, match='not established'):
+        checker.check_release_notice_readiness('linux-x64', changed)
+    changed = copy.deepcopy(record)
+    changed['source_files']['Dockerfile'] = '0' * 64
+    with pytest.raises(ValueError, match='not established'):
+        checker.check_release_notice_readiness('linux-x64', changed)
+    notices = dict(checker.ARCHIVE_NOTICE_HASHES['linux-x64'])
+    notices['licenses/python.txt'] = '0' * 64
+    monkeypatch.setitem(checker.ARCHIVE_NOTICE_HASHES, 'linux-x64', notices)
+    with pytest.raises(ValueError, match='not established'):
+        checker.check_release_notice_readiness('linux-x64', record)
