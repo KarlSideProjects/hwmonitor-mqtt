@@ -993,7 +993,10 @@ def test_arm_startup_pins_and_notice_change_invalidate_descriptor(monkeypatch):
 
 def test_project_notice_adds_only_approved_lgpl_permission():
     root = CHECKER.parents[1]
-    old = subprocess.check_output(['git', '-C', str(root), 'show', '3f42f1ba09df21f49b62ebf863e0244930ce81ab:release-public/LICENSE-NOTICE.md']).decode()
+    # release-public/LICENSE-NOTICE.md at 3f42f1ba09df21f49b62ebf863e0244930ce81ab.
+    old = (REPO_NOTICES / 'project-3f42.md').read_bytes()
+    assert hashlib.sha256(old).hexdigest() == 'ffa814dce11f3be832bacb7dc2511c36c935b77845c4f16a7c9d8cfd3ae8ce36'
+    old = old.decode()
     reservation = 'This license does not grant permission to redistribute, sublicense, modify, or create derivative works of the self-owned software. All rights not expressly granted are reserved.\n'
     permission = "Notwithstanding the restriction on modification above, for your copy of this software you may modify that copy for your own use and reverse engineer it for debugging such modifications, to the extent required by the GNU Lesser General Public License applicable to a dynamically linked component. The existing requirement for prior written permission for commercial use of Karl's self-owned software remains in force.\n"
     assert (root / 'release-public/LICENSE-NOTICE.md').read_text() == old.replace(reservation, reservation + '\n' + permission)
@@ -1006,7 +1009,8 @@ def test_old_project_notice_rejected_by_full_notice_checker(monkeypatch, platfor
     checker = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(checker)
     root = CHECKER.parents[1]
-    old = subprocess.check_output(['git', '-C', str(root), 'show', '3f42f1ba09df21f49b62ebf863e0244930ce81ab:release-public/LICENSE-NOTICE.md'])
+    old = (REPO_NOTICES / 'project-3f42.md').read_bytes()
+    assert hashlib.sha256(old).hexdigest() == 'ffa814dce11f3be832bacb7dc2511c36c935b77845c4f16a7c9d8cfd3ae8ce36'
     expected = checker.ARCHIVE_NOTICE_HASHES[platform]
     assert expected[project_path] == hashlib.sha256((root / 'release-public/LICENSE-NOTICE.md').read_bytes()).hexdigest()
     monkeypatch.setitem(checker.ARCHIVE_NOTICE_HASHES, platform, {project_path: expected[project_path], **expected})
@@ -1054,7 +1058,9 @@ def test_old_x64_bundle_and_descriptor_remain_rejected(monkeypatch):
     spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
     checker = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(checker)
-    old = subprocess.check_output(['git', 'show', '1d1620cf73b9f3ce6066ec2ddfea36b13d753a46:release-notices/linux-x64-cpython-3.11.15-pbs-20260728/runtime-bundle.txt'])
+    # Linux x64 runtime-bundle.txt at 1d1620cf73b9f3ce6066ec2ddfea36b13d753a46.
+    old = (REPO_NOTICES / 'linux-x64-runtime-bundle-1d162.txt').read_bytes()
+    assert hashlib.sha256(old).hexdigest() == '7b6e2eb4ebcd365049b2ee508c5dc9ecbdcad0c8ed6dc3d8772841dcea02a671'
     monkeypatch.setitem(checker.ARCHIVE_NOTICE_HASHES, 'linux-x64', {'licenses/python.txt': checker.ARCHIVE_NOTICE_HASHES['linux-x64']['licenses/python.txt']})
     with pytest.raises(ValueError, match='notice differs'):
         checker.check_archive_notices('linux-x64', {'licenses/python.txt': old})
