@@ -222,7 +222,7 @@
       },
       "runtime_bundle": {
         "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/runtime-bundle.txt",
-        "sha256": "7b6e2eb4ebcd365049b2ee508c5dc9ecbdcad0c8ed6dc3d8772841dcea02a671"
+        "sha256": "2f7fbdf1d4bb7083bc737d9259a1c8bdef68cf5b8e412cb4949d301756493e10"
       },
       "archive_path": "licenses/python.txt",
       "packages": [
@@ -344,6 +344,13 @@
         "gcc_license_reference": "https://github.com/gcc-mirror/gcc/blob/releases/gcc-10.2.0/COPYING3",
         "gcc_exception_reference": "https://github.com/gcc-mirror/gcc/blob/releases/gcc-10.2.0/COPYING.RUNTIME",
         "reference_scope": "Upstream GCC 10.2.0 texts identify the license and exception; they do not prove exact Debian package file provenance or that any particular routine was included."
+      },
+      "system_glibc": {
+        "usage": "System-provided GNU C Library dynamically linked; LGPL-2.1-or-later.",
+        "notice": {
+          "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/glibc-2.31-COPYING.LIB",
+          "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"
+        }
       }
     },
     "linux-arm64": {

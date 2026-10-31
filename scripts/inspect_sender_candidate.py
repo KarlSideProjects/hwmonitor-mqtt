@@ -113,7 +113,7 @@ ARCHIVE_NOTICE_HASHES = {'linux-x64': {'licenses/paho-mqtt.txt': '3c3ce20f2f04eb
                'licenses/project.md': '30aea7f7db6d86c8eb014b92cd87058bb0798b256ca9408faf0f8aba7838f678',
                'licenses/psutil.txt': 'b89c063b3786e28e0c0a38f1931db61fed35e69dd2a2966fbecffee0f46c8d10',
                'licenses/python-dotenv.txt': '80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9',
-               'licenses/python.txt': '7b6e2eb4ebcd365049b2ee508c5dc9ecbdcad0c8ed6dc3d8772841dcea02a671',
+               'licenses/python.txt': '2f7fbdf1d4bb7083bc737d9259a1c8bdef68cf5b8e412cb4949d301756493e10',
                'licenses/typing-extensions.txt': '3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf'},
  'windows-x64': {'licenses/WMI-0.txt': 'bf90809237a8ce1dac86bed7e34e4e76692d87ffd21aed16541105cd63ea533a',
                  'licenses/WMI-1.txt': 'b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5',
@@ -659,7 +659,8 @@ def inspect_image_layers(image, expected, expected_sender, platform='linux-x64')
 
 
 # Runtime notice/source arrangements must be established in trusted code before release.
-APPROVED_NOTICE_SETS = frozenset({'a1eaec55ea4a6e30b6e58600a2766cedf2f9017ecb5c4389a19f9c874900ff57',
+APPROVED_NOTICE_SETS = frozenset({'c0db37d734108364af59cf858a30ba4bcff9fac817209ed970b6b3461d48f6ac',
+                                  'd681000a49ee24ac7a054b53a0a0bf22e15f62aed4530b49c19f64d3051656be',
                                   'edadf7c760e09de96e71748617f8799803c5bc2d83075a57a2660438330f9eca'})
 
 

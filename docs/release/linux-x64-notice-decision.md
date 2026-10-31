@@ -1,6 +1,6 @@
 # Linux x64 notice input decision
 
-The exact descriptor in `tests/fixtures/linux-x64-notice-descriptor.json` (SHA-256 `a1eaec55ea4a6e30b6e58600a2766cedf2f9017ecb5c4389a19f9c874900ff57`) has no identified unmet notice or source obligation for the expected revised notice input set. This bounded technical decision covers that descriptor only; changed descriptor inputs require a new review. It is not a legal opinion, release approval, or an assessment of Windows or ARM.
+The exact descriptor in `tests/fixtures/linux-x64-notice-descriptor.json` (SHA-256 `d681000a49ee24ac7a054b53a0a0bf22e15f62aed4530b49c19f64d3051656be`) has no identified unmet notice or source obligation for the expected revised notice input set. This bounded technical decision covers that descriptor only; changed descriptor inputs require a new review. It is not a legal opinion, release approval, or an assessment of Windows or ARM.
 
 The approved dependency notice set may be reused across changes to first-party application source, release version, and captured inventory when the descriptor inputs remain unchanged. The fingerprint does not authenticate or authorize a candidate or source; the record and receipt must agree on their identities, and independent source, archive, runtime, and producer checks still apply.
 
@@ -12,4 +12,4 @@ The original build log records GCC compilation, but its original link map, compl
 
 The public Docker recipe directs recipients to fetch its base and packages; the saved inspection image was private evidence, not a delivered image. LibreHardwareMonitor and PawnIO are Windows vendor downloads and are outside this Linux candidate. Existing older GPL grants and independent third-party terms remain in force; no first-party commercial rights are expanded. Flow review, trusted-base validation, independent review and human release authorization remain separate.
 
-This descriptor carries forward the prior dependency decision with only the first-party project notice hash changed. It is an expected input set, not an observed new producer output; historical archives and records retain their original bytes.
+This descriptor carries forward the prior dependency decision with the revised first-party project notice and system GNU libc notice hashes. It is an expected input set, not an observed new producer output; historical archives and records retain their original bytes.
