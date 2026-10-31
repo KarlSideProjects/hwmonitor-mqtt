@@ -952,3 +952,34 @@ def test_observed_windows_notice_set_and_record_receipt_consistency(monkeypatch)
     monkeypatch.setitem(checker.ARCHIVE_NOTICE_HASHES, 'windows-x64', notices)
     with pytest.raises(ValueError, match='not established'):
         checker.check_release_notice_readiness('windows-x64', record)
+
+
+def test_arm_startup_pins_and_notice_change_invalidate_descriptor(monkeypatch):
+    import copy
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('candidate_checker', CHECKER)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    record = json.loads((Path(__file__).parent / 'fixtures/linux-x64-notice-record.json').read_text())
+    record['platform'] = record['selected_inputs']['platform'] = 'linux-arm64'
+    record['selected_inputs']['runtime_archive']['sha256'] = 'a6decd180099e6768269bd8e8968aeaa84bb01511f00f6921dc204fe648729aa'
+    pins = dict(checker.validate_receipt.__globals__['ARM_STARTUP'])
+    record['selected_inputs']['startup'] = pins
+    descriptor = {'platform': 'linux-arm64', 'compiler': record['compiler'], 'runtime': record['runtime'],
+                  'notices': checker.ARCHIVE_NOTICE_HASHES['linux-arm64'], 'runtime_image_recipe': record['source_files']['Dockerfile'],
+                  'selected_inputs': checker.receipt_inputs('linux-arm64', record)}
+    fingerprint = hashlib.sha256(json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    monkeypatch.setattr(checker, 'APPROVED_NOTICE_SETS', frozenset({fingerprint}))
+    checker.check_release_notice_readiness('linux-arm64', record)
+    for field in ('entry_sha256', 'license_sha256'):
+        changed = copy.deepcopy(record)
+        changed['selected_inputs']['startup'][field] = '0' * 64
+        monkeypatch.setitem(checker.validate_receipt.__globals__, 'ARM_STARTUP', changed['selected_inputs']['startup'])
+        with pytest.raises(ValueError, match='not established'):
+            checker.check_release_notice_readiness('linux-arm64', changed)
+    monkeypatch.setitem(checker.validate_receipt.__globals__, 'ARM_STARTUP', pins)
+    notices = dict(checker.ARCHIVE_NOTICE_HASHES['linux-arm64'])
+    notices['licenses/python.txt'] = '0' * 64
+    monkeypatch.setitem(checker.ARCHIVE_NOTICE_HASHES, 'linux-arm64', notices)
+    with pytest.raises(ValueError, match='not established'):
+        checker.check_release_notice_readiness('linux-arm64', record)

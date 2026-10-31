@@ -76,3 +76,22 @@ def test_windows_capture_excludes_microsoft_runtime_dlls(tmp_path, monkeypatch):
     assert {item for item in command if item.startswith('--noinclude-dlls=')} == {
         '--noinclude-dlls=mfc140u.dll', '--noinclude-dlls=vcruntime140.dll', '--noinclude-dlls=vcruntime140_1.dll'}
     assert '--show-scons' in command
+
+
+def test_arm_capture_requires_link_evidence_before_provenance(tmp_path, monkeypatch):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
+    import capture_sender_build as module
+    build, runtime = tmp_path / 'build', tmp_path / 'runtime'
+    inventory, provenance = tmp_path / 'inventory.json', tmp_path / 'provenance.json'
+    state = tmp_path / 'arm-startup'
+    state.mkdir()
+    def fake_run(*args, **kwargs):
+        build.mkdir()
+        (build / 'sender').write_bytes(b'exe')
+        (build / 'report').write_bytes(b'report')
+        (build / 'dist').mkdir()
+    monkeypatch.setattr(module.subprocess, 'run', fake_run)
+    monkeypatch.setattr(module, 'capture', lambda *args: [])
+    with pytest.raises(ValueError):
+        module.compile_and_capture(['compiler'], tmp_path, build, build / 'sender', build / 'report', build / 'dist', runtime, inventory, provenance, [], arm_state=state)
+    assert not provenance.exists()

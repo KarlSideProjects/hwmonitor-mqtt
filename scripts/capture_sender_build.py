@@ -87,16 +87,29 @@ def capture(command, dist, output, timeout=30):
         raise ValueError('onefile capture did not match this build distribution')
 
 
-def compile_and_capture(command, source, build_dir, executable, report, dist, runtime, inventory_path, provenance, smoke_args, compiler_log=None):
+def compile_and_capture(command, source, build_dir, executable, report, dist, runtime, inventory_path, provenance, smoke_args, compiler_log=None, arm_state=None):
     if build_dir.exists() or runtime.exists() or inventory_path.exists() or provenance.exists():
         raise ValueError('build and evidence paths must be fresh')
+    env = None
+    if arm_state is not None:
+        env = {**os.environ, 'CC': str(source / 'scripts/linux_arm64/compiler.py'), 'HWMONITOR_ARM_STATE': str(arm_state)}
     if compiler_log is None:
-        subprocess.run(command, cwd=source, check=True)
+        subprocess.run(command, cwd=source, check=True, env=env)
     else:
         with compiler_log.open('xb') as output:
-            subprocess.run(command, cwd=source, check=True, stdout=output, stderr=subprocess.STDOUT)
+            subprocess.run(command, cwd=source, check=True, stdout=output, stderr=subprocess.STDOUT, env=env)
         if compiler_log.stat().st_size > 64 * 1024 * 1024:
             raise ValueError('compiler log too large')
+    if arm_state is not None:
+        if __package__:
+            from .linux_arm64.compiler import link_evidence, verify_local_crt, verify_scons_log
+        else:
+            from linux_arm64.compiler import link_evidence, verify_local_crt, verify_scons_log
+        arm_evidence = link_evidence(arm_state)
+        verify_local_crt(arm_state)
+        if compiler_log is None:
+            raise ValueError('ARM compiler log required')
+        verify_scons_log(compiler_log)
     if not executable.is_file() or not report.is_file() or not dist.is_dir():
         raise ValueError('fresh compiler outputs missing')
     exe_hash = hashlib.sha256(executable.read_bytes()).hexdigest()
@@ -107,6 +120,8 @@ def compile_and_capture(command, source, build_dir, executable, report, dist, ru
     inventory_path.write_text(json.dumps(entries, indent=2) + '\n', encoding='utf-8')
     data = {'executable_sha256': exe_hash, 'report_sha256': report_hash,
             'inventory_sha256': hashlib.sha256(inventory_path.read_bytes()).hexdigest()}
+    if arm_state is not None:
+        data['arm_startup'] = arm_evidence
     if compiler_log is not None:
         data['compiler_log_sha256'] = hashlib.sha256(compiler_log.read_bytes()).hexdigest()
     provenance.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')

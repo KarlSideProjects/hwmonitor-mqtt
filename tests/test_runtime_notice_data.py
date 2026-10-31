@@ -69,3 +69,14 @@ def test_arm_glibc_notice_map_binds_retained_bytes():
     arm = data['platforms']['linux-arm64']
     for entry in [arm['runtime_bundle'], *arm['glibc_startup']['notices']]:
         assert hashlib.sha256((ROOT / entry['path']).read_bytes()).hexdigest() == entry['sha256']
+
+
+def test_arm_bundle_contains_exact_musl_notice_and_historical_glibc_terms():
+    import hashlib
+    root = ROOT / 'release-notices/linux-arm64-cpython-3.11.15-pbs-20260728'
+    notice = (ROOT / 'scripts/linux_arm64/startup/LICENSE.musl').read_bytes()
+    assert hashlib.sha256(notice).hexdigest() == 'f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af'
+    bundle = (root / 'runtime-bundle.txt').read_bytes()
+    assert notice in bundle
+    assert (root / 'glibc-2.31-COPYING.LIB').read_bytes() in bundle
+    assert (root / 'glibc-2.31-aarch64-start-notice.txt').read_bytes() in bundle

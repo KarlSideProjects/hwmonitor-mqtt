@@ -17,3 +17,5 @@ The public asset set does not contain private Docker-save images. Linux recipien
 The Windows runtime bundle retains the file-specific notices from the cffi 2.0.0 x64 libffi sources. The [Windows notice decision](../docs/release/windows-x64-notice-decision.md) records the source and the observed candidate's missing attribution. This correction does not approve a Windows candidate.
 
 The ARM64 bundle includes the GNU C Library use notice, the pinned AArch64 startup source copyright and license header, and the complete LGPL 2.1 text. The applicable section 6 route, required permission and relink or source arrangement, and operation with an interface-compatible modified libc remain unresolved. This notice correction does not approve an ARM candidate.
+
+The ARM64 bundle also retains the complete musl v1.2.5 notice for the proposed AArch64 entry. The GNU AArch64 start header documents earlier observed builds; actual new link maps and selected glibc and GCC objects still require review.
