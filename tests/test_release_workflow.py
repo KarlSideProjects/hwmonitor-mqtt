@@ -13,7 +13,6 @@ def test_release_workflow_is_master_only_and_has_no_publisher_credentials():
     assert 'scripts/release_controller.py drain' in workflow
     assert 'schedule:' in workflow
     assert 'scripts/release_version.py' in workflow
-    assert 'scripts/release-tests/pve_acceptance.py' in (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
 
 
 def test_recovery_dispatch_accepts_source_only_as_data():
@@ -101,7 +100,6 @@ def test_linux_docker_acceptance_uses_both_real_archives():
     assert 'scripts/release-tests/docker_acceptance.py' in workflow
     assert '--old-archive "$RUNNER_TEMP/old-result/sender-$TARGET.tar.gz"' in workflow
     assert '--old-source "$OLD_SOURCE" --old-version 0.0.1' in workflow
-    assert 'scripts/release-tests/pve_acceptance.py' in workflow
 
 
 def test_linux_harness_uses_workflow_checkout_and_exact_source_checkout():
@@ -113,24 +111,22 @@ def test_linux_harness_uses_workflow_checkout_and_exact_source_checkout():
     assert '--bootstrap "$GITHUB_WORKSPACE/source/bootstrap.sh"' in linux
 
 
-def test_pve_gate_uses_pinned_guest_and_distinct_archives():
+def test_linux_release_does_not_require_pve_vm_acceptance():
     linux = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
-    assert 'scripts/release-tests/pve_acceptance.py' in linux
-    assert '20261026-2643/debian-13-generic-amd64-20261026-2643.qcow2' in linux
-    assert '5bd891c6e62d01639f52a5587b72a4607421e445732214be787dba6043cf9797a6ff90bed982aada6a6c7e619f1f956d961c4fad76757171abd607920aac098a' in linux
-    assert '--old-source "$OLD_SOURCE" --old-version 0.0.1' in linux
+    assert 'pve' not in linux.lower()
+    assert 'qcow2' not in linux
 
 
-def test_failed_acceptance_retains_only_sanitized_pve_diagnostics_and_private_build():
+def test_failed_acceptance_retains_linux_evidence_and_private_build():
     linux = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
-    summary = linux.split('      - name: Retain non-secret PVE evidence identities', 1)[1]
-    assert summary.count("if: ${{ always() && inputs.platform == 'linux-x64' }}") == 2
-    assert 'pve-acceptance/diagnostics' in summary
-    assert 'path: ${{ runner.temp }}/pve-summary' in summary
-    assert 'path: ${{ runner.temp }}/pve-acceptance\n' not in linux
-    private = summary.split('name: sender-${{ inputs.platform }}-${{ inputs.source }}', 1)[0]
-    assert 'if: ${{ always() }}' in private
-    assert 'path: ${{ runner.temp }}/private' in summary
+    uploads = linux.split('      - uses: actions/upload-artifact@')[1:]
+    assert len(uploads) == 2
+    for upload, name, path in zip(uploads, ('sender-acceptance-', 'sender-'), ('acceptance', 'private')):
+        assert 'if: ${{ always() }}' in upload
+        assert f'name: {name}${{{{ inputs.platform }}}}-${{{{ inputs.source }}}}' in upload
+        assert f'path: ${{{{ runner.temp }}}}/{path}\n' in upload
+        assert 'retention-days: 3' in upload
+    assert 'if-no-files-found: error' in uploads[-1]
 
 
 def test_linux_compiled_failure_integration_uses_candidate_and_enforces_skips():
@@ -140,6 +136,10 @@ def test_linux_compiled_failure_integration_uses_candidate_and_enforces_skips():
     assert 'tests/test_compiled_bootstrap_integration.py' in linux
     assert 'expected_skips = 1 if' in linux
     assert 'scripts/release-tests/docker_acceptance.py' in linux
+    for name in ('Exercise compiled installer failure cases', 'Verify distinct baseline archive checksum', 'Exercise compiled Docker install, upgrade, MQTT and rollback'):
+        step = linux.split(f'      - name: {name}\n', 1)[1].split('      - ', 1)[0]
+        assert '\n        if:' not in step
+        assert 'continue-on-error:' not in step
 
 
 def test_scheduled_recovery_reads_fresh_master_without_replacing_controller():

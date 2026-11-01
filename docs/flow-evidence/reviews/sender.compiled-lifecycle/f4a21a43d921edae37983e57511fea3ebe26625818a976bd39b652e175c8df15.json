@@ -1,0 +1,12 @@
+{
+  "feature": "sender.compiled-lifecycle",
+  "fingerprint": "f4a21a43d921edae37983e57511fea3ebe26625818a976bd39b652e175c8df15",
+  "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "Root independently read the current complete delta and affected flows/contracts against canonical c9b3d6ed1815dc4d31902db85267c75e12a19812. No fresh reviewer dispatch; author workers implemented the changes.",
+    "Author combined backend/candidate/controller/workflow tests:118 passed. Real three-platform0.1.29 archives passed all source-bound content inspectors; public15anonymous asset hashes verified. Root real GitHub draft recovery preserved intended tag and validated complete receipt before successful publication.",
+    "No installer/runtime source changed. Dependent build gate now tests generic Linux acceptance; this does not claim full PVE API/physical host validation. Existing locking, credential preservation, service/container stability and rollback contracts remain unchanged."
+  ]
+}

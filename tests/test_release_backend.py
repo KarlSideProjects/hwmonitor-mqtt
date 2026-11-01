@@ -69,6 +69,9 @@ def service():
                         state['fail_publish'] = False; self.reply(502); return
                     if update.get('make_latest') == 'true':
                         state['latest'] = release['id']
+                    # GitHub can retag drafts when a PATCH omits tag_name.
+                    if release['draft'] and 'tag_name' not in update:
+                        release['tag_name'] = 'untagged-53a2b2d1d4319c06414f'
                     release.update({k: v for k, v in update.items() if k != 'make_latest'})
                     self.reply(200, release); return
                 assets = state['assets'][release['id']]
@@ -119,6 +122,17 @@ def test_resume_and_monotonic_latest(service, tmp_path):
     assert state['writes'] == writes
     state['assets'][release['id']][0]['digest'] = 'sha256:' + '0' * 64
     with pytest.raises(ValueError): reconcile_latest(api)
+
+
+def test_draft_ready_and_publication_preserve_intended_tag(service, tmp_path):
+    api, state = service
+    receipt = make_candidate(tmp_path / 'candidate', 1)
+    release = prepare_candidate(api, receipt, tmp_path / 'candidate')
+    assert release['tag_name'] == 'v0.1.1'
+    drain_ready(api)
+    assert state['releases'][0]['tag_name'] == 'v0.1.1'
+    assert state['releases'][0]['draft'] is False
+    assert state['latest'] == release['id']
 
 
 def test_receipt_missing_corrupt_and_duplicates_rejected(service, tmp_path):

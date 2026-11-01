@@ -166,7 +166,7 @@ def prepare_candidate(api, receipt, directory):
                 status, _ = api.request('DELETE', f"/releases/assets/{asset['id']}")
                 if status != 204:
                     raise ValueError('asset reset failed')
-            status, release = api.request('PATCH', f"/releases/{release['id']}", {'body': body('STAGING', receipt)})
+            status, release = api.request('PATCH', f"/releases/{release['id']}", {'tag_name': 'v' + receipt['version'], 'body': body('STAGING', receipt)})
             if status != 200 or parse(release)[:2] != ('STAGING', receipt) or not release['draft']:
                 raise ValueError('draft reset failed')
     else:
@@ -180,7 +180,7 @@ def prepare_candidate(api, receipt, directory):
             raise ValueError('upload failed: ' + name)
     if remote_assets(api, release, receipt) != set(actual):
         raise ValueError('draft incomplete')
-    status, ready = api.request('PATCH', f"/releases/{release['id']}", {'body': body('READY', receipt)})
+    status, ready = api.request('PATCH', f"/releases/{release['id']}", {'tag_name': 'v' + receipt['version'], 'body': body('READY', receipt)})
     if status != 200 or parse(ready)[:2] != ('READY', receipt) or not ready['draft']:
         raise ValueError('cannot mark ready')
     return ready
@@ -222,7 +222,7 @@ def drain_ready(api):
         _, receipt, _ = parse(release)
         if remote_assets(api, release, receipt) != set(receipt['assets']):
             raise ValueError('ready release incomplete')
-        status, published = api.request('PATCH', f"/releases/{release['id']}", {'draft': False, 'make_latest': 'false'})
+        status, published = api.request('PATCH', f"/releases/{release['id']}", {'tag_name': 'v' + receipt['version'], 'draft': False, 'make_latest': 'false'})
         if status != 200 or published['draft'] or parse(published)[:2] != ('READY', receipt):
             raise ValueError('publication failed')
     reconcile_latest(api)

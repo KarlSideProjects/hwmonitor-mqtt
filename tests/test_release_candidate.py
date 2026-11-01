@@ -842,7 +842,12 @@ def test_notice_readiness_binds_runtime_image_recipe(monkeypatch):
         checker.check_release_notice_readiness('linux-x64', record)
 
 
-def test_expected_linux_notice_set_and_identity_bindings(monkeypatch):
+@pytest.mark.parametrize(('runtime_filename', 'fingerprint'), [
+    ('python.tar.gz', 'd681000a49ee24ac7a054b53a0a0bf22e15f62aed4530b49c19f64d3051656be'),
+    ('cpython-3.11.15+20260728-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz',
+     'e92cbc18084e62080ed02c4627c1e619e43ebeba4590855108e03f4cca6f66d7'),
+])
+def test_expected_linux_notice_set_and_identity_bindings(monkeypatch, runtime_filename, fingerprint):
     import copy
     import importlib.util
 
@@ -852,11 +857,17 @@ def test_expected_linux_notice_set_and_identity_bindings(monkeypatch):
     fixtures = Path(__file__).parent / 'fixtures'
     record = json.loads((fixtures / 'linux-x64-notice-record.json').read_text())
     descriptor = json.loads((fixtures / 'linux-x64-notice-descriptor.json').read_text())
+    record['selected_inputs']['runtime_archive']['filename'] = runtime_filename
+    descriptor['selected_inputs']['runtime_archive']['filename'] = runtime_filename
     expected = {'platform': 'linux-x64', 'compiler': record['compiler'], 'runtime': record['runtime'], 'notices': checker.ARCHIVE_NOTICE_HASHES['linux-x64'], 'selected_inputs': checker.receipt_inputs('linux-x64', record)}
     expected['runtime_image_recipe'] = record['source_files']['Dockerfile']
     assert descriptor == expected
-    assert hashlib.sha256(json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()).hexdigest() == 'd681000a49ee24ac7a054b53a0a0bf22e15f62aed4530b49c19f64d3051656be'
+    assert hashlib.sha256(json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()).hexdigest() == fingerprint
     checker.check_release_notice_readiness('linux-x64', record)
+    changed = copy.deepcopy(record)
+    changed['selected_inputs']['runtime_archive']['filename'] = 'unapproved-python.tar.gz'
+    with pytest.raises(ValueError, match='not established'):
+        checker.check_release_notice_readiness('linux-x64', changed)
     for field in ('source', 'version', 'inventory_sha256'):
         changed = copy.deepcopy(record)
         changed[field] = '0' * len(changed[field])
@@ -931,6 +942,7 @@ def test_expected_windows_notice_set_and_record_receipt_consistency(monkeypatch)
     assert checker.APPROVED_NOTICE_SETS == frozenset({
         'c0db37d734108364af59cf858a30ba4bcff9fac817209ed970b6b3461d48f6ac',
         'd681000a49ee24ac7a054b53a0a0bf22e15f62aed4530b49c19f64d3051656be',
+        'e92cbc18084e62080ed02c4627c1e619e43ebeba4590855108e03f4cca6f66d7',
         'edadf7c760e09de96e71748617f8799803c5bc2d83075a57a2660438330f9eca',
     })
     for field in ('source', 'version', 'inventory_sha256'):
