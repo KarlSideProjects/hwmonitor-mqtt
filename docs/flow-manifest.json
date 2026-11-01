@@ -2155,52 +2155,52 @@
   "reviews": [
     {
       "feature": "sender.build",
-      "fingerprint": "f744aa032b6b2fe1faf42317f7cabd0f836dec5adf6789d2b4e9fc3d89af8377",
+      "fingerprint": "d6eb20aacbfae5c17848cdb3700c1848276ffe8a3f7881b2f8e26dfae8ad89f2",
       "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.build/f744aa032b6b2fe1faf42317f7cabd0f836dec5adf6789d2b4e9fc3d89af8377.json"
+      "evidence": "docs/flow-evidence/reviews/sender.build/d6eb20aacbfae5c17848cdb3700c1848276ffe8a3f7881b2f8e26dfae8ad89f2.json"
     },
     {
       "feature": "sender.compiled-lifecycle",
-      "fingerprint": "464f9bb93c51f48224407f8da2ec16012139623c0069308af0b553e7e67efd47",
+      "fingerprint": "0b11f2a927a6a16c16d12f86f1e52e82e7c132af497e4923c8fd14f41c7c7b61",
       "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.compiled-lifecycle/464f9bb93c51f48224407f8da2ec16012139623c0069308af0b553e7e67efd47.json"
+      "evidence": "docs/flow-evidence/reviews/sender.compiled-lifecycle/0b11f2a927a6a16c16d12f86f1e52e82e7c132af497e4923c8fd14f41c7c7b61.json"
     },
     {
       "feature": "sender.distribution",
-      "fingerprint": "c74e15e3655d4a1fba398e42811ca548c4517bd37b3d75d0b9615969d6cda20b",
+      "fingerprint": "29dfcb4de3e101dab58838b4ba6b4ae44427e3e184fd6a1db6d0128ac8f9ec62",
       "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.distribution/c74e15e3655d4a1fba398e42811ca548c4517bd37b3d75d0b9615969d6cda20b.json"
+      "evidence": "docs/flow-evidence/reviews/sender.distribution/29dfcb4de3e101dab58838b4ba6b4ae44427e3e184fd6a1db6d0128ac8f9ec62.json"
     },
     {
       "feature": "sender.license",
-      "fingerprint": "4fd1c828557bc2affefd151f249f8555af1e8ebce6d3184691c3cf3272743b6a",
+      "fingerprint": "6168b332350784f3525c2ad6bb0a818d2d7f2d527830bb47e0973875f7410901",
       "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.license/4fd1c828557bc2affefd151f249f8555af1e8ebce6d3184691c3cf3272743b6a.json"
+      "evidence": "docs/flow-evidence/reviews/sender.license/6168b332350784f3525c2ad6bb0a818d2d7f2d527830bb47e0973875f7410901.json"
     },
     {
       "feature": "sender.release-inspection",
-      "fingerprint": "2b83ad4b3c20362619fb31b4fdbda6ce0ebb51d6e73f2b04f0961bff1f4c4a0c",
+      "fingerprint": "425ad22ed72d2e4f1bf85a690923480791492b22167044a279f45bd6e7050d01",
       "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.release-inspection/2b83ad4b3c20362619fb31b4fdbda6ce0ebb51d6e73f2b04f0961bff1f4c4a0c.json"
+      "evidence": "docs/flow-evidence/reviews/sender.release-inspection/425ad22ed72d2e4f1bf85a690923480791492b22167044a279f45bd6e7050d01.json"
     },
     {
       "feature": "sender.release-orchestration",
-      "fingerprint": "9d5f7361e43e476daa423ac5a2ceefe5bfe4326a96ea119bc2047d1a8bc71eb5",
+      "fingerprint": "b5dc8d4f67912cead9c00f67f1ec2ec66a76d4d14e0a1be7cf9cb5b04597a7cc",
       "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.release-orchestration/9d5f7361e43e476daa423ac5a2ceefe5bfe4326a96ea119bc2047d1a8bc71eb5.json"
+      "evidence": "docs/flow-evidence/reviews/sender.release-orchestration/b5dc8d4f67912cead9c00f67f1ec2ec66a76d4d14e0a1be7cf9cb5b04597a7cc.json"
     },
     {
       "feature": "sender.smart-discovery",
-      "fingerprint": "15abc1eae2754e0fe740119a41cd9839e9b5ad8e4277f1f5dff0f6f79aeed0c8",
+      "fingerprint": "d26635b2098dc908077cacc6586677313f75122ae116f739f13c5fbaaeeaced4",
       "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.smart-discovery/15abc1eae2754e0fe740119a41cd9839e9b5ad8e4277f1f5dff0f6f79aeed0c8.json"
+      "evidence": "docs/flow-evidence/reviews/sender.smart-discovery/d26635b2098dc908077cacc6586677313f75122ae116f739f13c5fbaaeeaced4.json"
     }
   ],
   "policy_inputs": [
@@ -2234,8 +2234,7 @@
     "tests/fixtures/release-notices/python.txt",
     "tests/fixtures/release-notices/pythonnet.txt",
     "tests/fixtures/release-notices/wmi.txt",
-    "tests/test_flow_explain.py",
-    ".github/workflows/flow-docs.yml"
+    "tests/test_flow_explain.py"
   ],
   "limits": {
     "nodes": 25,
