@@ -1,0 +1,19 @@
+{
+  "feature": "sender.smart-discovery",
+  "fingerprint": "ee96fcf37fcb5e9fb725cc3228f74e921bc8f60a22f6557c1518ab079c445037",
+  "reviewer": "orca_session_id:a282d825-5f46-4890-95b8-5474ef2bec54 / task_69bdca2201f0 / ctx_cec1cc6dd37f",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "Frozen candidate 576d82c9b2e98862562d0f20c01f6a20c75ebd5a, authoritative base 86b074bc1aa6c38bbdb236f23546b1024ffc227a, navigation-only base 782db97d324d3e73874c05c091ee1593d433b34a. Read full authoritative diff lines 1-2273 in chunks 001-023 and complete 176-line navigation diff; no SMART mapping existed at either base. Verified raw packet index, all chunk and item digests and byte equality to candidate blobs or actual diff; clean worktree, and read-only checker fingerprint reproduced the supplied value.",
+    "Candidate AGENTS.md, docs/flow-manifest.json:1-434, docs/flows/README.md:1-18, docs/flows/contracts.md:1-7, docs/flows/sender.smart-discovery.mmd:1-32, docs/flow-evidence/adoption.md:1-20, docs/adr/0002-multi-platform-smart-collection.md:1-10, installed flow-docs-sync skill and reviewer-prompt. Manifest maps whole SMART source and test files; policy inputs conservatively bind global context, and base has no manifest.",
+    "Candidate hwmonitor_mqtt/collectors/smart.py:1-367 and tests/test_smart_collector.py:1-341; clients/pve.py:145-170, agents/agent_sender_windows.py:350-475, agents/agent_sender_async.py:70-110 and direct caller/import search. Windows provider invokes local SMART discovery under its own error guard before adding WMI/LHM sources. PVE list validates the list but not each row; per-device errors are caught, malformed inventory rows can escape to the guarded poll boundary. Graph search, both-direction trace and source snippet were checked against direct source; five relevant paths had no recorded index issues and excluded cache scopes were checked by source search.",
+    "Read sender-smart-initial-review.json, sender-smart-correction1-review.json, sender-smart-correction2-review.json and sender-smart-material1-review.json in full. Current diagram represents empty local-result PVE fallback, pre-guard clock conversion propagation, malformed PVE row escape, and handled versus unexpected top-level scan errors; no prior demonstrated finding remains.",
+    "Candidate Makefile:1-8, .github/workflows/ci.yml:1-107, pyproject.toml:1-24, uv.lock:1-684, tools/flow-docs/flow_checker.py:1-427, flow_parsers.py:1-185 and requirements-ast.txt:1-6 were read; checker hashes file mappings and policy inputs and requires all feature reviews when base lacks a manifest. This review does not approve other features.",
+    "Read sender-smart-harness-material1.py and sender-smart-evidence-material1/{before.json,after.json,commands.json,command-0.log,command-1.log,command-2.log}. Before and after records are equal; all 135 tracked hashes and the recorded Python binary hash match current files, and the harness binds its actual material1 output directory. Recorded commands and cwd show zero exit status: make check 219 passed, SMART suite 21 passed on normal PATH with /usr/sbin/smartctl and 21 passed on restricted PATH without it."
+  ],
+  "limitations": [
+    "No target application or tests executed by this reviewer; physical hardware, Windows execution, visual rendering, release and remote enforcement remain unverified.",
+    "The harness records selected PATH, Python binary identity and dependency versions, not all inherited environment variables or installed dependency file hashes; it does not establish fully hermetic reproducibility. Other three feature gates and human approval remain separate."
+  ]
+}

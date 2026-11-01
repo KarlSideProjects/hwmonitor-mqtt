@@ -1,0 +1,55 @@
+flowchart TD
+    A["Linux root and architecture checks; require tools and recognized root"]
+    B["Resolve latest release and exact asset URLs; validate tag and version metadata"]
+    C["Verify archive size and SHA-256 from release checksum"]
+    D["Extract sender as nobody; check ELF architecture; execute its staging validator as nobody then root"]
+    E["Validator checks archive members, manifest identity and executable hash; check staged sender version"]
+    F{"Detected native PVE host"}
+    G["Require x64, no conflicting Docker sender; prepare PVE configuration"]
+    H["If systemctl exists, check native service state; otherwise continue uninspected; require or install Docker and Compose"]
+    I["Preserve existing MQTT settings or prompt for new settings"]
+    J["Back up deployment files; pin existing Docker image when applicable"]
+    K["Install staged sender and inputs; run compiled install controller"]
+    L{"Activation remains stable"}
+    M["Commit marker and remove backup; failures before native commit or through Docker marker write attempt recovery; failed recovery retains backup and image; native marker failure preserves installation and backup"]
+    N["Windows requires elevated 64-bit x64 PowerShell and trusted paths and ACLs"]
+    O["Resolve public release; verify helper scripts and ZIP against release SHA-256 records"]
+    P["Validate ZIP paths, sizes, manifest, executable hash and PE architecture; match release identity"]
+    Q["Check runtime prerequisites; preserve or create protected MQTT settings"]
+    R["Replace recognized package and scheduled task; install pinned LHM and reuse PawnIO 2.0 or newer or install pinned 2.2; start SYSTEM task"]
+    S["Check task remains running; commit marker; on failure restore package and task, retain recovery data if rollback fails"]
+    T["Compose builds and starts Docker image; image copies compiled sender into pinned Debian image with hardware utilities"]
+    U["Private development install.sh Docker path requires compiled sender at repository root; Windows task scripts remain available"]
+    V["Public release page currently declares packages unavailable"]
+    W["Checksums and metadata are release inputs, not independent signatures"]
+    X["Stop on failed checks or preparation; earlier side effects can remain"]
+    Y["Detect target; create or verify recognized root and acquire installation lock"]
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> Y
+    Y --> F
+    F -->|yes| G
+    G --> I
+    F -->|no| H
+    H --> I
+    I --> J
+    J --> K
+    K -->|native PVE| L
+    K -->|Docker| T
+    T --> L
+    L -->|yes or failure| M
+    N --> O
+    O --> P
+    P --> Q
+    Q --> R
+    R --> S
+    B --> W
+    O --> W
+    C -->|failure| X
+    E -->|failure| X
+    G -->|failure| X
+    H -->|failure| X
+    P -->|failure| X
+    Q -->|failure| X

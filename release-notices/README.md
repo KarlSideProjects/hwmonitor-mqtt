@@ -1,0 +1,23 @@
+# Runtime notice inputs (WIP)
+
+[runtime-components.json](runtime-components.json) maps the versioned runtime inputs, source references, notice bytes and conditions for the observed Sender platforms. The map is evidence for candidate preparation, not a release approval. `SHA256SUMS` records the retained raw texts and runtime bundles. Project noncommercial terms do not change prior GPL grants or independent third-party rights.
+
+The Linux entries use CPython 3.11.15 from the PBS 20260728 install-only stripped archives. Same-release full metadata lists static-library paths and license files for the observed extension initialization symbols. The full and stripped libpython files differ as whole files; allocated-section comparisons provide bounded correspondence. The PBS release's `in_core` field describes build organization and does not establish that an observed symbol is absent. The map trusts pinned upstream build metadata alongside those observations; it does not claim a complete independent link proof.
+
+The Windows entry uses the CPython 3.13.17 embeddable ZIP. Its binary license includes bzip2 and libffi texts. The matching `_decimal.pyd` is built from mpdecimal 4.0.0 sources, whose exact copyright text is not in that binary license. The Linux PBS text has an older copyright. All three runtime bundles therefore include the unmodified [mpdecimal 4.0.0 copyright text](windows-x64-cpython-3.13.17/mpdecimal-4.0.0-COPYRIGHT.txt), extracted from the pinned source archive. The existing raw upstream files remain unchanged. The Windows bundle also includes the exact Nuitka 2.8.9 license, which matches the retained 2.7.16 license bytes. The Windows bundle is intended for the existing `licenses/python.txt` archive path; the producer and inspector must adopt its hash before a candidate can use it.
+
+Paho 2.1.0 offers EPL 2.0 or EDL 1.0. This distribution selects EDL 1.0: its binary notice must reproduce the copyright, conditions and disclaimer, and its endorsement restriction applies. The retained Linux notice and Windows EDL text provide that material. CPython 3.11.15 and typing-extensions 4.15.0 have identical upstream license bytes; that equality is legitimate.
+
+The exact OpenSSL 3.5.7 and 3.5.9 release archives contain no file named NOTICE or NOTICES; each LICENSE.txt matches the retained OpenSSL text. The observed Linux x64 and ARM sender binaries identify Debian GCC 10.2.1-6 and do not dynamically depend on libgcc. Their stripped contents do not establish whether static libgcc routines were included. The map records the exact binary hashes and conditional GCC runtime license references.
+
+Exact selected wheel archives and compiler runtime inputs still need producer receipts. Historical 8df Linux and 53e Windows captures are not evidence for a later candidate. The current Windows payload includes Microsoft MFC and VCRuntime DLLs, and Karl's applicable redistribution entitlement is unknown. The map describes a recipient-acquired official redistributable alternative and its required clean-host checks; that alternative has not been demonstrated. Actual native contents, applicable compiler terms and notices, and any source or modification conditions must be checked against the final candidate.
+
+The public asset set does not contain private Docker-save images. Linux recipients obtain Debian packages from signed dated snapshots. The Windows installer fetches LibreHardwareMonitor 0.9.6 and PawnIO 2.2.0 directly from their vendors; neither executable is in the application archive allowlist. Their terms and installation requirements remain independent of the Sender notice set.
+
+The Windows runtime bundle retains the file-specific notices from the cffi 2.0.0 x64 libffi sources. The [Windows notice decision](../docs/release/windows-x64-notice-decision.md) records the source and the observed candidate's missing attribution. This correction does not approve a Windows candidate.
+
+The ARM64 bundle includes the GNU C Library use notice, the pinned AArch64 startup source copyright and license header, and the complete LGPL 2.1 text. The [ARM notice decision](../docs/release/linux-arm64-notice-decision.md) records the bounded expected input set and conditional runtime evidence. This notice correction does not approve an ARM candidate.
+
+The ARM64 bundle also retains the complete musl v1.2.5 notice for the proposed AArch64 entry. The GNU AArch64 start header documents earlier observed builds; the ARM decision distinguishes those from the later observed links.
+
+The Linux x64 bundle identifies its dynamically linked system-provided GNU C Library and includes the complete LGPL 2.1 text. The system supplies libc; the bundle does not include the library.

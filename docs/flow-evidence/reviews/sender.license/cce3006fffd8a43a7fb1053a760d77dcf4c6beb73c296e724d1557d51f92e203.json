@@ -1,0 +1,17 @@
+{
+  "feature": "sender.license",
+  "fingerprint": "cce3006fffd8a43a7fb1053a760d77dcf4c6beb73c296e724d1557d51f92e203",
+  "reviewer": "orca_session_id:ce6f0ed4-68f9-449b-b194-0da29d582759 task_c3eb2aa7ee7d dispatch ctx_9e4b468508d9",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "Candidate tree b2083f9b1fc52520328c6b0aff20c8a63d400aa3 verified at start and end; staged fingerprint recomputed against base 86b074bc1aa6c38bbdb236f23546b1024ffc227a matches the stated value. Base lacks the adopted manifest and flow; candidate introduces them.",
+    "Candidate docs/flows/sender.license.mmd 1-14, docs/flows/README.md 1-21, docs/flows/contracts.md 1-9 and manifest sender.license record, source mappings, dependency list and node/depth limits reviewed. Candidate README.md 1-28, LICENSE 1-674, pyproject.toml 1-24, release-public/LICENSE-NOTICE.md 1-13, and release-public/README.md 1-7 checked against diagram; mapped README, LICENSE and pyproject blobs match base, while the notice and flow are new. The flow correctly qualifies the noncommercial grant, prior GPL rights, third-party terms, LGPL exception and package-specific obligations; it does not claim a package or compliance exists.",
+    "Base-to-candidate diff stat and raw mapped-file, release-public and AGENTS.md changes inspected; AGENTS.md adds the bounded sync gate. Candidate scripts/build_sender_package.py 1-151 and scripts/windows/package_sender.py 1-80 show project notice inclusion and other notices; tests/test_release_candidate.py 808-814 and 994-1019 check the notice and reject the old notice. Graph search and trace of supplemental_notices and coverage checks for packaging, collector and test paths report no recorded coverage issue; graph is best effort and candidate source is authoritative.",
+    "Historical sender-controller-commit-fix/make-check.log records uv run --locked pytest -q, 524 passed, Python 3.11; before/after SHA-256 entries for the four mapped files, tests/test_release_candidate.py and scripts/inspect_sender_candidate.py match candidate. That historical full run precedes the later installer marker fix and is not a full current-candidate run. Current focused-tests.log records 111 passed in 10.28s with focused-exit.json exit 0 and equal 256-entry before/after identities; mapped files and relevant test/build files match candidate hashes. focused-environment.txt records CPython 3.11.15 and Linux x86_64 glibc 2.43."
+  ],
+  "limitations": [
+    "No tests, build, application, services or hardware were executed during this review. Historical tests do not establish current full-run or physical runtime behavior.",
+    "Visual rendering, legal authorization to distribute binaries, actual future package contents and third-party/corresponding-source compliance were not assessed."
+  ]
+}

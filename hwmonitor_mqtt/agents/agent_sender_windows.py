@@ -44,7 +44,11 @@ try:
 except ImportError:
     pythoncom = None
 
-load_dotenv()
+PROJECT_ROOT = Path.cwd() if "__compiled__" in globals() else Path(__file__).resolve().parents[2]
+if "__compiled__" in globals():
+    load_dotenv(PROJECT_ROOT / ".env")
+else:
+    load_dotenv()
 
 
 # ===== Helpers =====
@@ -141,7 +145,7 @@ class LHMProcessManager:
         if local_appdata:
             candidates.append(Path(local_appdata) / "LibreHardwareMonitor" / "LibreHardwareMonitor.exe")
 
-        project_root = Path(__file__).resolve().parents[2]
+        project_root = PROJECT_ROOT
         candidates.append(project_root / "third_party" / "librehardwaremonitor" / "LibreHardwareMonitor.exe")
 
         return candidates
@@ -281,7 +285,7 @@ class LHMInProcessCollector:
                 candidates.append(lhm_path_obj)
             candidates.append(lhm_path_obj.parent / "LibreHardwareMonitorLib.dll")
 
-        project_root = Path(__file__).resolve().parents[2]
+        project_root = PROJECT_ROOT
         candidates.append(project_root / "third_party" / "librehardwaremonitor" / "LibreHardwareMonitorLib.dll")
 
         for p in candidates:
@@ -1265,7 +1269,7 @@ async def main():
         return
 
     print(f"Async Agent for Windows started on {HOSTNAME}")
-    marker = Path(__file__).resolve().parents[2] / ".hwmonitor-mqtt-bootstrap"
+    marker = PROJECT_ROOT / ".hwmonitor-mqtt-bootstrap"
     print(f"Installed commit: {(marker.read_text().strip() or 'unknown') if marker.exists() else 'unknown (not installed by bootstrap.ps1)'}")
     print(f"Sender profile: {SENDER_PROFILE}")
 
@@ -1325,6 +1329,18 @@ def dump_sensors() -> None:
 
 
 if __name__ == "__main__":
+    if "--version" in sys.argv:
+        try:
+            manifest = json.loads((Path(sys.argv[0]).resolve().parent / "manifest.json").read_text(encoding="utf-8"))
+            version, source = manifest["version"], manifest["source"]
+            if not isinstance(version, str) or not re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", version):
+                raise ValueError("invalid version")
+            if not isinstance(source, str) or not re.fullmatch(r"[a-f0-9]{40}", source):
+                raise ValueError("invalid source")
+        except (OSError, ValueError, KeyError, TypeError):
+            raise SystemExit("Installed version metadata is unavailable or invalid.")
+        print(f"hwmonitor-mqtt sender {version} ({source})")
+        raise SystemExit(0)
     if "--dump-sensors" in sys.argv:
         dump_sensors()
         raise SystemExit(0)

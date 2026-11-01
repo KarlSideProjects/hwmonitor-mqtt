@@ -1,0 +1,17 @@
+{
+  "feature": "sender.build",
+  "fingerprint": "ca793d86a1d612620e77e04ad56796b048f378e225dcf0ac84159a6a95913109",
+  "reviewer": "user-designated root reviewer / orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "Base 86b074bc1aa6c38bbdb236f23546b1024ffc227a; reviewed exact index tree 3285803271fffe1cc7401f91609de7f69a82702d; current project-checker fingerprint independently recomputed. User explicitly assigned root review; root did not author product/source corrections in this candidate.",
+    "Read build_sender_package.py, capture_sender_build.py, create_sender_build_record.py, sender_build_inputs.py, linux_arm64/gcc.py and startup inputs, Linux/Windows workflows, Windows notice collector and packager. Verified clean fixed-source archive, pinned environment, ARM phase/CRT/binding evidence, fresh output capture, archive assembly and private record boundary.",
+    "Build-record producer reads manifest and binds provenance/runtime/source receipts; separate inspector checks full archive contents as nodeN says. Acceptance-job wiring and private diagnostic uploads inspected; standalone Windows inventory nodeR verified. Actual200-pass root tests include builder evidence/capture/receipts/ARM checks.",
+    "Configured software check PYTHONPATH=. make check508passed17skipped (existing exact candidate); root PYTHONPATH=. uv run --locked pytest targeted9modules200passed in24.76s; /tmp/hwmonitor-resume-root-review-20261031/sender-focused-tests.log"
+  ],
+  "limitations": [
+    "User-designated coordinator review reuses verified source context in this session; it is not a fresh subagent or human approval.",
+    "Bounded flow and changed-source interaction review; no claim of whole-repo audit, live GitHub integration, fresh compiled platform acceptance, legal approval, physical LCD/buttons or device memory calibration."
+  ]
+}

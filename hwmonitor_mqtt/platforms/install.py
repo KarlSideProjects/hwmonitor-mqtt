@@ -1,11 +1,60 @@
 """Run or preview the fixed installer selected from the local target."""
 
 import argparse
+from contextlib import contextmanager
 from dataclasses import replace
 import json
 import os
 from pathlib import Path
 import subprocess
+import select
+import signal
+import stat
+import threading
+
+
+_cancellation_active = False
+
+
+def commit_cancellation():
+    if _cancellation_active:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+@contextmanager
+def cancellation_channel():
+    global _cancellation_active
+    descriptor = os.environ.pop("HWMONITOR_CANCEL_FD", None)
+    if descriptor is None:
+        yield
+        return
+    fd = int(descriptor)
+    info = os.fstat(fd)
+    if not stat.S_ISFIFO(info.st_mode) or info.st_uid != os.geteuid():
+        raise ValueError("invalid cancellation channel")
+    os.set_inheritable(fd, False)
+    previous = signal.signal(signal.SIGINT, signal.default_int_handler)
+    stopped = threading.Event()
+
+    def listen():
+        while not stopped.is_set():
+            if select.select([fd], [], [], 0.1)[0] and os.read(fd, 1) == b"I":
+                os.kill(os.getpid(), signal.SIGINT)
+                return
+
+    listener = threading.Thread(target=listen, daemon=True)
+    _cancellation_active = True
+    try:
+        listener.start()
+        yield
+    finally:
+        stopped.set()
+        try:
+            if listener.ident is not None:
+                listener.join()
+        finally:
+            _cancellation_active = False
+            signal.signal(signal.SIGINT, previous)
 
 from .detect import detect_target
 from .dispatch import collector_for, install_command
@@ -86,6 +135,8 @@ def main(argv=None):
                 print(str(error))
                 return 2
         return subprocess.run(command, cwd=args.project_root, env=environment, check=False).returncode
+    if target.system == "pve" and "__compiled__" in vars(pve_installer):
+        return pve_installer.main(["--project-root", args.project_root, "--config-file", args.pve_config])
     return subprocess.run(command, cwd=args.project_root, check=False).returncode
 
 

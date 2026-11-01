@@ -1,6 +1,7 @@
 param(
     [string]$TaskName = "HWMonitorMQTTSender",
     [string]$ProjectRoot = "",
+    [string]$SenderExe = "",
     [string]$PythonExe = "python",
     [bool]$UseUv = $true,
     [string]$UvExe = "",
@@ -23,6 +24,12 @@ if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
     $ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 }
 $ProjectRoot = [System.IO.Path]::GetFullPath($ProjectRoot)
+if (-not [string]::IsNullOrWhiteSpace($SenderExe)) {
+    if (-not (Test-Path -LiteralPath $SenderExe -PathType Leaf)) { throw "Sender executable not found: $SenderExe" }
+    if (-not [string]::IsNullOrWhiteSpace($LhmDownloadUrl) -or -not [string]::IsNullOrWhiteSpace($LhmPath)) { throw 'Compiled sender cannot use unverified LibreHardwareMonitor paths or download URLs.' }
+    $SenderExe = [System.IO.Path]::GetFullPath($SenderExe)
+    $UseUv = $false
+}
 
 if ([string]::IsNullOrWhiteSpace($UvCacheDir)) {
     $UvCacheDir = Join-Path $ProjectRoot ".uv-cache"
@@ -157,7 +164,7 @@ function Ensure-LhmExecutable {
         [string]$DownloadUrl
     )
 
-    $resolved = Resolve-LhmExePath -Candidate $Candidate -InstallDir $InstallDir -RootPath $RootPath
+    $resolved = if ($SenderExe) { $null } else { Resolve-LhmExePath -Candidate $Candidate -InstallDir $InstallDir -RootPath $RootPath }
     if ($resolved) {
         return $resolved
     }
@@ -322,6 +329,11 @@ $argList = @(
     "-PythonExe", "`"$taskPythonExe`""
 )
 
+if ($SenderExe) {
+    $argList += "-SenderExe"
+    $argList += "`"$SenderExe`""
+}
+
 if ($taskUseUv -and $resolvedUvExe -and -not ($resolvedUvExe -like "<*")) {
     $argList += "-UseUv"
     $argList += "-UvExe"
@@ -349,7 +361,8 @@ if ($WhatIf) {
     Write-Output "  EnsureDeps: $EnsureDeps"
     Write-Output "  EnsureLhm: $EnsureLhm"
     Write-Output "  LhmPath: $resolvedLhmExe"
-    Write-Output "  EnsurePawnIo: $EnsurePawnIo (installed: $(Get-PawnIoVersion))"
+    $pawnIoInstalled = if ($EnsurePawnIo) { Get-PawnIoVersion } else { "not checked" }
+    Write-Output "  EnsurePawnIo: $EnsurePawnIo (installed: $pawnIoInstalled)"
     Write-Output "  TaskUseUv: $taskUseUv"
     Write-Output "  TaskPythonExe: $taskPythonExe"
     Write-Output "  LhmInstallDir: $LhmInstallDir"

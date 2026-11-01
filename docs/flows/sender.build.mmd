@@ -1,0 +1,37 @@
+flowchart TD
+    A["Select source, version and platform in build workflow"]
+    B{"Linux or Windows"}
+    C["Check Linux checkout, host, Python, glibc and pinned packages; archive committed source"]
+    D{"Linux ARM64"}
+    E["Verify pinned startup and local CRT; prepare private GCC launcher and startup spec"]
+    F["Compile onefile sender and report with fresh build and evidence paths"]
+    G["Classify and record backend and onefile links; verify startup, CRT, compiler and SCons evidence"]
+    H["Capture live extracted payload matching distribution inventory; bind ARM final outputs"]
+    I["Assemble Linux archive, notices, manifest and checksum"]
+    J["Validate Windows source and version; install locked and pinned inputs; compile and capture onefile"]
+    K["Check runtime reference and collect report-selected installed and verified supplemental notices"]
+    Q["Record Windows selected archives, runtime reference and observed compiler"]
+    L["Assemble Windows ZIP, manifest, scripts, notices and checksum"]
+    M["Record selected package archives, runtime reference and observed toolchain"]
+    N["Build image on Linux only; check source, archive manifest, provenance, runtime, receipt and platform evidence; record archive digest and write private record; full archive inspection is separate"]
+    O["Run platform acceptance and retain private artifacts for inspection"]
+    P["Errors in C, E, F, G, H, I, J, K, Q, L, M, N or O stop the job; always-run diagnostics do not establish success"]
+    R["Standalone Windows distribution inventory utility; workflow uses capture inventory"]
+    A --> B
+    B -->|Linux| C
+    B -->|Windows| J
+    C -->|valid| D
+    D -->|yes| E
+    D -->|no| F
+    E -->|prepared| F
+    F -->|ARM64| G
+    F -->|Linux x64| H
+    G -->|verified| H
+    H -->|matched| I
+    J -->|captured| K
+    K -->|collected| Q
+    Q -->|valid| L
+    I --> M
+    L --> N
+    M -->|valid| N
+    N -->|valid| O

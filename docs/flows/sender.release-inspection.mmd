@@ -1,0 +1,32 @@
+flowchart TD
+    A["Parse platform, candidate, independent record and options"]
+    B{"Archive mode"}
+    C["Check sample directory, independent approval, fixed paths and notice hashes"]
+    D["Validate independent record and archive digest"]
+    E["Check exact archive entries, bounds, selected secrets and source files"]
+    F["Bind manifest, executable, architecture, compiler, runtime and pinned notices"]
+    G{"Required evidence supplied"}
+    H["Check report and inventory against record and compiled module rules"]
+    I["Check captured runtime paths, hashes, architecture and selected secrets"]
+    J{"Windows platform"}
+    K["Check package, validator and activator assets and checksums"]
+    L["Check Linux archive checksum and image digest, configuration and layers"]
+    M["Validate selected inputs and exact expected notice descriptor"]
+    N["Report boundary accepted; artifact and license review required"]
+    O["Any validation or file error in C, D, E, F, H, I, K, L or M rejects candidate"]
+    A --> B
+    B -->|no| C
+    C -->|accepted| N
+    B -->|yes| D
+    D -->|accepted| E
+    E -->|accepted| F
+    F -->|accepted| G
+    G -->|no| O
+    G -->|yes| H
+    H -->|accepted| I
+    I -->|accepted| J
+    J -->|yes| K
+    J -->|no| L
+    K -->|accepted| M
+    L -->|accepted| M
+    M -->|accepted| N

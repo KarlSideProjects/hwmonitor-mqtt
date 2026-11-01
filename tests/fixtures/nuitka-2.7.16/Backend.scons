@@ -1,0 +1,12 @@
+if "CC" in os.environ:
+    # If the environment variable CC is set, use that.
+    env["CC"] = os.environ["CC"]
+    env["CCVERSION"] = None
+
+    scons_details_logger.info("Overridden with environment CC: %r" % env["CC"])
+
+env.the_compiler = env["CC"]
+env.the_cc_name = os.path.normcase(os.path.basename(env.the_compiler))
+
+env.gcc_mode = isGccName(env.the_cc_name) or clang_mode
+env.clang_mode = clang_mode

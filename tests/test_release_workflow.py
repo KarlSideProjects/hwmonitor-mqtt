@@ -1,0 +1,140 @@
+from pathlib import Path
+
+
+def test_release_workflow_is_master_only_and_has_no_publisher_credentials():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    assert 'branches: [master]' in workflow
+    assert 'workflow_dispatch:' in workflow
+    assert "github.ref == 'refs/heads/master'" in workflow
+    assert 'fetch-depth: 0' in workflow
+    assert 'persist-credentials: false' in workflow
+    assert workflow.count('secrets.SENDER_RELEASE_TOKEN') == 3
+    assert 'environment: sender-release-publisher' in workflow
+    assert 'scripts/release_controller.py drain' in workflow
+    assert 'schedule:' in workflow
+    assert 'scripts/release_version.py' in workflow
+    assert 'scripts/release-tests/pve_acceptance.py' in (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
+
+
+def test_recovery_dispatch_accepts_source_only_as_data():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    assert 'source:' in workflow
+    assert 'SOURCE: ${{ inputs.source || github.sha }}' in workflow
+    assert 'scripts/release_version.py --master "$MASTER" "$SOURCE"' in workflow
+
+
+def test_source_identity_job_exports_verified_source_and_version():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    assert 'source: ${{ steps.identity.outputs.source }}' in workflow
+    assert 'version: ${{ steps.identity.outputs.version }}' in workflow
+    assert 'id: identity' in workflow
+    assert '"source=$SOURCE" >> "$GITHUB_OUTPUT"' in workflow
+
+
+def test_linux_builds_are_source_bound_and_have_no_publisher_token():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    linux = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
+    assert 'ubuntu-24.04-arm' in linux and 'ubuntu-24.04' in linux
+    assert 'scripts/build_sender_package.py' in linux
+    assert 'scripts/create_sender_build_record.py' in linux
+    assert 'needs.version.outputs.source' in workflow and 'inputs.source' in linux
+    assert 'secrets.' not in linux
+
+
+def test_preparation_requires_all_build_jobs_and_uses_controller():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    assert 'needs: [version, checks, linux-build, windows-build]' in workflow
+    assert 'scripts/release_controller.py prepare' in workflow
+    assert 'SOURCE_WORKFLOW_TOKEN: ${{ github.token }}' in workflow
+    assert 'actions: write' in workflow
+
+
+def test_build_tree_remains_private_but_owned_by_runner():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
+    assert 'libc6-dev' in workflow
+    assert 'chown -R "$RUNNER_UID:$RUNNER_GID" /work/result' in workflow
+    assert 'chmod -R' not in workflow
+
+
+def test_publisher_requires_successful_prepare_or_explicit_recovery():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    publisher = workflow.split('  publisher:', 1)[1]
+    assert 'needs: prepare' in publisher
+    assert "needs.prepare.result == 'success'" in publisher
+    assert "github.event_name == 'schedule'" in publisher
+    assert "github.event_name == 'workflow_dispatch' && inputs.source == ''" in publisher
+    assert 'always()' in publisher
+
+
+def test_publisher_trigger_cases():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    expression = workflow.split('  publisher:', 1)[1].split('if: ${{ ', 1)[1].split(' }}', 1)[0]
+    expression = expression.replace('always()', 'True').replace('&&', ' and ').replace('||', ' or ')
+    for key, replacement in {'github.ref': 'ref', 'github.event_name': 'event', 'needs.prepare.result': 'result', 'inputs.source': 'source'}.items():
+        expression = expression.replace(key, replacement)
+    def allowed(event, result, source='', ref='refs/heads/master'):
+        return eval(expression, {'__builtins__': {}}, {'ref': ref, 'event': event, 'result': result, 'source': source})
+    assert allowed('push', 'success')
+    assert not allowed('push', 'failure')
+    assert allowed('schedule', 'skipped')
+    assert allowed('workflow_dispatch', 'skipped')
+    assert allowed('workflow_dispatch', 'success', 'a' * 40)
+    assert not allowed('workflow_dispatch', 'failure', 'a' * 40)
+    assert not allowed('schedule', 'skipped', ref='refs/heads/other')
+
+
+def test_bullseye_builder_uses_archived_security_repository():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
+    assert 'http://archive.debian.org/debian-security bullseye-security main' in workflow
+    assert 'Acquire::Check-Valid-Until=false' in workflow
+
+
+def test_linux_upgrade_baseline_is_built_from_distinct_pinned_source():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
+    assert 'c40a66d16d23ba7fac7fba171d02e4959a9a91a9' in workflow
+    assert 'scripts/build_sender_package.py --version 0.0.1 --output /work/old-result' in workflow
+    assert 'test "$SOURCE" != "$OLD_SOURCE"' in workflow
+
+
+def test_linux_docker_acceptance_uses_both_real_archives():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
+    assert 'scripts/release-tests/docker_acceptance.py' in workflow
+    assert '--old-archive "$RUNNER_TEMP/old-result/sender-$TARGET.tar.gz"' in workflow
+    assert '--old-source "$OLD_SOURCE" --old-version 0.0.1' in workflow
+    assert 'scripts/release-tests/pve_acceptance.py' in workflow
+
+
+def test_linux_harness_uses_workflow_checkout_and_exact_source_checkout():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    linux = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
+    assert 'path: source' in linux
+    assert 'git -C source rev-parse HEAD' in linux
+    assert '--source-root source' in linux
+    assert '--bootstrap "$GITHUB_WORKSPACE/source/bootstrap.sh"' in linux
+
+
+def test_pve_gate_uses_pinned_guest_and_distinct_archives():
+    linux = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
+    assert 'scripts/release-tests/pve_acceptance.py' in linux
+    assert '20261026-2643/debian-13-generic-amd64-20261026-2643.qcow2' in linux
+    assert '5bd891c6e62d01639f52a5587b72a4607421e445732214be787dba6043cf9797a6ff90bed982aada6a6c7e619f1f956d961c4fad76757171abd607920aac098a' in linux
+    assert '--old-source "$OLD_SOURCE" --old-version 0.0.1' in linux
+
+
+def test_linux_compiled_failure_integration_uses_candidate_and_enforces_skips():
+    linux = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
+    assert 'protected21-bootstrap-test:local' in linux
+    assert 'HWMONITOR_TEST_ARCHIVE:' in linux
+    assert 'tests/test_compiled_bootstrap_integration.py' in linux
+    assert 'expected_skips = 1 if' in linux
+    assert 'scripts/release-tests/docker_acceptance.py' in linux
+
+
+def test_scheduled_recovery_reads_fresh_master_without_replacing_controller():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    recovery = workflow.split('  recover:', 1)[1].split('  # A scheduled', 1)[0]
+    assert 'ref: master' in recovery
+    assert 'path: recovery-master' in recovery
+    assert 'git -C recovery-master rev-parse HEAD' in recovery
+    assert 'scripts/release_controller.py recover --repo recovery-master' in recovery
+    assert 'persist-credentials: false' in recovery

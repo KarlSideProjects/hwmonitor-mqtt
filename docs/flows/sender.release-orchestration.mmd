@@ -1,0 +1,34 @@
+flowchart TD
+    A["Select trusted first-parent source and derive version"]
+    B["Run source checks and platform build workflows in parallel"]
+    C["Assemble exact assets and private evidence"]
+    D["Check metadata, checksums, committed installers and platform records"]
+    E["Inspect all platform archives and evidence"]
+    F["Controller constructs validated receipt; backend trusts caller validation and serialization"]
+    G{"Existing matching release"}
+    H["Create STAGING draft"]
+    I{"READY or STAGING"}
+    J["Verify and reuse READY assets"]
+    K["Recover or reset STAGING draft, upload missing assets"]
+    L["Verify remote assets and mark draft READY"]
+    M["Globally serialized drain verifies and publishes READY drafts; scheduled or manual drain can retry"]
+    N["Reconcile latest to highest confirmed published ordinal"]
+    O["Errors in A through N or recovery P reject; conflicts and missing evidence stop preparation or drain"]
+    P["Scheduled recovery lists missing sources and dispatches bounded retries when activation is configured"]
+    Q["Loopback-only draft staging prototype uses test API"]
+    A -->|valid| B
+    B -->|success| C
+    C --> D
+    D -->|valid| E
+    E -->|accepted| F
+    F --> G
+    G -->|no| H
+    G -->|yes| I
+    H --> K
+    I -->|READY| J
+    I -->|STAGING| K
+    J -->|valid| M
+    K -->|complete| L
+    L -->|ready| M
+    M -->|successful drain including empty queue| N
+    P --> A

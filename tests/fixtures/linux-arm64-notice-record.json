@@ -1,0 +1,104 @@
+{
+  "archive_sha256": "d376bdc2b38b801854cc8cf2d5dc4d2ff90f94d1440dc096cb1014b78384fc50",
+  "compiler": "Nuitka 2.7.16",
+  "executable_sha256": "b3d40353c3e1d1aeff4cffb3b09b0d0b08a8392363dd4e9a11a3bc65e508cc6f",
+  "image_sha256": "43297e23ffb67cb768f82a0d38dbde5e8c5396e24c332b56d7fedfac9afbc546",
+  "inventory_sha256": "32a4a030a917fd59418f150578942371d199312635a51f68094035923728a35a",
+  "platform": "linux-arm64",
+  "report_sha256": "9c5473753a352ca0fe4b4c3155487e51a2600a173fed0fb23b835e49151bd6e8",
+  "runtime": {
+    "paho-mqtt": "2.1.0",
+    "psutil": "7.1.1",
+    "python": "3.11.15",
+    "python-dotenv": "1.1.1",
+    "typing-extensions": "4.15.0"
+  },
+  "selected_inputs": {
+    "inventory_sha256": "32a4a030a917fd59418f150578942371d199312635a51f68094035923728a35a",
+    "packages": [
+      {
+        "filename": "Nuitka-2.7.16.tar.gz",
+        "name": "nuitka",
+        "sha256": "768909faf365b21ae4777727fc4ae88efc29239c664bd177061fc907e263e0fa",
+        "version": "2.7.16"
+      },
+      {
+        "filename": "ordered_set-4.1.0-py3-none-any.whl",
+        "name": "ordered-set",
+        "sha256": "046e1132c71fcf3330438a539928932caf51ddbc582496833e23de611de14562",
+        "version": "4.1.0"
+      },
+      {
+        "filename": "paho_mqtt-2.1.0-py3-none-any.whl",
+        "name": "paho-mqtt",
+        "sha256": "6db9ba9b34ed5bc6b6e3812718c7e06e2fd7444540df2455d2c51bd58808feee",
+        "version": "2.1.0"
+      },
+      {
+        "filename": "pip-24.0-py3-none-any.whl",
+        "name": "pip",
+        "sha256": "ba0d021a166865d2265246961bec0152ff124de910c5cc39f1156ce3fa7c69dc",
+        "version": "24.0"
+      },
+      {
+        "filename": "psutil-7.1.1-cp36-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+        "name": "psutil",
+        "sha256": "146a704f224fb2ded2be3da5ac67fc32b9ea90c45b51676f9114a6ac45616967",
+        "version": "7.1.1"
+      },
+      {
+        "filename": "python_dotenv-1.1.1-py3-none-any.whl",
+        "name": "python-dotenv",
+        "sha256": "31f23644fe2602f88ff55e1f5c79ba497e01224ee7737937930c448e4d0e24dc",
+        "version": "1.1.1"
+      },
+      {
+        "filename": "setuptools-79.0.1-py3-none-any.whl",
+        "name": "setuptools",
+        "sha256": "e147c0549f27767ba362f9da434eab9c5dc0045d5304feb602a0af001089fc51",
+        "version": "79.0.1"
+      },
+      {
+        "filename": "typing_extensions-4.15.0-py3-none-any.whl",
+        "name": "typing-extensions",
+        "sha256": "f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548",
+        "version": "4.15.0"
+      },
+      {
+        "filename": "zstandard-0.23.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+        "name": "zstandard",
+        "sha256": "983b6efd649723474f29ed42e1467f90a35a74793437d0bc64a5bf482bedfa0a",
+        "version": "0.23.0"
+      }
+    ],
+    "platform": "linux-arm64",
+    "runtime_archive": {
+      "filename": "cpython-3.11.15+20260728-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz",
+      "kind": "runtime-install",
+      "sha256": "a6decd180099e6768269bd8e8968aeaa84bb01511f00f6921dc204fe648729aa"
+    },
+    "source": "3f42f1ba09df21f49b62ebf863e0244930ce81ab",
+    "startup": {
+      "commit": "0784374d561435f7c787a555aeab8ede699ed298",
+      "entry_sha256": "14dcdc316f356e3d51217c1a2d73e7942d852d7f42be3308afce19e927a97999",
+      "license_sha256": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af"
+    },
+    "toolchain": {
+      "compiler_sha256": "a81b732d3723fd585949771e3af90e60eabea591fbf97b6bf60eca212d80e6bb",
+      "compiler_version": "10.2.1",
+      "packages": "binutils=2.35.2-2\ngcc=4:10.2.1-1\ngcc-10=10.2.1-6\nlibgcc-10-dev=10.2.1-6\nlibgcc-s1=10.2.1-6",
+      "python_sha256": "6725b3f6c8ebda0f8bef4b2398a18d9f4139537ec8bd9877c59542b1a94cf638",
+      "python_version": "3.11.15 (main, Jul 23 2026, 14:43:41) [Clang 22.1.3 ]"
+    },
+    "version": "0.0.1"
+  },
+  "source": "3f42f1ba09df21f49b62ebf863e0244930ce81ab",
+  "source_files": {
+    ".dockerignore": "627be07447dc3a70800f13f570719aa6d3a181b68e0751820189c371eb819488",
+    "Dockerfile": "49f533797fc9781ae80135375992054cd6c6726032bd1273dd011a1c00f11042",
+    "docker-compose.linux.yml": "9c5cd05b917f7ab615699ce9b6002ce517bdfc006900c66626812d2ae725f590",
+    "docker-compose.pve.yml": "fb222a09f2d7a007d3f4881eca82ef80264974b166901064d05a0af35d6131ff",
+    "docs/configuration/pve.env.example": "4ea9eaaa155af0dc0dc469fbe86c345311551807e66850842d0228d861d32b23"
+  },
+  "version": "0.0.1"
+}
