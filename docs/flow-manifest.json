@@ -306,7 +306,7 @@
     {
       "path": ".github/workflows/sender-release.yml",
       "kind": "file",
-      "md5": "5232a415a0aa08c098aa1cd5995f85ac"
+      "md5": "c6121fedb488d4f7deffb9434a431d7d"
     },
     {
       "path": "scripts/release_version.py",
@@ -316,7 +316,7 @@
     {
       "path": "scripts/release_controller.py",
       "kind": "file",
-      "md5": "f6d441b718c5e78cb7d1927913de4e1b"
+      "md5": "486c6ce71d324189975614f317a2b416"
     },
     {
       "path": "scripts/check_release_assets.py",
@@ -326,7 +326,7 @@
     {
       "path": "scripts/release_backend.py",
       "kind": "file",
-      "md5": "15cfdb0498e25c82d821aa249c05013e"
+      "md5": "e41a1c2c3b388c521f695e3e09122b6f"
     },
     {
       "path": "scripts/stage_release_draft.py",
@@ -446,7 +446,7 @@
     {
       "path": "tests/test_release_workflow.py",
       "kind": "file",
-      "md5": "c34b3fbcb13bf583d5c54180c6a0b4d3"
+      "md5": "ec9300d630cfaea7555cbb5a59655038"
     },
     {
       "path": "tests/test_compiled_bootstrap_integration.py",
@@ -631,12 +631,12 @@
     {
       "path": "tests/test_release_backend.py",
       "kind": "file",
-      "md5": "92c51854b0a1a0498f9e551d2e07fe31"
+      "md5": "c8f2a355309df9007d9c46f03505c3d7"
     },
     {
       "path": "tests/test_release_controller.py",
       "kind": "file",
-      "md5": "c1b12ffbe9e53fb11e40f34eba1e05d6"
+      "md5": "8b00d4a83ab2def6c4ebb025481c2c63"
     },
     {
       "path": "tests/test_install_sh.py",
@@ -1844,6 +1844,14 @@
         {
           "node": "B",
           "path": "docs/release/sender-orchestration-wip.md"
+        },
+        {
+          "node": "R",
+          "path": "scripts/release_backend.py"
+        },
+        {
+          "node": "S",
+          "path": "scripts/release_backend.py"
         }
       ],
       "depends_on": [
@@ -2154,53 +2162,53 @@
   ],
   "reviews": [
     {
-      "feature": "sender.build",
-      "fingerprint": "d6eb20aacbfae5c17848cdb3700c1848276ffe8a3f7881b2f8e26dfae8ad89f2",
-      "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
-      "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.build/d6eb20aacbfae5c17848cdb3700c1848276ffe8a3f7881b2f8e26dfae8ad89f2.json"
-    },
-    {
-      "feature": "sender.compiled-lifecycle",
-      "fingerprint": "0b11f2a927a6a16c16d12f86f1e52e82e7c132af497e4923c8fd14f41c7c7b61",
-      "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
-      "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.compiled-lifecycle/0b11f2a927a6a16c16d12f86f1e52e82e7c132af497e4923c8fd14f41c7c7b61.json"
-    },
-    {
       "feature": "sender.distribution",
-      "fingerprint": "29dfcb4de3e101dab58838b4ba6b4ae44427e3e184fd6a1db6d0128ac8f9ec62",
-      "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
+      "fingerprint": "8c2a6775d1de0ebd76764d98141debd4f386ac2850c1d4f8cd654311c1512da6",
+      "reviewer": "root independent author-delta review / 01a18d52-22b5-7320-93cf-129becdcc9fe",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.distribution/29dfcb4de3e101dab58838b4ba6b4ae44427e3e184fd6a1db6d0128ac8f9ec62.json"
+      "evidence": "docs/flow-evidence/reviews/sender.distribution/8c2a6775d1de0ebd76764d98141debd4f386ac2850c1d4f8cd654311c1512da6.json"
     },
     {
       "feature": "sender.license",
-      "fingerprint": "6168b332350784f3525c2ad6bb0a818d2d7f2d527830bb47e0973875f7410901",
-      "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
+      "fingerprint": "70370e1461deef7f86a4fa49b5c2448e9b89833aaff147d95a4e05e39373b328",
+      "reviewer": "root independent author-delta review / 01a18d52-22b5-7320-93cf-129becdcc9fe",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.license/6168b332350784f3525c2ad6bb0a818d2d7f2d527830bb47e0973875f7410901.json"
+      "evidence": "docs/flow-evidence/reviews/sender.license/70370e1461deef7f86a4fa49b5c2448e9b89833aaff147d95a4e05e39373b328.json"
     },
     {
       "feature": "sender.release-inspection",
-      "fingerprint": "425ad22ed72d2e4f1bf85a690923480791492b22167044a279f45bd6e7050d01",
-      "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
+      "fingerprint": "caee959f500c516e92df8448f48af5fc2f74c54f32cfe293f0ec0e90aea6dfa0",
+      "reviewer": "root independent author-delta review / 01a18d52-22b5-7320-93cf-129becdcc9fe",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.release-inspection/425ad22ed72d2e4f1bf85a690923480791492b22167044a279f45bd6e7050d01.json"
-    },
-    {
-      "feature": "sender.release-orchestration",
-      "fingerprint": "b5dc8d4f67912cead9c00f67f1ec2ec66a76d4d14e0a1be7cf9cb5b04597a7cc",
-      "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
-      "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.release-orchestration/b5dc8d4f67912cead9c00f67f1ec2ec66a76d4d14e0a1be7cf9cb5b04597a7cc.json"
+      "evidence": "docs/flow-evidence/reviews/sender.release-inspection/caee959f500c516e92df8448f48af5fc2f74c54f32cfe293f0ec0e90aea6dfa0.json"
     },
     {
       "feature": "sender.smart-discovery",
-      "fingerprint": "d26635b2098dc908077cacc6586677313f75122ae116f739f13c5fbaaeeaced4",
-      "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
+      "fingerprint": "c95a1b17aef710f20c978407c2ed990523945b999a17b97b099bcd4235ab4a0b",
+      "reviewer": "root independent author-delta review / 01a18d52-22b5-7320-93cf-129becdcc9fe",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.smart-discovery/d26635b2098dc908077cacc6586677313f75122ae116f739f13c5fbaaeeaced4.json"
+      "evidence": "docs/flow-evidence/reviews/sender.smart-discovery/c95a1b17aef710f20c978407c2ed990523945b999a17b97b099bcd4235ab4a0b.json"
+    },
+    {
+      "feature": "sender.build",
+      "fingerprint": "f9ba0fb3ce37ae437d2fc549df7a87d0f7ffdf7f79337aadc79d43211cbbef76",
+      "reviewer": "root independent author-delta review / 01a18d52-22b5-7320-93cf-129becdcc9fe",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.build/f9ba0fb3ce37ae437d2fc549df7a87d0f7ffdf7f79337aadc79d43211cbbef76.json"
+    },
+    {
+      "feature": "sender.release-orchestration",
+      "fingerprint": "76455deb45f38baf03f9138572b0aabd09007413c34d5a3deb2f4313aa630927",
+      "reviewer": "root independent author-delta review / 01a18d52-22b5-7320-93cf-129becdcc9fe",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.release-orchestration/76455deb45f38baf03f9138572b0aabd09007413c34d5a3deb2f4313aa630927.json"
+    },
+    {
+      "feature": "sender.compiled-lifecycle",
+      "fingerprint": "6f1bd74f3b7dd2be11527f27c70177359fcaa962002b32a0866e8300c892be97",
+      "reviewer": "root independent author-delta review / 01a18d52-22b5-7320-93cf-129becdcc9fe",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.compiled-lifecycle/6f1bd74f3b7dd2be11527f27c70177359fcaa962002b32a0866e8300c892be97.json"
     }
   ],
   "policy_inputs": [

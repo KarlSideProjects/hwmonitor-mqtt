@@ -61,7 +61,8 @@ jobs:
         run: python3 scripts/release_controller.py preflight --master "$MASTER" --source "$SOURCE" --require-publish
 
   checks:
-    needs: version
+    needs: [version, preflight]
+    if: ${{ !cancelled() && needs.version.result == 'success' && (needs.preflight.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.build_only && needs.preflight.result == 'skipped')) }}
     uses: ./.github/workflows/ci.yml
     with:
       source: ${{ needs.version.outputs.source }}

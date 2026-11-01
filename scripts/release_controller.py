@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 from urllib.request import Request, build_opener
 
 from check_release_assets import check
-from release_backend import GitHub, NoRedirect, drain_ready, parse, prepare_candidate, releases, remote_assets
+from release_backend import GitHub, NoRedirect, drain_ready, parse, prepare_candidate, releases, remote_assets, verify_public
 from release_version import version
 
 PLATFORMS = ('linux-x64', 'linux-arm64', 'windows-x64')
@@ -155,6 +155,9 @@ def main():
     stage.add_argument('--assets', type=Path, required=True)
     stage.add_argument('--evidence', type=Path, required=True)
     sub.add_parser('drain')
+    verify = sub.add_parser('verify')
+    verify.add_argument('--release-id', type=int, required=True)
+    verify.add_argument('--receipt', type=Path, required=True)
     flight = sub.add_parser('preflight')
     flight.add_argument('--repo', type=Path, default=Path('.'))
     flight.add_argument('--master', required=True)
@@ -175,8 +178,15 @@ def main():
         api = GitHub(token=os.environ.get('SENDER_RELEASE_TOKEN'))
         if args.command == 'prepare':
             prepare(api, args.repo, args.master, args.source, args.assets, args.evidence)
+        elif args.command == 'verify':
+            report = verify_public(api, args.release_id, json.loads(args.receipt.read_text(encoding='utf-8')))
+            print(json.dumps(report, sort_keys=True))
+            return 0 if report['state'] == 'verified' else 1
         elif args.command == 'drain':
-            drain_ready(api)
+            published = drain_ready(api)
+            reports = [verify_public(api, row['id'], parse(row)[1]) for row in published]
+            print(json.dumps(reports, sort_keys=True))
+            return int(any(report['state'] != 'verified' for report in reports))
         else:
             token = os.environ.get('SOURCE_WORKFLOW_TOKEN')
             runs = workflow_runs(token) if args.command == 'recover' else ()

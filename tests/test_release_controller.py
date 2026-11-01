@@ -272,3 +272,54 @@ def test_preflight_cli_missing_secret_is_read_only_and_only_blocks_publish(tmp_p
     assert result.returncode == 1
     assert json.loads(result.stdout)['checks'] == 'ready'
     assert subprocess.check_output(['git', '-C', str(repo), 'status', '--porcelain']) == before
+
+
+@pytest.mark.parametrize('status, expected_exit', [('verified', 0), ('published-but-verification-pending', 1)])
+def test_verify_command_resumes_without_draining_or_preparing(tmp_path, monkeypatch, capsys, status, expected_exit):
+    import sys
+    import release_controller as controller
+    receipt = {'source': 'a' * 40, 'version': '0.1.1', 'assets': {}}
+    path = tmp_path / 'receipt.json'
+    path.write_text(json.dumps(receipt))
+    api = object()
+    monkeypatch.setattr(controller, 'GitHub', lambda **kwargs: api)
+    def verify(client, release_id, saved):
+        assert client is api and release_id == 123 and saved == receipt
+        return {'state': status, 'release_id': release_id, 'receipt': saved}
+    monkeypatch.setattr(controller, 'verify_public', verify)
+    def forbidden(*args):
+        pytest.fail('read-only resume must never prepare or drain')
+    monkeypatch.setattr(controller, 'drain_ready', forbidden)
+    monkeypatch.setattr(controller, 'prepare', forbidden)
+    monkeypatch.setattr(sys, 'argv', ['release_controller.py', 'verify', '--release-id', '123', '--receipt', str(path)])
+    assert controller.main() == expected_exit
+    assert json.loads(capsys.readouterr().out)['state'] == status
+
+
+def test_drain_reports_post_publication_transport_failure_without_retrying_writes(service, tmp_path, monkeypatch, capsys):
+    import sys
+    import release_controller as controller
+    import release_backend as backend
+    from urllib.error import URLError
+    from urllib.request import build_opener as real_opener
+    api, state = service
+    receipt = make_candidate(tmp_path / 'candidate', 1)
+    release = backend.prepare_candidate(api, receipt, tmp_path / 'candidate')
+    monkeypatch.setattr(controller, 'GitHub', lambda **kwargs: api)
+    class Unavailable:
+        def open(self, *args, **kwargs):
+            raise URLError('injected anonymous transport outage')
+    # Only anonymous requests fail; authenticated publication and reconciliation succeed.
+    monkeypatch.setattr(backend, 'build_opener', lambda *handlers: real_opener(*handlers) if handlers else Unavailable())
+    monkeypatch.setattr(sys, 'argv', ['release_controller.py', 'drain'])
+    assert controller.main() == 1
+    report = json.loads(capsys.readouterr().out)[0]
+    assert report == {'state': 'published-but-verification-pending', 'release_id': release['id'], 'receipt': receipt}
+    assert state['releases'][0]['draft'] is False and state['latest'] == release['id']
+    writes = list(state['writes'])
+    path = tmp_path / 'receipt.json'
+    path.write_text(json.dumps(report['receipt']))
+    monkeypatch.setattr(sys, 'argv', ['release_controller.py', 'verify', '--release-id', str(release['id']), '--receipt', str(path)])
+    assert controller.main() == 1
+    assert json.loads(capsys.readouterr().out)['state'] == 'published-but-verification-pending'
+    assert state['writes'] == writes

@@ -1,0 +1,7 @@
+#!/bin/sh
+# Optional strict per-commit validator; does not generate docs or allow stale WIP.
+# Copy the checker to this project-owned location; compose with existing hooks.
+set -eu
+root=$(git rev-parse --show-toplevel)
+exec "${FLOW_DOCS_PYTHON:-python3}" "$root/tools/flow-docs/flow_checker.py" check \
+  --root "$root" --manifest docs/flow-manifest.json --pinned-base --staged

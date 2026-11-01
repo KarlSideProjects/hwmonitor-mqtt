@@ -168,7 +168,7 @@ def test_source_checks_have_one_pr_and_master_path_and_keep_native_windows():
     assert ci.count('ref: ${{ inputs.source || github.sha }}') == 4
 
 
-def test_missing_publisher_credential_gates_builds_but_not_checks():
+def test_missing_publisher_credential_gates_builds_and_checks():
     workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
     preflight = workflow.split('  preflight:', 1)[1].split('  checks:', 1)[0]
     assert 'environment: sender-release-publisher' in preflight
@@ -178,7 +178,9 @@ def test_missing_publisher_credential_gates_builds_but_not_checks():
         job = workflow.split(f'  {name}:', 1)[1].split('\n\n', 1)[0]
         assert 'needs: [version, checks, preflight]' in job
     checks = workflow.split('  checks:', 1)[1].split('  linux-build:', 1)[0]
-    assert 'needs: version' in checks
+    assert 'needs: [version, preflight]' in checks
+    assert "needs.preflight.result == 'success'" in checks
+    assert "inputs.build_only && needs.preflight.result == 'skipped'" in checks
     assert 'SENDER_RELEASE_TOKEN' not in checks
 
 
@@ -288,7 +290,7 @@ def test_reusable_flow_failure_blocks_every_full_check_and_release_preparation()
         assert 'always()' not in block and 'continue-on-error:' not in block
     checks = workflow.split('  checks:', 1)[1].split('  linux-build:', 1)[0]
     assert 'source: ${{ needs.version.outputs.source }}' in checks
-    assert 'secrets:' not in checks and 'preflight' not in checks
+    assert 'secrets:' not in checks and 'continue-on-error:' not in checks
     prepare = workflow.split('  prepare:', 1)[1].split('    runs-on:', 1)[0]
     assert 'needs: [version, checks, linux-build, windows-build]' in prepare
     assert 'always()' not in prepare
@@ -296,3 +298,21 @@ def test_reusable_flow_failure_blocks_every_full_check_and_release_preparation()
     assert 'needs: prepare' in publisher
     # Source-bound publication requires prepare success; drains recover previously validated READY drafts.
     assert "needs.prepare.result == 'success'" in publisher
+
+
+def test_release_checks_allow_build_only_but_reject_failed_preflight_or_identity():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    checks = workflow.split('  checks:', 1)[1].split('  linux-build:', 1)[0]
+    expression = checks.split('if: ${{ ', 1)[1].split(' }}', 1)[0]
+    expression = expression.replace('!cancelled()', 'active').replace('&&', ' and ').replace('||', ' or ')
+    for key, replacement in {'needs.version.result': 'version', 'needs.preflight.result': 'preflight',
+                             'github.event_name': 'event', 'inputs.build_only': 'build_only'}.items():
+        expression = expression.replace(key, replacement)
+    for event in ('push', 'workflow_dispatch'):
+        for build_only in (True, False):
+            for preflight in ('success', 'failure', 'cancelled', 'skipped'):
+                for version in ('success', 'failure', 'skipped'):
+                    for active in (True, False):
+                        allowed = eval(expression, {'__builtins__': {}}, locals())
+                        assert bool(allowed) == (active and version == 'success' and
+                            (preflight == 'success' or (event == 'workflow_dispatch' and build_only and preflight == 'skipped')))

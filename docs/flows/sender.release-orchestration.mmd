@@ -1,6 +1,6 @@
 flowchart TD
     A["Select trusted first-parent source and derive version"]
-    B["Run reusable Linux, native and Windows checks; independently preflight credential presence before platform builds"]
+    B["Credential preflight gates reusable full source/flow checks then platform builds; explicit private build_only bypasses credentials only"]
     C["Assemble exact assets and private evidence"]
     D["Check metadata, checksums, committed installers and platform records"]
     E["Inspect all platform archives and evidence"]
@@ -12,7 +12,7 @@ flowchart TD
     K["Recover or reset STAGING draft with explicit intended tag, upload missing assets"]
     L["Verify remote assets and mark draft READY with explicit intended tag"]
     M["Globally serialized drain verifies and publishes READY drafts with explicit intended tag; scheduled or manual drain can retry"]
-    N["Reconcile latest to highest confirmed published ordinal"]
+    N["Reconcile latest to highest confirmed published ordinal; verify newly published release identity and all anonymous asset digests"]
     O["Errors in A through N or recovery P reject; conflicts and missing evidence stop preparation or drain"]
     P["Scheduled recovery lists missing sources and dispatches bounded retries when activation is configured"]
     Q["Loopback-only draft staging prototype uses test API"]
@@ -31,4 +31,10 @@ flowchart TD
     K -->|complete| L
     L -->|ready| M
     M -->|successful drain including empty queue| N
+    R["Read-only verify with trusted exact receipt and release ID; API403 falls back to authenticated metadata plus anonymous release/latest pages and all15 downloads"]
+    S["Transport failure: published-but-verification-pending with nonzero exit; explicit verify resumes without uploads or latest mutation"]
+    N -->|newly published rows| R
+    R -->|transport failure| S
+    R -->|identity or bytes mismatch| O
+    S -->|read-only resume| R
     P --> A
