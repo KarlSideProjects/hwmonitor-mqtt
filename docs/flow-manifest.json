@@ -123,7 +123,8 @@
       "tests/windows_mqtt_observer.py",
       "scripts/native_install_smoke.py",
       "tests/test_native_install_smoke.py",
-      "hwmonitor_mqtt/agents/agent_sender_windows.py"
+      "hwmonitor_mqtt/agents/agent_sender_windows.py",
+      "tests/test_pve_acceptance.py"
     ],
     "exclude": {}
   },
@@ -226,7 +227,7 @@
     {
       "path": ".github/workflows/sender-linux-build.yml",
       "kind": "file",
-      "md5": "31b384ef20e6030ed11e521535f62213"
+      "md5": "f0f173d87c813248619845710a0f3f91"
     },
     {
       "path": ".github/workflows/protected-windows-package.yml",
@@ -441,7 +442,7 @@
     {
       "path": "tests/test_release_workflow.py",
       "kind": "file",
-      "md5": "6f439874111f8a2e52d4677bba275da9"
+      "md5": "9ddce2043405caa4c0fc886765e26cbe"
     },
     {
       "path": "tests/test_compiled_bootstrap_integration.py",
@@ -511,12 +512,12 @@
     {
       "path": "scripts/release-tests/pve_acceptance.py",
       "kind": "file",
-      "md5": "790e885b2378af75f11f180426a604b2"
+      "md5": "1bedd1378e2a39bc18caefeab46100b7"
     },
     {
       "path": "scripts/release-tests/pve_guest.sh",
       "kind": "file",
-      "md5": "057bef8ae008f359435d387d72610ae6"
+      "md5": "6e9635ec17bacc16037fe90489e113d3"
     },
     {
       "path": "hwmonitor_mqtt/platforms/pve_bootstrap.py",
@@ -737,6 +738,11 @@
       "path": "hwmonitor_mqtt/agents/agent_sender_windows.py",
       "kind": "file",
       "md5": "2b4ada332a83d9a23cd8100c75dedd90"
+    },
+    {
+      "path": "tests/test_pve_acceptance.py",
+      "kind": "file",
+      "md5": "b8c8deb3a81d6f14fefc48703b142ae0"
     }
   ],
   "features": [
@@ -1667,6 +1673,10 @@
         {
           "node": "O",
           "path": "tests/windows_mqtt_observer.py"
+        },
+        {
+          "node": "O",
+          "path": "tests/test_pve_acceptance.py"
         }
       ],
       "depends_on": []
@@ -2153,10 +2163,10 @@
     },
     {
       "feature": "sender.build",
-      "fingerprint": "ca793d86a1d612620e77e04ad56796b048f378e225dcf0ac84159a6a95913109",
-      "reviewer": "user-designated root reviewer / orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde",
+      "fingerprint": "2d84878514d3345dc29f496c04cb6e60786f7896c21b5f0c9925e904d04e439d",
+      "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent PVE diagnostics delta review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.build/ca793d86a1d612620e77e04ad56796b048f378e225dcf0ac84159a6a95913109.json"
+      "evidence": "docs/flow-evidence/reviews/sender.build/2d84878514d3345dc29f496c04cb6e60786f7896c21b5f0c9925e904d04e439d.json"
     },
     {
       "feature": "sender.compiled-lifecycle",

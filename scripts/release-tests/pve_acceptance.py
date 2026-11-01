@@ -2,6 +2,7 @@
 """Provision an isolated PVE guest and run compiled sender acceptance."""
 import argparse
 import hashlib
+import io
 import json
 import os
 import re
@@ -11,10 +12,45 @@ import signal
 import socket
 import subprocess
 import sys
+import tarfile
 import time
 import uuid
 
 HERE = Path(__file__).resolve().parent
+GUEST_EVIDENCE = ('full.ndjson', 'denied.ndjson', 'recovered.ndjson', 'esp.ndjson',
+                  'rollback-before', 'preserved', 'endpoint.log', 'direct-smart.txt',
+                  'sender-pids', 'restored-old-full.ndjson', 'restored-old-esp.ndjson',
+                  'fresh-new-full.ndjson', 'fresh-new-esp.ndjson', 'stopped-before', 'stopped-after')
+
+
+def sanitize(text):
+    text = re.sub(r'-----BEGIN [^\n]*PRIVATE KEY-----.*?(?:-----END [^\n]*PRIVATE KEY-----|\Z)', '[REDACTED KEY]', text, flags=re.S)
+    text = re.sub(r'(?im)^.*(?:MQTT_PASS|PVE_TOKEN_SECRET|Authorization).*$', '[REDACTED CREDENTIAL LINE]', text)
+    # The sandbox generates a 48-hex MQTT password and Proxmox UUID token secrets.
+    text = re.sub(r'(?i)\b[0-9a-f]{48}\b|\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b', '[REDACTED]', text)
+    return text
+
+
+def retain_diagnostics(out):
+    dest = out / 'diagnostics'
+    dest.mkdir(mode=0o700)
+    shutil.copyfile(out / 'inputs.json', dest / 'inputs.json')
+    (dest / 'run.log').write_text(sanitize((out / 'run.log').read_text(errors='replace')))
+    if not (out / 'guest-evidence.tar').exists():
+        return
+    try:
+        with tarfile.open(out / 'guest-evidence.tar') as source, tarfile.open(dest / 'guest-evidence.tar', 'w') as target:
+            for member in source:
+                if member.name not in GUEST_EVIDENCE or not member.isfile() or member.size > 8 * 1024 * 1024:
+                    continue
+                data = sanitize(source.extractfile(member).read().decode('utf-8', errors='replace')).encode()
+                safe = tarfile.TarInfo(member.name)
+                safe.size, safe.mode = len(data), 0o600
+                target.addfile(safe, io.BytesIO(data))
+    except tarfile.TarError:
+        (dest / 'guest-evidence.tar').unlink(missing_ok=True)
+        with (dest / 'run.log').open('a') as log:
+            log.write('\nGuest evidence archive unavailable or incomplete.\n')
 
 
 def verify_file(path, expected, algorithm, label):
@@ -91,7 +127,7 @@ def main():
         if port is None:
             return
         with (out / 'guest-evidence.tar').open('wb') as evidence:
-            subprocess.run(['ssh', '-i', str(out / 'id_ed25519'), '-o', 'StrictHostKeyChecking=yes', '-o', f'UserKnownHostsFile={out / "known_hosts"}', '-o', 'ConnectTimeout=5', '-p', str(port), 'debian@127.0.0.1', 'sudo tar -C /home/debian -cf - --ignore-failed-read full.ndjson denied.ndjson recovered.ndjson esp.ndjson rollback-before preserved endpoint.log direct-smart.txt sender-pids restored-old-full.ndjson restored-old-esp.ndjson fresh-new-full.ndjson fresh-new-esp.ndjson stopped-before stopped-after'], stdout=evidence, stderr=log, timeout=30, check=True)
+            subprocess.run(['ssh', '-i', str(out / 'id_ed25519'), '-o', 'StrictHostKeyChecking=yes', '-o', f'UserKnownHostsFile={out / "known_hosts"}', '-o', 'ConnectTimeout=5', '-p', str(port), 'debian@127.0.0.1', 'sudo tar -C /home/debian -cf - --ignore-failed-read ' + ' '.join(GUEST_EVIDENCE)], stdout=evidence, stderr=log, timeout=30, check=True)
         subprocess.run(['docker', 'logs', name], stdout=log, stderr=log, timeout=30)
 
     def absent_container():
@@ -171,6 +207,7 @@ def main():
         for error in errors:
             print('cleanup unresolved:', error, file=log, flush=True)
         log.close()
+        retain_diagnostics(out)
         if errors and original is None:
             raise RuntimeError('cleanup failed; see private run.log')
 

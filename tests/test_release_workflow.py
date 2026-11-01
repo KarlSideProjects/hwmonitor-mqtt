@@ -121,6 +121,18 @@ def test_pve_gate_uses_pinned_guest_and_distinct_archives():
     assert '--old-source "$OLD_SOURCE" --old-version 0.0.1' in linux
 
 
+def test_failed_acceptance_retains_only_sanitized_pve_diagnostics_and_private_build():
+    linux = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
+    summary = linux.split('      - name: Retain non-secret PVE evidence identities', 1)[1]
+    assert summary.count("if: ${{ always() && inputs.platform == 'linux-x64' }}") == 2
+    assert 'pve-acceptance/diagnostics' in summary
+    assert 'path: ${{ runner.temp }}/pve-summary' in summary
+    assert 'path: ${{ runner.temp }}/pve-acceptance\n' not in linux
+    private = summary.split('name: sender-${{ inputs.platform }}-${{ inputs.source }}', 1)[0]
+    assert 'if: ${{ always() }}' in private
+    assert 'path: ${{ runner.temp }}/private' in summary
+
+
 def test_linux_compiled_failure_integration_uses_candidate_and_enforces_skips():
     linux = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-linux-build.yml').read_text()
     assert 'protected21-bootstrap-test:local' in linux
