@@ -4,7 +4,7 @@ flowchart TD
     C["Check Linux checkout, host, Python, glibc and pinned packages; archive committed source"]
     D{"Linux ARM64"}
     E["Verify pinned startup and local CRT; prepare private GCC launcher and startup spec"]
-    F["Compile onefile sender and report with fresh build and evidence paths"]
+    F["Embed selected version in runtime sender; compile onefile and report with fresh build and evidence paths"]
     G["Classify and record backend and onefile links; verify startup, CRT, compiler and SCons evidence"]
     H["Capture live extracted payload matching distribution inventory; bind ARM final outputs"]
     I["Assemble Linux archive, notices, manifest and checksum"]
@@ -14,7 +14,7 @@ flowchart TD
     L["Assemble Windows ZIP, manifest, scripts, notices and checksum"]
     M["Record selected package archives, runtime reference and observed toolchain"]
     N["Build image on Linux only; check source, archive manifest, provenance, runtime, receipt and platform evidence; record archive digest and write private record; full archive inspection is separate"]
-    O["Run Linux x64 and ARM64 compiled bootstrap failure checks and Debian Docker install, upgrade, MQTT and rollback; run Windows acceptance; always retain private build artifacts"]
+    O["After full source and exact-parent flow checks pass, run Linux x64 and ARM64 compiled bootstrap failure checks and Debian Docker install, upgrade, MQTT and rollback; run Windows acceptance; always retain private build artifacts"]
     P["Errors in C, E, F, G, H, I, J, K, Q, L, M, N or O stop the job; always-run artifact retention does not establish success"]
     R["Standalone Windows distribution inventory utility; workflow uses capture inventory"]
     S["Optional standalone PVE VM acceptance harness; not a Linux release build gate"]

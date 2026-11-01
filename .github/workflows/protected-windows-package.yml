@@ -1,8 +1,6 @@
 name: Windows compiled sender WIP
 
 on:
-  push:
-    branches: [jhihweijhan/implement-spec-task-a6fe7c06, jhihweijhan/sender-20-runtime-native-validation-05fb0c5]
   workflow_dispatch:
   workflow_call:
     inputs:

@@ -18,6 +18,14 @@ from release_version import version
 PLATFORMS = ('linux-x64', 'linux-arm64', 'windows-x64')
 
 
+def preflight(repo, master, source, token):
+    """Report prerequisites without builds, remote writes, or secret values."""
+    product_version = version(Path(repo), master, source)
+    return {'source': source, 'version': product_version, 'checks': 'ready', 'build': 'ready',
+            'publish': 'credential-present-unverified' if token else 'blocked',
+            'blockers': [] if token else ['missing SENDER_RELEASE_TOKEN in sender-release-publisher']}
+
+
 def inspect(args):
     subprocess.run([sys.executable, str(Path(__file__).with_name('inspect_sender_candidate.py')), *map(str, args)], check=True)
 
@@ -147,6 +155,11 @@ def main():
     stage.add_argument('--assets', type=Path, required=True)
     stage.add_argument('--evidence', type=Path, required=True)
     sub.add_parser('drain')
+    flight = sub.add_parser('preflight')
+    flight.add_argument('--repo', type=Path, default=Path('.'))
+    flight.add_argument('--master', required=True)
+    flight.add_argument('--source', required=True)
+    flight.add_argument('--require-publish', action='store_true')
     for command in ('pending', 'recover'):
         pending = sub.add_parser(command)
         pending.add_argument('--repo', type=Path, default=Path('.'))
@@ -155,6 +168,10 @@ def main():
         pending.add_argument('--limit', type=int, default=20)
     args = parser.parse_args()
     try:
+        if args.command == 'preflight':
+            report = preflight(args.repo, args.master, args.source, os.environ.get('SENDER_RELEASE_TOKEN'))
+            print(json.dumps(report, sort_keys=True))
+            return int(args.require_publish and bool(report['blockers']))
         api = GitHub(token=os.environ.get('SENDER_RELEASE_TOKEN'))
         if args.command == 'prepare':
             prepare(api, args.repo, args.master, args.source, args.assets, args.evidence)

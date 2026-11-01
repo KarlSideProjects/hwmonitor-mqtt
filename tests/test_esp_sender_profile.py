@@ -92,6 +92,7 @@ def test_build_esp_payload_keeps_minimal_schema_and_aggregates():
         "host",
         "memory",
         "network_io",
+        "sender_version",
         "temperatures",
         "ts",
     ]
@@ -174,3 +175,12 @@ def test_full_payload_truncates_smart_attributes_before_pve_capacity_fallback():
     assert payload["virtualization"]["status"] == "ok"
     assert "raw_attributes" not in disk and disk["raw_attributes_truncated"] is True
     assert module.metrics["disk_smart"]["devices"]["disk0"]["raw_attributes"] == attributes
+
+
+def test_sender_version_is_unknown_for_source_and_preserves_installed_identity(monkeypatch):
+    module = _import_agent_sender_async()
+    for build in (module.build_full_payload, module.build_esp_payload):
+        assert build(now_ts=1)['sender_version'] is None
+    monkeypatch.setattr(module, 'SENDER_VERSION', '4.5.6')
+    for build in (module.build_full_payload, module.build_esp_payload):
+        assert build(now_ts=1)['sender_version'] == '4.5.6'

@@ -77,12 +77,12 @@ def test_entrypoint_starts_sender_without_module_reexecution(tmp_path):
 
     package = tmp_path / "hwmonitor_mqtt" / "agents"
     package.mkdir(parents=True)
-    (package / "agent_sender_async.py").write_text("def run():\n    print('sender started')\n")
+    (package / "agent_sender_async.py").write_text("def run():\n    print('sender started', SENDER_VERSION)\n")
     script = tmp_path / "entrypoint.py"
     write_entrypoint(script, "1.2.3", "a" * 40)
     env = {**os.environ, "PYTHONPATH": str(tmp_path)}
     result = subprocess.run([sys.executable, str(script)], env=env, capture_output=True, text=True, check=True)
-    assert result.stdout.strip() == "sender started"
+    assert result.stdout.strip() == "sender started 1.2.3"
 
 
 def test_entrypoint_passes_arguments_to_pve_bootstrap(tmp_path):

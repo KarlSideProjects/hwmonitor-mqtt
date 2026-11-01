@@ -1014,6 +1014,7 @@ def build_full_payload(now_ts: Optional[int] = None) -> Dict[str, Any]:
     payload = {
         "ts": int(time.time()) if now_ts is None else int(now_ts),
         "host": HOSTNAME,
+        "sender_version": SENDER_VERSION,
         "system": metrics["system"],
         "cpu": metrics["cpu"],
         "memory": metrics["memory"],
@@ -1052,6 +1053,7 @@ def build_esp_payload(now_ts: Optional[int] = None) -> Dict[str, Any]:
     payload = {
         "ts": int(time.time()) if now_ts is None else int(now_ts),
         "host": HOSTNAME,
+        "sender_version": SENDER_VERSION,
         "cpu": {
             "percent_total": round(_safe_float(cpu.get("percent_total")), 1),
         },
@@ -1328,16 +1330,26 @@ def dump_sensors() -> None:
     print(json.dumps({"source": f"{platform.node()} {platform.platform()}", "sensors": sensors}, indent=1))
 
 
+def installed_identity():
+    try:
+        manifest = json.loads((Path(sys.argv[0]).resolve().parent / "manifest.json").read_text(encoding="utf-8"))
+        version, source = manifest["version"], manifest["source"]
+        if not isinstance(version, str) or not re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", version):
+            raise ValueError("invalid version")
+        if not isinstance(source, str) or not re.fullmatch(r"[a-f0-9]{40}", source):
+            raise ValueError("invalid source")
+    except (OSError, ValueError, KeyError, TypeError):
+        return None, None
+    return version, source
+
+
+SENDER_VERSION, _ = installed_identity()
+
+
 if __name__ == "__main__":
     if "--version" in sys.argv:
-        try:
-            manifest = json.loads((Path(sys.argv[0]).resolve().parent / "manifest.json").read_text(encoding="utf-8"))
-            version, source = manifest["version"], manifest["source"]
-            if not isinstance(version, str) or not re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", version):
-                raise ValueError("invalid version")
-            if not isinstance(source, str) or not re.fullmatch(r"[a-f0-9]{40}", source):
-                raise ValueError("invalid source")
-        except (OSError, ValueError, KeyError, TypeError):
+        version, source = installed_identity()
+        if version is None:
             raise SystemExit("Installed version metadata is unavailable or invalid.")
         print(f"hwmonitor-mqtt sender {version} ({source})")
         raise SystemExit(0)

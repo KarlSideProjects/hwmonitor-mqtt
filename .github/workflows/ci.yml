@@ -1,15 +1,58 @@
 name: Sender checks
 
 on:
-  push:
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      source:
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 jobs:
+  flow-docs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Validate explicit source SHA
+        shell: bash
+        env:
+          SOURCE: ${{ inputs.source }}
+        run: |
+          if [[ -n "$SOURCE" ]]; then
+            [[ "$SOURCE" =~ ^[a-f0-9]{40}$ ]]
+          fi
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.source || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.13'
+      - name: Validate selected source flows
+        shell: bash
+        env:
+          SOURCE: ${{ inputs.source }}
+          FLOW_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ -n "$SOURCE" ]]; then
+            [[ "$SOURCE" =~ ^[a-f0-9]{40}$ ]]
+            [[ "$(git rev-parse HEAD)" == "$SOURCE" ]]
+            FLOW_BASE=$(git rev-parse HEAD^)
+          elif [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            FLOW_BASE=$(git rev-parse HEAD^)
+          fi
+          [[ "$FLOW_BASE" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$FLOW_BASE" != 0000000000000000000000000000000000000000 ]]
+          python3 tools/flow-docs/flow_checker.py explain --base "$FLOW_BASE"
+          python3 tools/flow-docs/flow_checker.py check --base "$FLOW_BASE"
+
   tests:
+    needs: flow-docs
     name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -23,6 +66,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          ref: ${{ inputs.source || github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
@@ -36,12 +80,14 @@ jobs:
         run: make check
 
   native-install-smoke:
+    needs: flow-docs
     name: Native systemd and MQTT smoke
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          ref: ${{ inputs.source || github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
@@ -70,12 +116,14 @@ jobs:
         run: sudo env PATH="$PATH" UV_PYTHON="$(command -v python3)" "$(command -v uv)" run --locked python scripts/native_install_smoke.py --run
 
   windows-sender:
+    needs: flow-docs
     name: Windows sender (PowerShell 5.1 and 7, LHM load)
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          ref: ${{ inputs.source || github.sha }}
           persist-credentials: false
       - uses: astral-sh/setup-uv@22695119d769bdb6f7032ad67b9bca0ef8c4a174 # v5.4.0
       - name: Install locked dependencies

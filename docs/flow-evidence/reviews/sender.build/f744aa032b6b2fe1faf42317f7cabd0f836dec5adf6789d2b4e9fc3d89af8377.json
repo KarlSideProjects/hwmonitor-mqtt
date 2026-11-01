@@ -1,0 +1,11 @@
+{
+  "feature": "sender.build",
+  "fingerprint": "f744aa032b6b2fe1faf42317f7cabd0f836dec5adf6789d2b4e9fc3d89af8377",
+  "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "Generated Linux default entry binds selected build version before running sender; existing source/version/record/compiled checks remain. Obsolete Windows branch-push build triggers removed; manual/reusable preserved. No compiler credentials added.",
+    "Final integration source review: reusable CI checks selected-source HEAD and its exact first parent, runs flow gate before full tests, and both native build jobs require successful complete checks. Manual private-only still cannot publish. Public instructions resolve one immutable latest tag and verify its matching bootstrap checksum; stale unavailable text removed. Full527tests passed17skipped; focused gate26tests and policy45tests passed. No new compiler/runtime acceptance implied."
+  ]
+}

@@ -69,6 +69,8 @@ def mqtt_connect():
         print(f"⚠️ MQTT connect failed: {e}")
 
 # ===== GLOBAL STATE =====
+SENDER_VERSION: Optional[str] = None
+
 metrics: Dict[str, Any] = {
     "cpu": None,
     "memory": None,
@@ -747,6 +749,7 @@ def build_full_payload(now_ts: Optional[int] = None) -> Dict[str, Any]:
     payload = {
         "ts": int(time.time()) if now_ts is None else int(now_ts),
         "host": HOSTNAME,
+        "sender_version": SENDER_VERSION,
         "system": metrics["system"],
         "cpu": metrics["cpu"],
         "memory": metrics["memory"],
@@ -791,6 +794,7 @@ def build_esp_payload(now_ts: Optional[int] = None) -> Dict[str, Any]:
     payload = {
         "ts": int(time.time()) if now_ts is None else int(now_ts),
         "host": HOSTNAME,
+        "sender_version": SENDER_VERSION,
         "cpu": {
             "percent_total": round(_safe_float(cpu.get("percent_total")), 1),
         },

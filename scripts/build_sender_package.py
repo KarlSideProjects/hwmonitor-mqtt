@@ -55,7 +55,9 @@ def write_entrypoint(path, version, source):
         + "elif sys.argv[1:2] == [\"--install\"]:\n    from hwmonitor_mqtt.platforms.install import cancellation_channel, main\n    with cancellation_channel():\n        raise SystemExit(main(sys.argv[2:]))\n"
         + "elif sys.argv[1:2] == [\"--native-install\"]:\n    from hwmonitor_mqtt.platforms.installers.pve import main\n    raise SystemExit(main(sys.argv[2:]))\n"
         + "elif sys.argv[1:2] == [\"--stage\"]:\n    from hwmonitor_mqtt.platforms.sender_archive import main\n    raise SystemExit(main(sys.argv[2:]))\n"
-        + "else:\n    from hwmonitor_mqtt.agents.agent_sender_async import run\n    run()\n",
+        + "else:\n    from hwmonitor_mqtt.agents import agent_sender_async\n"
+        + f"    agent_sender_async.SENDER_VERSION = {version!r}\n"
+        + "    agent_sender_async.run()\n",
         encoding="utf-8",
     )
 

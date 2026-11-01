@@ -1,0 +1,12 @@
+{
+  "feature": "sender.smart-discovery",
+  "fingerprint": "d26635b2098dc908077cacc6586677313f75122ae116f739f13c5fbaaeeaced4",
+  "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "Collector and PVE/SMART normalization sources unchanged. Source identity field adds no collector behavior; no hardware sensor accuracy claim.",
+    "Final integration source review: reusable CI checks selected-source HEAD and its exact first parent, runs flow gate before full tests, and both native build jobs require successful complete checks. Manual private-only still cannot publish. Public instructions resolve one immutable latest tag and verify its matching bootstrap checksum; stale unavailable text removed. Full527tests passed17skipped; focused gate26tests and policy45tests passed. No new compiler/runtime acceptance implied.",
+    "Final policy review: equivalent standalone flow wrapper removed; reusable CI owns the one exact-source flow gate and all source checks. This eliminates redundant wrappers without removing main/PR protection or compiler gating. Final focused flow/workflow29passed; full527passed17skipped with product inputs unchanged."
+  ]
+}
