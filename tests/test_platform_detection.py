@@ -396,3 +396,87 @@ def test_linux_install_command_preserves_compose_override(tmp_path):
     (tmp_path / "docker-compose.override.yml").write_text("services: {}\n")
     args = command(tmp_path)
     assert str(tmp_path / "docker-compose.override.yml") in args
+
+
+@pytest.mark.skipif(__import__('os').name != 'posix', reason='POSIX process groups required')
+def test_compiled_pve_controller_waits_for_interrupted_child_recovery(tmp_path):
+    import os
+    import signal
+    import sys
+    import time
+
+    child = tmp_path / 'child.py'
+    child.write_text('''import pathlib, signal, sys, time\nroot = pathlib.Path(sys.argv[1])\n(root / "state").write_text("new")\ndef recover(sig, frame):\n    with (root / "signals").open("a") as out: out.write("interrupt\\n")\n    time.sleep(1)\n    (root / "state").write_text("old")\n    (root / "recovered").touch()\n    signal.signal(signal.SIGINT, signal.default_int_handler)\n    sys.exit(130)\nsignal.signal(signal.SIGINT, recover)\n(root / "ready").touch()\nwhile True: time.sleep(.05)\n''')
+    controller = tmp_path / 'controller.py'
+    controller.write_text('''import signal, sys\nfrom hwmonitor_mqtt.platforms import install\nfrom hwmonitor_mqtt.platforms.detect import Target\nfrom hwmonitor_mqtt.platforms.installers import pve\ninstall.detect_target = lambda: Target("linux", "pve", "native", "fixture", "debian", ())\ninstall.install_command = lambda *a, **kw: [sys.executable, sys.argv[1], sys.argv[2]]\npve.readiness = lambda *a: None\npve.__compiled__ = True\ndef fake_main(argv):\n    import runpy\n    sys.argv = [sys.argv[1], sys.argv[2]]\n    return runpy.run_path(sys.argv[0], run_name="__main__")\npve.main = fake_main\noriginal = signal.getsignal(signal.SIGINT)\ntry:\n    status = install.main(["--project-root", sys.argv[2]])\nexcept KeyboardInterrupt:\n    status = 130\nassert signal.getsignal(signal.SIGINT) == original\nsys.exit(status)\n''')
+    env = {**os.environ, 'PYTHONPATH': os.pathsep.join(filter(None, [str(Path(__file__).resolve().parents[1]), os.environ.get('PYTHONPATH')]))}
+    process = subprocess.Popen([sys.executable, str(controller), str(child), str(tmp_path)], env=env, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        deadline = time.monotonic() + 10
+        while not (tmp_path / 'ready').exists() and process.poll() is None and time.monotonic() < deadline:
+            time.sleep(.02)
+        assert (tmp_path / 'ready').exists()
+        os.killpg(process.pid, signal.SIGINT)
+        assert process.wait(timeout=10) == 130
+        assert (tmp_path / 'recovered').exists()
+        assert (tmp_path / 'state').read_text() == 'old'
+        assert (tmp_path / 'signals').read_text().splitlines() == ['interrupt']
+    finally:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.wait()
+
+
+def test_cancellation_channel_restores_signal_handler(monkeypatch):
+    import os
+    import signal
+
+    if os.name != 'posix':
+        pytest.skip('POSIX pipe required')
+    read_fd, write_fd = os.pipe()
+    try:
+        monkeypatch.setenv('HWMONITOR_CANCEL_FD', str(read_fd))
+        previous = signal.getsignal(signal.SIGINT)
+        with install.cancellation_channel():
+            assert signal.getsignal(signal.SIGINT) == signal.default_int_handler
+        assert signal.getsignal(signal.SIGINT) == previous
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)
+
+
+@pytest.mark.skipif(__import__('os').name != 'posix', reason='POSIX pipe required')
+def test_cancellation_sent_before_payload_readiness_is_delivered(tmp_path):
+    import os
+    import sys
+
+    read_fd, write_fd = os.pipe()
+    try:
+        os.write(write_fd, b'I')
+        script = '''import time
+from hwmonitor_mqtt.platforms.install import cancellation_channel
+try:
+    with cancellation_channel():
+        while True: time.sleep(.01)
+except KeyboardInterrupt:
+    raise SystemExit(130)
+'''
+        process = subprocess.run([sys.executable, '-c', script], env={**os.environ, 'HWMONITOR_CANCEL_FD': str(read_fd)}, pass_fds=(read_fd,), timeout=10)
+        assert process.returncode == 130
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)
+
+
+@pytest.mark.parametrize('status', [0, 7])
+def test_compiled_pve_controller_preserves_installer_status(monkeypatch, tmp_path, status):
+    from hwmonitor_mqtt.platforms.installers import pve
+
+    target = Target('linux', 'pve', 'native', 'fixture', 'debian', ())
+    monkeypatch.setattr(install, 'detect_target', lambda: target)
+    monkeypatch.setattr(pve, 'readiness', lambda config: None)
+    monkeypatch.setattr(pve, '__compiled__', True, raising=False)
+    monkeypatch.setattr(pve, 'main', lambda argv: status)
+    assert install.main(['--project-root', str(tmp_path)]) == status

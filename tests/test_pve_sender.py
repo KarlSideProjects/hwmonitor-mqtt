@@ -1086,3 +1086,98 @@ def test_failed_fresh_native_start_removes_unit_after_disabling_and_stopping(mon
     assert pve.install(project, tmp_path / "pve.env", run=run, which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0) != 0
     assert not unit.exists()
     assert not (app / "sender").exists()
+
+
+@pytest.mark.parametrize("scenario", ["upgrade", "fresh", "rollback_interrupted"])
+def test_compiled_native_interruption_recovers_or_retains_backup(monkeypatch, tmp_path, scenario):
+    from types import SimpleNamespace
+    from hwmonitor_mqtt.platforms.installers import pve
+
+    project, app, units = tmp_path / "project", tmp_path / "runtime" / "app", tmp_path / "units"
+    project.mkdir(); app.mkdir(parents=True); units.mkdir()
+    (project / "sender").write_bytes(b"new")
+    unit = units / pve.SERVICE_NAME
+    override = units / (pve.SERVICE_NAME + ".d") / "90-hwmonitor-sender.conf"
+    old_unit = "[Unit]\nDescription=Hardware Monitor MQTT sender for Proxmox VE\n[Service]\nExecStart=/usr/bin/python -m hwmonitor_mqtt.agents.agent_sender_async\n"
+    old_override = "[Service]\nExecStart=\nExecStart=" + str(app / "sender") + "\nWorkingDirectory=" + str(app) + "\n"
+    if scenario != "fresh":
+        (app / "sender").write_bytes(b"old")
+        unit.write_text(old_unit)
+        override.parent.mkdir()
+        override.write_text(old_override)
+    monkeypatch.setattr(pve, "__compiled__", True, raising=False)
+    monkeypatch.setattr(pve, "APP_ROOT", str(app))
+    monkeypatch.setattr(pve, "SYSTEMD_DIR", str(units))
+    monkeypatch.setattr(pve, "readiness", lambda path: None)
+    calls = []
+    def run(args, **kwargs):
+        action = args[1]
+        calls.append(action)
+        if action == "restart" and calls.count("restart") == 1:
+            assert (app / "sender").read_bytes() == b"new"
+            assert unit.exists()
+            if scenario != "fresh": assert override.read_text() != old_override
+            raise KeyboardInterrupt()
+        if scenario == "rollback_interrupted" and action == "daemon-reload" and calls.count(action) == 2:
+            raise KeyboardInterrupt()
+        return SimpleNamespace(returncode=4 if scenario == "fresh" and action in ("is-active", "is-enabled") else 0, stdout="", stderr="")
+    expected = RuntimeError if scenario == "rollback_interrupted" else KeyboardInterrupt
+    with pytest.raises(expected, match="backup retained" if expected is RuntimeError else None):
+        pve.install(project, tmp_path / "pve.env", run=run, which=lambda name: "/bin/systemctl" if name == "systemctl" else None, geteuid=lambda: 0)
+    backups = list(app.parent.glob("sender-rollback-*"))
+    if scenario == "rollback_interrupted":
+        assert len(backups) == 1
+        assert (backups[0] / "sender").read_bytes() == b"old"
+        assert (backups[0] / "unit").read_text() == old_unit
+        assert (backups[0] / "override").read_text() == old_override
+    elif scenario == "fresh":
+        assert not (app / "sender").exists() and not unit.exists()
+        assert "stop" in calls and "disable" in calls
+        assert not backups
+    else:
+        assert (app / "sender").read_bytes() == b"old"
+        assert unit.read_text() == old_unit and override.read_text() == old_override
+        assert calls.count("restart") == 2
+        assert not backups
+
+
+@pytest.mark.parametrize("cleanup_fails", [False, True])
+def test_compiled_commit_ignores_cancellation_during_backup_cleanup(monkeypatch, tmp_path, cleanup_fails):
+    import os
+    import signal
+    from types import SimpleNamespace
+    from hwmonitor_mqtt.platforms import install
+    from hwmonitor_mqtt.platforms.installers import pve
+
+    project, app, units = tmp_path / 'project', tmp_path / 'runtime' / 'app', tmp_path / 'units'
+    project.mkdir(); units.mkdir(); (project / 'sender').write_bytes(b'new')
+    monkeypatch.setattr(pve, 'APP_ROOT', str(app))
+    monkeypatch.setattr(pve, 'SYSTEMD_DIR', str(units))
+    monkeypatch.setattr(pve.time, 'sleep', lambda _: None)
+    fifo = tmp_path / 'cancel'; os.mkfifo(fifo)
+    fd = os.open(fifo, os.O_RDWR | os.O_NONBLOCK)
+    monkeypatch.setenv('HWMONITOR_CANCEL_FD', str(fd))
+    previous = signal.getsignal(signal.SIGINT)
+    real_rmtree = pve.shutil.rmtree
+    def cleanup(path):
+        os.write(fd, b'I')
+        import time
+        time.sleep(.2)
+        if cleanup_fails:
+            raise OSError("cleanup failed")
+        real_rmtree(path)
+    monkeypatch.setattr(pve.shutil, 'rmtree', cleanup)
+    def run(args, **kwargs):
+        action = args[1]
+        status = 4 if action in ('is-active', 'is-enabled') and not (app / 'sender').exists() else 0
+        output = 'path=' + str(app / 'sender') if '--property=ExecStart' in args else '1234'
+        return SimpleNamespace(returncode=status, stdout=output)
+    try:
+        with install.cancellation_channel():
+            assert pve.install_compiled(project, tmp_path / 'config', 'systemctl', run) == 0
+        assert signal.getsignal(signal.SIGINT) == previous
+        assert (app / 'sender').read_bytes() == b'new'
+        assert (units / pve.SERVICE_NAME).exists()
+        assert bool(list(app.parent.glob('sender-rollback-*'))) == cleanup_fails
+    finally:
+        os.close(fd)

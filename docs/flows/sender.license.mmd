@@ -1,10 +1,14 @@
 flowchart TD
-    A["README identifies GPL v3"]
+    A["Source README identifies GPL v3"]
     B["Root LICENSE contains GPL v3 text"]
-    C["Project metadata lists dependencies"]
-    D["Dependency license obligations not established by metadata"]
-    E["Public notice states noncommercial terms and written permission boundary"]
-    F["Earlier GPL rights and separate third-party terms remain"]
-    E --> F
+    C["Project metadata declares dependencies"]
+    D["Declared dependencies do not prove candidate contents or license compliance"]
+    E["Public notice permits noncommercial use of self-owned software distributed under these terms; commercial use requires prior written permission"]
+    F["Earlier GPL rights remain; third-party components retain their own terms"]
+    G["Notice does not grant redistribution, sublicensing, modification or derivative works; exception permits modification of your copy for own use and reverse engineering to debug modifications to extent required by applicable dynamically linked LGPL component"]
+    H["Future package notices and corresponding source obligations depend on verified contents"]
     A --> B
     C --> D
+    E --> F
+    E --> G
+    F --> H

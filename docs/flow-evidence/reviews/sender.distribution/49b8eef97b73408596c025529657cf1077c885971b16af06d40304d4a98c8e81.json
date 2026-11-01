@@ -1,0 +1,17 @@
+{
+  "feature": "sender.distribution",
+  "fingerprint": "49b8eef97b73408596c025529657cf1077c885971b16af06d40304d4a98c8e81",
+  "reviewer": "user-designated root reviewer / orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "Base 86b074bc1aa6c38bbdb236f23546b1024ffc227a; reviewed exact index tree 3285803271fffe1cc7401f91609de7f69a82702d; current project-checker fingerprint independently recomputed. User explicitly assigned root review; root did not author product/source corrections in this candidate.",
+    "Read bootstrap.sh1-261, bootstrap.ps1, sender_archive.py, Windows validator/activator/task installer and launcher, detect/dispatch/install.py and linux/pve installers; verified root/architecture/checksums/staging, configuration retention, Docker pin and native marker commit/recovery branches against flowA-Y.",
+    "Read pve_bootstrap.py, pve_token.py and clients/pve.py: dedicated token/ACL/CA preparation can survive failed activation as documented. install.sh/Dockerfile/Compose/public README boundaries checked; public page still packages-unavailable.",
+    "Configured software check PYTHONPATH=. make check508passed17skipped (existing exact candidate); root PYTHONPATH=. uv run --locked pytest targeted9modules200passed in24.76s; /tmp/hwmonitor-resume-root-review-20261031/sender-focused-tests.log"
+  ],
+  "limitations": [
+    "User-designated coordinator review reuses verified source context in this session; it is not a fresh subagent or human approval.",
+    "Bounded flow and changed-source interaction review; no claim of whole-repo audit, live GitHub integration, fresh compiled platform acceptance, legal approval, physical LCD/buttons or device memory calibration."
+  ]
+}

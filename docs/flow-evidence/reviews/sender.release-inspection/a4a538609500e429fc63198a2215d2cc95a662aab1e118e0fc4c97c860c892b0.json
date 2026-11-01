@@ -1,0 +1,17 @@
+{
+  "feature": "sender.release-inspection",
+  "fingerprint": "a4a538609500e429fc63198a2215d2cc95a662aab1e118e0fc4c97c860c892b0",
+  "reviewer": "user-designated root reviewer / orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "Base 86b074bc1aa6c38bbdb236f23546b1024ffc227a; reviewed exact index tree 3285803271fffe1cc7401f91609de7f69a82702d; current project-checker fingerprint independently recomputed. User explicitly assigned root review; root did not author product/source corrections in this candidate.",
+    "Read inspect_sender_candidate.py executable validation branches1-747, input-receipt validation and candidate inspection contract; checked fixed sample/archive paths, duplicate/type/size rejection, record identity/digests, report/inventory/runtime architecture, image diff IDs, helper assets and final exact notice descriptor against flowA-O.",
+    "Read representative rejection and descriptor-binding tests in test_release_candidate.py; all candidate tests executed in200-pass root subset. Runtime notice bundles treated as pinned data with descriptor/hash/member tests and existing bounded notice decisions; no new legal opinion or complete artifact-content approval.",
+    "Configured software check PYTHONPATH=. make check508passed17skipped (existing exact candidate); root PYTHONPATH=. uv run --locked pytest targeted9modules200passed in24.76s; /tmp/hwmonitor-resume-root-review-20261031/sender-focused-tests.log"
+  ],
+  "limitations": [
+    "User-designated coordinator review reuses verified source context in this session; it is not a fresh subagent or human approval.",
+    "Bounded flow and changed-source interaction review; no claim of whole-repo audit, live GitHub integration, fresh compiled platform acceptance, legal approval, physical LCD/buttons or device memory calibration."
+  ]
+}

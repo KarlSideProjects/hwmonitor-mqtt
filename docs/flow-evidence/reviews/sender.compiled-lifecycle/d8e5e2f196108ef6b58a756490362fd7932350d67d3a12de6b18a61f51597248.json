@@ -1,0 +1,17 @@
+{
+  "feature": "sender.compiled-lifecycle",
+  "fingerprint": "d8e5e2f196108ef6b58a756490362fd7932350d67d3a12de6b18a61f51597248",
+  "reviewer": "user-designated root reviewer / orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "Base 86b074bc1aa6c38bbdb236f23546b1024ffc227a; reviewed exact index tree 3285803271fffe1cc7401f91609de7f69a82702d; current project-checker fingerprint independently recomputed. User explicitly assigned root review; root did not author product/source corrections in this candidate.",
+    "Read all install controllers, bootstraps, pve native install/recovery, task activation/launcher, and changed compiled Windows root/version paths. Verify cooperative FIFO cancellation is one in-process native recovery; stable native commit disables cancellation before backup cleanup, outer root commit occurs before marker; Docker marker remains inside rollback transaction.",
+    "Source version and installer packaging entrypoints checked against lifecycleA-Y and shared contract; systemd state/override recognition, Windows taskXML restore and driver side effects agree. Read targeted cancellation/rollback test source and assertion inventory; actual200-pass subset includes controller and bootstrap regressions.",
+    "Configured software check PYTHONPATH=. make check508passed17skipped (existing exact candidate); root PYTHONPATH=. uv run --locked pytest targeted9modules200passed in24.76s; /tmp/hwmonitor-resume-root-review-20261031/sender-focused-tests.log"
+  ],
+  "limitations": [
+    "User-designated coordinator review reuses verified source context in this session; it is not a fresh subagent or human approval.",
+    "Bounded flow and changed-source interaction review; no claim of whole-repo audit, live GitHub integration, fresh compiled platform acceptance, legal approval, physical LCD/buttons or device memory calibration."
+  ]
+}

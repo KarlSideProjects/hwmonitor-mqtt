@@ -1,0 +1,62 @@
+flowchart TD
+    A["Validated staged release enters install or upgrade; see sender.distribution and sender.build"]
+    B{"Platform"}
+    C["Linux requires root, supported architecture, recognized private root and exclusive install lock"]
+    D{"PVE host"}
+    E["Native PVE x64 rejects existing sys-agent; prepare or reuse PVE credentials and CA under token lock"]
+    F["Linux Docker requires Compose v2 and no active or enabled native sender"]
+    G["Preserve existing MQTT settings; otherwise create private settings"]
+    H["Back up deployment files and pin prior Docker image when present"]
+    I["Compiled installer detects target and checks readiness; isolated native onefile and FIFO coordinate repeated interrupts and final status"]
+    J{"Deployment"}
+    K["Compose builds and starts sys-agent with host identity and optional override"]
+    L["Native installer preserves recognized service and override, then replaces executable"]
+    M["Check container running with stable PID and restart count over three samples"]
+    N["Check effective service command and active stable PID over three samples"]
+    O["Native commits after stable service; successful native status commits root inputs before marker; Docker commits after stable marker"]
+    P["Attempt restoration of deployment files and prior container or service state on failure or early cancellation"]
+    Q["Retain backup and image or service recovery data if rollback fails; manual recovery may be needed; hard kill and power loss are not covered"]
+    R["Windows requires elevated x64 PowerShell, trusted paths and Visual C++ runtime"]
+    S["Preserve existing protected MQTT settings or create them before activation"]
+    T["Recognize and export prior task, stop if running and swap package"]
+    U["Install pinned LHM; reuse PawnIO at least 2.0 or install pinned 2.2; register SYSTEM startup task"]
+    V["Start task and require running state for five seconds; commit source marker"]
+    W["On failure restore package and prior task XML and running state where possible"]
+    X["Preparation side effects can persist: PVE identity and CA, Docker, Windows driver and settings"]
+    Y["Runtime status uses service, container or task manager; Linux version is build-bound, Windows validates adjacent manifest; public update is manual"]
+    A --> B
+    B -->|Linux| C
+    B -->|Windows| R
+    C --> D
+    D -->|PVE| E
+    D -->|Linux| F
+    E --> G
+    F --> G
+    G --> H
+    H --> I
+    I --> J
+    J -->|Docker| K
+    J -->|Native PVE| L
+    K --> M
+    L --> N
+    M -->|stable| O
+    N -->|stable| O
+    M -->|failure| P
+    N -->|failure| P
+    P -->|recovery fails| Q
+    R --> S
+    S --> T
+    T --> U
+    U --> V
+    V -->|failure| W
+    W -->|recovery fails| Q
+    V -->|stable| Y
+    O --> Y
+    E --> X
+    F --> X
+    U --> X
+    I -->|failure| P
+    K -->|failure| P
+    L -->|failure| P
+    T -->|failure| W
+    U -->|failure| W

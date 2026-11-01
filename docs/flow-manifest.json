@@ -14,7 +14,116 @@
       "tests/test_release_candidate.py",
       "docs/release/sender-candidate.md",
       "hwmonitor_mqtt/collectors/smart.py",
-      "tests/test_smart_collector.py"
+      "tests/test_smart_collector.py",
+      "scripts/sender_build_inputs.py",
+      "hwmonitor_mqtt/platforms/sender_archive.py",
+      "scripts/windows/validate_sender_package.ps1",
+      "scripts/windows/activate_sender_package.ps1",
+      "install.sh",
+      "scripts/windows/install_windows_sender_task.ps1",
+      ".github/workflows/sender-linux-build.yml",
+      ".github/workflows/protected-windows-package.yml",
+      "scripts/build_sender_package.py",
+      "scripts/linux_arm64/gcc.py",
+      "scripts/linux_arm64/startup/entry.c",
+      "scripts/linux_arm64/startup/crt_arch.h",
+      "scripts/linux_arm64/startup/LICENSE.musl",
+      "scripts/capture_sender_build.py",
+      "scripts/windows/collect_notices.py",
+      "scripts/windows/package_sender.py",
+      "scripts/windows/inventory_sender_dist.py",
+      "scripts/create_sender_build_record.py",
+      "scripts/requirements-sender-build.txt",
+      "scripts/windows/requirements-build.txt",
+      "scripts/windows/requirements-build-backend.txt",
+      ".github/workflows/sender-release.yml",
+      "scripts/release_version.py",
+      "scripts/release_controller.py",
+      "scripts/check_release_assets.py",
+      "scripts/release_backend.py",
+      "scripts/stage_release_draft.py",
+      "uv.lock",
+      "docker-compose.linux.yml",
+      "docker-compose.pve.yml",
+      "docs/configuration/pve.env.example",
+      "scripts/windows/start_windows_sender.ps1",
+      "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/runtime-bundle.txt",
+      "release-notices/linux-arm64-cpython-3.11.15-pbs-20260728/runtime-bundle.txt",
+      "tests/fixtures/release-notices/paho-mqtt.txt",
+      "tests/fixtures/release-notices/psutil.txt",
+      "tests/fixtures/release-notices/python-dotenv.txt",
+      "release-notices/windows-x64-cpython-3.13.17/runtime-bundle.txt",
+      "release-notices/windows-x64-cpython-3.13.17/openssl-3.5.9-LICENSE.txt",
+      "release-notices/windows-x64-cpython-3.13.17/xz-5.2.5-COPYING",
+      "release-notices/windows-x64-cpython-3.13.17/cpython-3.13.17-expat-COPYING",
+      "tests/test_build_sender_package.py",
+      "tests/test_sender_capture.py",
+      "tests/test_arm_startup.py",
+      "tests/test_sender_input_receipts.py",
+      "tests/test_sender_build_record.py",
+      "tests/test_windows_notices.py",
+      "tests/test_windows_package_build.py",
+      "tests/test_windows_dist_inventory.py",
+      "tests/test_release_workflow.py",
+      "tests/test_compiled_bootstrap_integration.py",
+      "tests/windows_compiled_mqtt_smoke.ps1",
+      "tests/windows_official_install_smoke.ps1",
+      "tests/fixtures/nuitka-2.7.16/Backend.scons",
+      "tests/fixtures/nuitka-2.7.16/Onefile.scons",
+      "tests/fixtures/nuitka-2.7.16/README.md",
+      "tests/fixtures/nuitka-2.7.16/SconsCompilerSettings.py",
+      "tests/fixtures/nuitka-2.7.16/SconsHacks.py",
+      "tests/fixtures/nuitka-2.7.16/SconsUtils.py",
+      "scripts/release-tests/Dockerfile.installer-double",
+      "scripts/release-tests/Dockerfile.pve",
+      "scripts/release-tests/docker_acceptance.py",
+      "scripts/release-tests/docker_acceptance_inner.sh",
+      "scripts/release-tests/pve_acceptance.py",
+      "scripts/release-tests/pve_guest.sh",
+      "hwmonitor_mqtt/platforms/pve_bootstrap.py",
+      "hwmonitor_mqtt/platforms/pve_token.py",
+      "hwmonitor_mqtt/clients/pve.py",
+      "hwmonitor_mqtt/platforms/installers/linux.py",
+      "hwmonitor_mqtt/platforms/install.py",
+      "hwmonitor_mqtt/platforms/detect.py",
+      "hwmonitor_mqtt/platforms/dispatch.py",
+      "hwmonitor_mqtt/platforms/installers/pve_docker.py",
+      "hwmonitor_mqtt/platforms/installers/pve.py",
+      "tests/test_compiled_bootstrap.py",
+      "tests/test_platform_detection.py",
+      "tests/test_pve_sender.py",
+      "tests/test_pve_bootstrap_setup.py",
+      "tests/test_pve_token.py",
+      "tests/test_windows_compiled_start.py",
+      "tests/test_windows_package_activation.py",
+      "tests/test_sender_archive.py",
+      "tests/_pwsh.py",
+      "tests/test_release_version.py",
+      "tests/test_release_assets.py",
+      "tests/test_release_draft.py",
+      "tests/test_release_backend.py",
+      "tests/test_release_controller.py",
+      "tests/test_install_sh.py",
+      "tests/test_remote_bootstrap.py",
+      "tests/test_windows_sender_profile.py",
+      "tests/fixtures/release-notices/linux-x64-runtime-bundle-1d162.txt",
+      "tests/fixtures/release-notices/project-3f42.md",
+      "tests/fixtures/release-notices/python.txt",
+      "tests/fixtures/release-notices/pythonnet.txt",
+      "tests/fixtures/release-notices/wmi.txt",
+      "tests/fixtures/linux-arm64-notice-descriptor.json",
+      "tests/fixtures/linux-arm64-notice-record.json",
+      "tests/fixtures/linux-x64-notice-descriptor.json",
+      "tests/fixtures/linux-x64-notice-record.json",
+      "tests/fixtures/windows-x64-notice-descriptor.json",
+      "tests/fixtures/windows-x64-notice-record.json",
+      ".gitattributes",
+      "scripts/release-tests/release_endpoint.py",
+      "scripts/release-tests/pve_provision.sh",
+      "tests/windows_mqtt_observer.py",
+      "scripts/native_install_smoke.py",
+      "tests/test_native_install_smoke.py",
+      "hwmonitor_mqtt/agents/agent_sender_windows.py"
     ],
     "exclude": {}
   },
@@ -22,17 +131,17 @@
     {
       "path": "bootstrap.sh",
       "kind": "file",
-      "md5": "03868829c310390d72ad167e48d5f125"
+      "md5": "1a6a9c936ddda58e492d864124144d53"
     },
     {
       "path": "bootstrap.ps1",
       "kind": "file",
-      "md5": "f783e44d2a8ac7fd2e2028831d17cdec"
+      "md5": "95fecbd6e101ac82debc786f34d81d8b"
     },
     {
       "path": "Dockerfile",
       "kind": "file",
-      "md5": "99065d1fb3c6eac30da348b0746ad040"
+      "md5": "e381173919f7dd5094913d416c06fcde"
     },
     {
       "path": "README.md",
@@ -57,22 +166,22 @@
     {
       "path": "release-public/LICENSE-NOTICE.md",
       "kind": "file",
-      "md5": "b475f0a088b95d25860073be3e91320a"
+      "md5": "fcfb508b04bc3bcf62efdb9be9b90cb0"
     },
     {
       "path": "scripts/inspect_sender_candidate.py",
       "kind": "file",
-      "md5": "2910d3f1f707875f91e9a0eb8f45b99d"
+      "md5": "e33b59f2640178b89e505b8d6db40e10"
     },
     {
       "path": "tests/test_release_candidate.py",
       "kind": "file",
-      "md5": "d0a43b11fd5eadbdc077d3d67c2dec0b"
+      "md5": "88b1b3c79e6dabb0d86843ad38429754"
     },
     {
       "path": "docs/release/sender-candidate.md",
       "kind": "file",
-      "md5": "ba1c671968956ed01018ae0ab8f1f06b"
+      "md5": "854019080b9e236d8389d20a14688b01"
     },
     {
       "path": "hwmonitor_mqtt/collectors/smart.py",
@@ -83,6 +192,551 @@
       "path": "tests/test_smart_collector.py",
       "kind": "file",
       "md5": "fa5b551c0e4f0b0d4ff151da234bcc37"
+    },
+    {
+      "path": "scripts/sender_build_inputs.py",
+      "kind": "file",
+      "md5": "b543096985d50fe93b80a4b482916b2b"
+    },
+    {
+      "path": "hwmonitor_mqtt/platforms/sender_archive.py",
+      "kind": "file",
+      "md5": "322abf2b259eb91ec9c2899669f080a2"
+    },
+    {
+      "path": "scripts/windows/validate_sender_package.ps1",
+      "kind": "file",
+      "md5": "b28c241c3f63460638de43afd4c13edf"
+    },
+    {
+      "path": "scripts/windows/activate_sender_package.ps1",
+      "kind": "file",
+      "md5": "0e5568c1fa26ec050abe69bba561418c"
+    },
+    {
+      "path": "install.sh",
+      "kind": "file",
+      "md5": "89b8200fea3ddc400297c767d2635845"
+    },
+    {
+      "path": "scripts/windows/install_windows_sender_task.ps1",
+      "kind": "file",
+      "md5": "2639c0169423f190b19011168cd43da8"
+    },
+    {
+      "path": ".github/workflows/sender-linux-build.yml",
+      "kind": "file",
+      "md5": "31b384ef20e6030ed11e521535f62213"
+    },
+    {
+      "path": ".github/workflows/protected-windows-package.yml",
+      "kind": "file",
+      "md5": "1948f0530c072eb0858821c74e6cb101"
+    },
+    {
+      "path": "scripts/build_sender_package.py",
+      "kind": "file",
+      "md5": "867fbdaeefc7eaafaec439ee720e2255"
+    },
+    {
+      "path": "scripts/linux_arm64/gcc.py",
+      "kind": "file",
+      "md5": "b79e3d8e4ceff5139e1215d7b6e44734"
+    },
+    {
+      "path": "scripts/linux_arm64/startup/entry.c",
+      "kind": "file",
+      "md5": "9e8ef954dbf5b9ee01de14ebeb895688"
+    },
+    {
+      "path": "scripts/linux_arm64/startup/crt_arch.h",
+      "kind": "file",
+      "md5": "ddd1ee9bfd7b5a978d8591e5b53450cd"
+    },
+    {
+      "path": "scripts/linux_arm64/startup/LICENSE.musl",
+      "kind": "file",
+      "md5": "b03f1cc25363d094011f8f4fd8bcfb68"
+    },
+    {
+      "path": "scripts/capture_sender_build.py",
+      "kind": "file",
+      "md5": "d175c4fbfd935797f9bcaa84ff187048"
+    },
+    {
+      "path": "scripts/windows/collect_notices.py",
+      "kind": "file",
+      "md5": "20b110a45aed64da7fd55efba145dacf"
+    },
+    {
+      "path": "scripts/windows/package_sender.py",
+      "kind": "file",
+      "md5": "07059291e071d6a44b3d2ddaae674d22"
+    },
+    {
+      "path": "scripts/windows/inventory_sender_dist.py",
+      "kind": "file",
+      "md5": "b4b3330934df339bfcc6ebd81c0e46f9"
+    },
+    {
+      "path": "scripts/create_sender_build_record.py",
+      "kind": "file",
+      "md5": "b0e00c49edc2853be8e7990aa17db592"
+    },
+    {
+      "path": "scripts/requirements-sender-build.txt",
+      "kind": "file",
+      "md5": "2bab47cb50b233fdddf88068416ae569"
+    },
+    {
+      "path": "scripts/windows/requirements-build.txt",
+      "kind": "file",
+      "md5": "3fdd5be942dd4278a3cca656dc04bbd9"
+    },
+    {
+      "path": "scripts/windows/requirements-build-backend.txt",
+      "kind": "file",
+      "md5": "e7d87c6ec144a94500538f7b972cacaf"
+    },
+    {
+      "path": ".github/workflows/sender-release.yml",
+      "kind": "file",
+      "md5": "bb605583d6be8217f0f93cd1fc03fee5"
+    },
+    {
+      "path": "scripts/release_version.py",
+      "kind": "file",
+      "md5": "4d9980602d5bdafc331e72a0bb3d3ed7"
+    },
+    {
+      "path": "scripts/release_controller.py",
+      "kind": "file",
+      "md5": "45d07a268b7353151d66e735aca27cab"
+    },
+    {
+      "path": "scripts/check_release_assets.py",
+      "kind": "file",
+      "md5": "71b920436cdf8f9ee6dc3af9c9427eef"
+    },
+    {
+      "path": "scripts/release_backend.py",
+      "kind": "file",
+      "md5": "1b265ecaea066cb69ee5b27f3917497e"
+    },
+    {
+      "path": "scripts/stage_release_draft.py",
+      "kind": "file",
+      "md5": "89936ab188d5d1e0da58f32fd4f34cb4"
+    },
+    {
+      "path": "uv.lock",
+      "kind": "file",
+      "md5": "f7d3e0d5ac22d8c190cf8b13207dea6e"
+    },
+    {
+      "path": "docker-compose.linux.yml",
+      "kind": "file",
+      "md5": "952790932c8bc030cb47e5cafc56d5a5"
+    },
+    {
+      "path": "docker-compose.pve.yml",
+      "kind": "file",
+      "md5": "72cccf542b3040ba2554f0a3a11b61c6"
+    },
+    {
+      "path": "docs/configuration/pve.env.example",
+      "kind": "file",
+      "md5": "69c2aa0454b3cd2fad267b294387675d"
+    },
+    {
+      "path": "scripts/windows/start_windows_sender.ps1",
+      "kind": "file",
+      "md5": "3a1062cca396672736005075d26461c2"
+    },
+    {
+      "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/runtime-bundle.txt",
+      "kind": "file",
+      "md5": "a4dd60b6bbff4a99509128640e980ad4"
+    },
+    {
+      "path": "release-notices/linux-arm64-cpython-3.11.15-pbs-20260728/runtime-bundle.txt",
+      "kind": "file",
+      "md5": "be257db9005c77cacf2f916c06f79fd2"
+    },
+    {
+      "path": "tests/fixtures/release-notices/paho-mqtt.txt",
+      "kind": "file",
+      "md5": "63631107622606c7e771bb1f34b46f47"
+    },
+    {
+      "path": "tests/fixtures/release-notices/psutil.txt",
+      "kind": "file",
+      "md5": "a9c72113a843d0d732a0ac1c200d81b1"
+    },
+    {
+      "path": "tests/fixtures/release-notices/python-dotenv.txt",
+      "kind": "file",
+      "md5": "e914cdb773ae44a732b392532d88f072"
+    },
+    {
+      "path": "release-notices/windows-x64-cpython-3.13.17/runtime-bundle.txt",
+      "kind": "file",
+      "md5": "e8f0927ded191bf6084b64051139820a"
+    },
+    {
+      "path": "release-notices/windows-x64-cpython-3.13.17/openssl-3.5.9-LICENSE.txt",
+      "kind": "file",
+      "md5": "c75985e733726beaba57bc5253e96d04"
+    },
+    {
+      "path": "release-notices/windows-x64-cpython-3.13.17/xz-5.2.5-COPYING",
+      "kind": "file",
+      "md5": "97d554a32881fee0aa283d96e47cb24a"
+    },
+    {
+      "path": "release-notices/windows-x64-cpython-3.13.17/cpython-3.13.17-expat-COPYING",
+      "kind": "file",
+      "md5": "f4fedd6116da0e171f7cb4d2923d7ac2"
+    },
+    {
+      "path": "tests/test_build_sender_package.py",
+      "kind": "file",
+      "md5": "11fdf2f2c9ede79aef9a206c534cf8c8"
+    },
+    {
+      "path": "tests/test_sender_capture.py",
+      "kind": "file",
+      "md5": "35100a98b1915f76c0f3250b56509a3b"
+    },
+    {
+      "path": "tests/test_arm_startup.py",
+      "kind": "file",
+      "md5": "d937a791b481e76504e14f2e86f35328"
+    },
+    {
+      "path": "tests/test_sender_input_receipts.py",
+      "kind": "file",
+      "md5": "cc90e252fc2be1fd8d41140f42b614c7"
+    },
+    {
+      "path": "tests/test_sender_build_record.py",
+      "kind": "file",
+      "md5": "498ab85a399bb9f8ed9afddc48b53799"
+    },
+    {
+      "path": "tests/test_windows_notices.py",
+      "kind": "file",
+      "md5": "9a2e637d82c004844ebb3660927c04e7"
+    },
+    {
+      "path": "tests/test_windows_package_build.py",
+      "kind": "file",
+      "md5": "06f241f53d4abbb9d03efb4e4c2f8ce3"
+    },
+    {
+      "path": "tests/test_windows_dist_inventory.py",
+      "kind": "file",
+      "md5": "427a4011626f3773145366b2f594b7c6"
+    },
+    {
+      "path": "tests/test_release_workflow.py",
+      "kind": "file",
+      "md5": "6f439874111f8a2e52d4677bba275da9"
+    },
+    {
+      "path": "tests/test_compiled_bootstrap_integration.py",
+      "kind": "file",
+      "md5": "cf3ff2740854acb29d08e516349bd7b4"
+    },
+    {
+      "path": "tests/windows_compiled_mqtt_smoke.ps1",
+      "kind": "file",
+      "md5": "9290536f6aa3a439768c34f18d041f00"
+    },
+    {
+      "path": "tests/windows_official_install_smoke.ps1",
+      "kind": "file",
+      "md5": "29a9f99393746622bb53c49d4ae88858"
+    },
+    {
+      "path": "tests/fixtures/nuitka-2.7.16/Backend.scons",
+      "kind": "file",
+      "md5": "e8b362dc1680132ef7bf98d0d0a4b224"
+    },
+    {
+      "path": "tests/fixtures/nuitka-2.7.16/Onefile.scons",
+      "kind": "file",
+      "md5": "c12f54a83b292aae7bc6b102160ecbc4"
+    },
+    {
+      "path": "tests/fixtures/nuitka-2.7.16/README.md",
+      "kind": "file",
+      "md5": "c17d3f556d624bd0e6ff408cc465d7b9"
+    },
+    {
+      "path": "tests/fixtures/nuitka-2.7.16/SconsCompilerSettings.py",
+      "kind": "file",
+      "md5": "b1feb1db877580ab734dfc9acdcb121f"
+    },
+    {
+      "path": "tests/fixtures/nuitka-2.7.16/SconsHacks.py",
+      "kind": "file",
+      "md5": "39f8c60c61f55c6668df8b07c0451e22"
+    },
+    {
+      "path": "tests/fixtures/nuitka-2.7.16/SconsUtils.py",
+      "kind": "file",
+      "md5": "bd0d9317e64958a7462893efc8784a48"
+    },
+    {
+      "path": "scripts/release-tests/Dockerfile.installer-double",
+      "kind": "file",
+      "md5": "7ed6406680b832a0c82404a122527cb9"
+    },
+    {
+      "path": "scripts/release-tests/Dockerfile.pve",
+      "kind": "file",
+      "md5": "6ae408bf8658d897855d32f4e0d14b29"
+    },
+    {
+      "path": "scripts/release-tests/docker_acceptance.py",
+      "kind": "file",
+      "md5": "8fb39ca1f8aaed3886b155c3d7288128"
+    },
+    {
+      "path": "scripts/release-tests/docker_acceptance_inner.sh",
+      "kind": "file",
+      "md5": "229205f88193fe502c8e2e7131ed0462"
+    },
+    {
+      "path": "scripts/release-tests/pve_acceptance.py",
+      "kind": "file",
+      "md5": "790e885b2378af75f11f180426a604b2"
+    },
+    {
+      "path": "scripts/release-tests/pve_guest.sh",
+      "kind": "file",
+      "md5": "057bef8ae008f359435d387d72610ae6"
+    },
+    {
+      "path": "hwmonitor_mqtt/platforms/pve_bootstrap.py",
+      "kind": "file",
+      "md5": "217d8a192b05b15ecde65c28b80b5636"
+    },
+    {
+      "path": "hwmonitor_mqtt/platforms/pve_token.py",
+      "kind": "file",
+      "md5": "44abe7a1db1fb0be5c9826e716b6b4ab"
+    },
+    {
+      "path": "hwmonitor_mqtt/clients/pve.py",
+      "kind": "file",
+      "md5": "eefb0143a7dd52f0011438794c88ef7c"
+    },
+    {
+      "path": "hwmonitor_mqtt/platforms/installers/linux.py",
+      "kind": "file",
+      "md5": "eaac24cce0a96d831901726a2aa7e2cb"
+    },
+    {
+      "path": "hwmonitor_mqtt/platforms/install.py",
+      "kind": "file",
+      "md5": "bed2c5c7d3ed1dbdcecb1fc835984698"
+    },
+    {
+      "path": "hwmonitor_mqtt/platforms/detect.py",
+      "kind": "file",
+      "md5": "b4f68e6286adf057b137f675392a9e21"
+    },
+    {
+      "path": "hwmonitor_mqtt/platforms/dispatch.py",
+      "kind": "file",
+      "md5": "4fa01a2f30e634bbf7a7574d348dd242"
+    },
+    {
+      "path": "hwmonitor_mqtt/platforms/installers/pve_docker.py",
+      "kind": "file",
+      "md5": "617d8ee473a41b56882236a502e15c95"
+    },
+    {
+      "path": "hwmonitor_mqtt/platforms/installers/pve.py",
+      "kind": "file",
+      "md5": "b867e6f0ca9e43b7f3d0af4d6d1460b8"
+    },
+    {
+      "path": "tests/test_compiled_bootstrap.py",
+      "kind": "file",
+      "md5": "69ba56660976b9e700191b457ecd8a38"
+    },
+    {
+      "path": "tests/test_platform_detection.py",
+      "kind": "file",
+      "md5": "c1696ae877eeae27d2101be570afd344"
+    },
+    {
+      "path": "tests/test_pve_sender.py",
+      "kind": "file",
+      "md5": "e843e6ea77c1946df8de8cd212f7e895"
+    },
+    {
+      "path": "tests/test_pve_bootstrap_setup.py",
+      "kind": "file",
+      "md5": "ebd1595364978aaae5aac43e399c6288"
+    },
+    {
+      "path": "tests/test_pve_token.py",
+      "kind": "file",
+      "md5": "ee4b553ac568a9b8c554ab668603a9fe"
+    },
+    {
+      "path": "tests/test_windows_compiled_start.py",
+      "kind": "file",
+      "md5": "9c9af1a68b6d4e75095d281ffe5e9137"
+    },
+    {
+      "path": "tests/test_windows_package_activation.py",
+      "kind": "file",
+      "md5": "97840c8dd325762611c214d89fc20ddb"
+    },
+    {
+      "path": "tests/test_sender_archive.py",
+      "kind": "file",
+      "md5": "f442d7fd21b8e0c5ac1384ac6e406015"
+    },
+    {
+      "path": "tests/_pwsh.py",
+      "kind": "file",
+      "md5": "82ed8860fd3e742ea13f033c03fe5891"
+    },
+    {
+      "path": "tests/test_release_version.py",
+      "kind": "file",
+      "md5": "fcefbdfb7a01ffe6cf320448517aa99a"
+    },
+    {
+      "path": "tests/test_release_assets.py",
+      "kind": "file",
+      "md5": "09c002570e0c164f9c3c5d90a6a3bf3b"
+    },
+    {
+      "path": "tests/test_release_draft.py",
+      "kind": "file",
+      "md5": "771843949be4ad0353c38649cd804e84"
+    },
+    {
+      "path": "tests/test_release_backend.py",
+      "kind": "file",
+      "md5": "c937257168512145fc232b207294fc30"
+    },
+    {
+      "path": "tests/test_release_controller.py",
+      "kind": "file",
+      "md5": "d58b06f64fbb62899acc4ce7676069a8"
+    },
+    {
+      "path": "tests/test_install_sh.py",
+      "kind": "file",
+      "md5": "0c53cd42b8c0a309a2e33b976633d673"
+    },
+    {
+      "path": "tests/test_remote_bootstrap.py",
+      "kind": "file",
+      "md5": "e4ffd8eacc39adeab32a99a6758730ca"
+    },
+    {
+      "path": "tests/test_windows_sender_profile.py",
+      "kind": "file",
+      "md5": "1e0edf3ad1843b5e2e3948392b7fa5f8"
+    },
+    {
+      "path": "tests/fixtures/release-notices/linux-x64-runtime-bundle-1d162.txt",
+      "kind": "file",
+      "md5": "d51377bae412f7f940e77d7d942aeeba"
+    },
+    {
+      "path": "tests/fixtures/release-notices/project-3f42.md",
+      "kind": "file",
+      "md5": "b475f0a088b95d25860073be3e91320a"
+    },
+    {
+      "path": "tests/fixtures/release-notices/python.txt",
+      "kind": "file",
+      "md5": "fcf6b249c2641540219a727f35d8d2c2"
+    },
+    {
+      "path": "tests/fixtures/release-notices/pythonnet.txt",
+      "kind": "file",
+      "md5": "8e800b2b69ab79d37187ed4eb522060d"
+    },
+    {
+      "path": "tests/fixtures/release-notices/wmi.txt",
+      "kind": "file",
+      "md5": "9a8104d92c1aef5022b4160372eef4fe"
+    },
+    {
+      "path": "tests/fixtures/linux-arm64-notice-descriptor.json",
+      "kind": "file",
+      "md5": "11ce6a7db074ecdb8f39c53f238f2887"
+    },
+    {
+      "path": "tests/fixtures/linux-arm64-notice-record.json",
+      "kind": "file",
+      "md5": "406e8e6f030a2864ce0d0b1db9cc064e"
+    },
+    {
+      "path": "tests/fixtures/linux-x64-notice-descriptor.json",
+      "kind": "file",
+      "md5": "59a9d4d7613774b9b2cbd30fd563a071"
+    },
+    {
+      "path": "tests/fixtures/linux-x64-notice-record.json",
+      "kind": "file",
+      "md5": "2b48047bf27be051b084f78c86770dc7"
+    },
+    {
+      "path": "tests/fixtures/windows-x64-notice-descriptor.json",
+      "kind": "file",
+      "md5": "f3cf0a429fed3fa4ec54f91b3c7278f9"
+    },
+    {
+      "path": "tests/fixtures/windows-x64-notice-record.json",
+      "kind": "file",
+      "md5": "b9b1ea0e598b6fad0e0330fc7e0c4454"
+    },
+    {
+      "path": ".gitattributes",
+      "kind": "file",
+      "md5": "eda9bd0aba43971eea24c519e1a29ebb"
+    },
+    {
+      "path": "scripts/release-tests/release_endpoint.py",
+      "kind": "file",
+      "md5": "7c1f23f7c97f05e291c114e0dcd6c02a"
+    },
+    {
+      "path": "scripts/release-tests/pve_provision.sh",
+      "kind": "file",
+      "md5": "eff4af2022232ae073260d49256bc1f8"
+    },
+    {
+      "path": "tests/windows_mqtt_observer.py",
+      "kind": "file",
+      "md5": "d940f0c43fa8463120b4209985b4d927"
+    },
+    {
+      "path": "scripts/native_install_smoke.py",
+      "kind": "file",
+      "md5": "e78ec9ab4aead5976be6ccc09f841fd9"
+    },
+    {
+      "path": "tests/test_native_install_smoke.py",
+      "kind": "file",
+      "md5": "492a9089deccc54bee7a652b53b5ed2b"
+    },
+    {
+      "path": "hwmonitor_mqtt/agents/agent_sender_windows.py",
+      "kind": "file",
+      "md5": "2b4ada332a83d9a23cd8100c75dedd90"
     }
   ],
   "features": [
@@ -107,10 +761,6 @@
           "path": "bootstrap.sh"
         },
         {
-          "node": "E",
-          "path": "bootstrap.sh"
-        },
-        {
           "node": "F",
           "path": "bootstrap.sh"
         },
@@ -132,15 +782,27 @@
         },
         {
           "node": "K",
-          "path": "bootstrap.ps1"
+          "path": "bootstrap.sh"
         },
         {
           "node": "L",
-          "path": "bootstrap.ps1"
+          "path": "bootstrap.sh"
         },
         {
           "node": "M",
-          "path": "bootstrap.ps1"
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "W",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "X",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "Y",
+          "path": "bootstrap.sh"
         },
         {
           "node": "N",
@@ -164,7 +826,35 @@
         },
         {
           "node": "S",
-          "path": "Dockerfile"
+          "path": "bootstrap.ps1"
+        },
+        {
+          "node": "W",
+          "path": "bootstrap.ps1"
+        },
+        {
+          "node": "X",
+          "path": "bootstrap.ps1"
+        },
+        {
+          "node": "E",
+          "path": "hwmonitor_mqtt/platforms/sender_archive.py"
+        },
+        {
+          "node": "P",
+          "path": "scripts/windows/validate_sender_package.ps1"
+        },
+        {
+          "node": "Q",
+          "path": "scripts/windows/activate_sender_package.ps1"
+        },
+        {
+          "node": "R",
+          "path": "scripts/windows/activate_sender_package.ps1"
+        },
+        {
+          "node": "S",
+          "path": "scripts/windows/activate_sender_package.ps1"
         },
         {
           "node": "T",
@@ -172,15 +862,95 @@
         },
         {
           "node": "U",
-          "path": "Dockerfile"
+          "path": "install.sh"
+        },
+        {
+          "node": "U",
+          "path": "scripts/windows/install_windows_sender_task.ps1"
         },
         {
           "node": "V",
           "path": "release-public/README.md"
         },
         {
-          "node": "W",
-          "path": "release-public/README.md"
+          "node": "G",
+          "path": "hwmonitor_mqtt/platforms/pve_bootstrap.py"
+        },
+        {
+          "node": "G",
+          "path": "hwmonitor_mqtt/platforms/pve_token.py"
+        },
+        {
+          "node": "G",
+          "path": "hwmonitor_mqtt/clients/pve.py"
+        },
+        {
+          "node": "K",
+          "path": "hwmonitor_mqtt/platforms/install.py"
+        },
+        {
+          "node": "K",
+          "path": "hwmonitor_mqtt/platforms/detect.py"
+        },
+        {
+          "node": "K",
+          "path": "hwmonitor_mqtt/platforms/dispatch.py"
+        },
+        {
+          "node": "K",
+          "path": "hwmonitor_mqtt/platforms/installers/linux.py"
+        },
+        {
+          "node": "K",
+          "path": "hwmonitor_mqtt/platforms/installers/pve.py"
+        },
+        {
+          "node": "K",
+          "path": "hwmonitor_mqtt/platforms/installers/pve_docker.py"
+        },
+        {
+          "node": "R",
+          "path": "scripts/windows/install_windows_sender_task.ps1"
+        },
+        {
+          "node": "R",
+          "path": "scripts/windows/start_windows_sender.ps1"
+        },
+        {
+          "node": "T",
+          "path": "docker-compose.linux.yml"
+        },
+        {
+          "node": "K",
+          "path": "docker-compose.pve.yml"
+        },
+        {
+          "node": "D",
+          "path": "tests/test_compiled_bootstrap.py"
+        },
+        {
+          "node": "M",
+          "path": "tests/test_compiled_bootstrap_integration.py"
+        },
+        {
+          "node": "U",
+          "path": "tests/test_install_sh.py"
+        },
+        {
+          "node": "B",
+          "path": "tests/test_remote_bootstrap.py"
+        },
+        {
+          "node": "R",
+          "path": "tests/test_windows_sender_profile.py"
+        },
+        {
+          "node": "S",
+          "path": "tests/test_windows_package_activation.py"
+        },
+        {
+          "node": "E",
+          "path": "tests/test_sender_archive.py"
         }
       ],
       "depends_on": []
@@ -211,6 +981,14 @@
         },
         {
           "node": "F",
+          "path": "release-public/LICENSE-NOTICE.md"
+        },
+        {
+          "node": "G",
+          "path": "release-public/LICENSE-NOTICE.md"
+        },
+        {
+          "node": "H",
           "path": "release-public/LICENSE-NOTICE.md"
         }
       ],
@@ -281,16 +1059,92 @@
           "path": "scripts/inspect_sender_candidate.py"
         },
         {
-          "node": "P",
+          "node": "M",
+          "path": "scripts/sender_build_inputs.py"
+        },
+        {
+          "node": "N",
           "path": "tests/test_release_candidate.py"
         },
         {
-          "node": "Q",
+          "node": "N",
           "path": "docs/release/sender-candidate.md"
         },
         {
-          "node": "R",
-          "path": "scripts/inspect_sender_candidate.py"
+          "node": "M",
+          "path": "tests/fixtures/release-notices/linux-x64-runtime-bundle-1d162.txt"
+        },
+        {
+          "node": "M",
+          "path": "tests/fixtures/release-notices/paho-mqtt.txt"
+        },
+        {
+          "node": "M",
+          "path": "tests/fixtures/release-notices/project-3f42.md"
+        },
+        {
+          "node": "M",
+          "path": "tests/fixtures/release-notices/psutil.txt"
+        },
+        {
+          "node": "M",
+          "path": "tests/fixtures/release-notices/python-dotenv.txt"
+        },
+        {
+          "node": "M",
+          "path": "tests/fixtures/release-notices/python.txt"
+        },
+        {
+          "node": "M",
+          "path": "tests/fixtures/release-notices/pythonnet.txt"
+        },
+        {
+          "node": "M",
+          "path": "tests/fixtures/release-notices/wmi.txt"
+        },
+        {
+          "node": "M",
+          "path": "tests/fixtures/linux-arm64-notice-descriptor.json"
+        },
+        {
+          "node": "M",
+          "path": "tests/fixtures/linux-arm64-notice-record.json"
+        },
+        {
+          "node": "M",
+          "path": "tests/fixtures/linux-x64-notice-descriptor.json"
+        },
+        {
+          "node": "M",
+          "path": "tests/fixtures/linux-x64-notice-record.json"
+        },
+        {
+          "node": "M",
+          "path": "tests/fixtures/windows-x64-notice-descriptor.json"
+        },
+        {
+          "node": "M",
+          "path": "tests/fixtures/windows-x64-notice-record.json"
+        },
+        {
+          "node": "M",
+          "path": "release-public/LICENSE-NOTICE.md"
+        },
+        {
+          "node": "M",
+          "path": "docs/configuration/pve.env.example"
+        },
+        {
+          "node": "M",
+          "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/runtime-bundle.txt"
+        },
+        {
+          "node": "M",
+          "path": "release-notices/linux-arm64-cpython-3.11.15-pbs-20260728/runtime-bundle.txt"
+        },
+        {
+          "node": "M",
+          "path": "release-notices/windows-x64-cpython-3.13.17/runtime-bundle.txt"
         }
       ],
       "depends_on": []
@@ -353,6 +1207,877 @@
         }
       ],
       "depends_on": []
+    },
+    {
+      "id": "sender.build",
+      "flow": "docs/flows/sender.build.mmd",
+      "mappings": [
+        {
+          "node": "A",
+          "path": ".github/workflows/sender-linux-build.yml"
+        },
+        {
+          "node": "B",
+          "path": ".github/workflows/sender-linux-build.yml"
+        },
+        {
+          "node": "C",
+          "path": ".github/workflows/sender-linux-build.yml"
+        },
+        {
+          "node": "I",
+          "path": ".github/workflows/sender-linux-build.yml"
+        },
+        {
+          "node": "M",
+          "path": ".github/workflows/sender-linux-build.yml"
+        },
+        {
+          "node": "N",
+          "path": ".github/workflows/sender-linux-build.yml"
+        },
+        {
+          "node": "O",
+          "path": ".github/workflows/sender-linux-build.yml"
+        },
+        {
+          "node": "P",
+          "path": ".github/workflows/sender-linux-build.yml"
+        },
+        {
+          "node": "A",
+          "path": ".github/workflows/protected-windows-package.yml"
+        },
+        {
+          "node": "B",
+          "path": ".github/workflows/protected-windows-package.yml"
+        },
+        {
+          "node": "J",
+          "path": ".github/workflows/protected-windows-package.yml"
+        },
+        {
+          "node": "K",
+          "path": ".github/workflows/protected-windows-package.yml"
+        },
+        {
+          "node": "Q",
+          "path": ".github/workflows/protected-windows-package.yml"
+        },
+        {
+          "node": "L",
+          "path": ".github/workflows/protected-windows-package.yml"
+        },
+        {
+          "node": "N",
+          "path": ".github/workflows/protected-windows-package.yml"
+        },
+        {
+          "node": "O",
+          "path": ".github/workflows/protected-windows-package.yml"
+        },
+        {
+          "node": "P",
+          "path": ".github/workflows/protected-windows-package.yml"
+        },
+        {
+          "node": "C",
+          "path": "scripts/build_sender_package.py"
+        },
+        {
+          "node": "D",
+          "path": "scripts/build_sender_package.py"
+        },
+        {
+          "node": "E",
+          "path": "scripts/build_sender_package.py"
+        },
+        {
+          "node": "F",
+          "path": "scripts/build_sender_package.py"
+        },
+        {
+          "node": "H",
+          "path": "scripts/build_sender_package.py"
+        },
+        {
+          "node": "I",
+          "path": "scripts/build_sender_package.py"
+        },
+        {
+          "node": "P",
+          "path": "scripts/build_sender_package.py"
+        },
+        {
+          "node": "F",
+          "path": "scripts/capture_sender_build.py"
+        },
+        {
+          "node": "H",
+          "path": "scripts/capture_sender_build.py"
+        },
+        {
+          "node": "J",
+          "path": "scripts/capture_sender_build.py"
+        },
+        {
+          "node": "P",
+          "path": "scripts/capture_sender_build.py"
+        },
+        {
+          "node": "E",
+          "path": "scripts/linux_arm64/gcc.py"
+        },
+        {
+          "node": "G",
+          "path": "scripts/linux_arm64/gcc.py"
+        },
+        {
+          "node": "H",
+          "path": "scripts/linux_arm64/gcc.py"
+        },
+        {
+          "node": "P",
+          "path": "scripts/linux_arm64/gcc.py"
+        },
+        {
+          "node": "E",
+          "path": "scripts/linux_arm64/startup/entry.c"
+        },
+        {
+          "node": "G",
+          "path": "scripts/linux_arm64/startup/entry.c"
+        },
+        {
+          "node": "E",
+          "path": "scripts/linux_arm64/startup/crt_arch.h"
+        },
+        {
+          "node": "G",
+          "path": "scripts/linux_arm64/startup/crt_arch.h"
+        },
+        {
+          "node": "E",
+          "path": "scripts/linux_arm64/startup/LICENSE.musl"
+        },
+        {
+          "node": "G",
+          "path": "scripts/linux_arm64/startup/LICENSE.musl"
+        },
+        {
+          "node": "M",
+          "path": "scripts/sender_build_inputs.py"
+        },
+        {
+          "node": "Q",
+          "path": "scripts/sender_build_inputs.py"
+        },
+        {
+          "node": "N",
+          "path": "scripts/sender_build_inputs.py"
+        },
+        {
+          "node": "P",
+          "path": "scripts/sender_build_inputs.py"
+        },
+        {
+          "node": "N",
+          "path": "scripts/create_sender_build_record.py"
+        },
+        {
+          "node": "P",
+          "path": "scripts/create_sender_build_record.py"
+        },
+        {
+          "node": "K",
+          "path": "scripts/windows/collect_notices.py"
+        },
+        {
+          "node": "P",
+          "path": "scripts/windows/collect_notices.py"
+        },
+        {
+          "node": "L",
+          "path": "scripts/windows/package_sender.py"
+        },
+        {
+          "node": "P",
+          "path": "scripts/windows/package_sender.py"
+        },
+        {
+          "node": "R",
+          "path": "scripts/windows/inventory_sender_dist.py"
+        },
+        {
+          "node": "C",
+          "path": "scripts/requirements-sender-build.txt"
+        },
+        {
+          "node": "J",
+          "path": "scripts/windows/requirements-build.txt"
+        },
+        {
+          "node": "J",
+          "path": "scripts/windows/requirements-build-backend.txt"
+        },
+        {
+          "node": "J",
+          "path": "pyproject.toml"
+        },
+        {
+          "node": "J",
+          "path": "uv.lock"
+        },
+        {
+          "node": "I",
+          "path": "Dockerfile"
+        },
+        {
+          "node": "I",
+          "path": "docker-compose.linux.yml"
+        },
+        {
+          "node": "I",
+          "path": "docker-compose.pve.yml"
+        },
+        {
+          "node": "I",
+          "path": "docs/configuration/pve.env.example"
+        },
+        {
+          "node": "I",
+          "path": "release-public/LICENSE-NOTICE.md"
+        },
+        {
+          "node": "L",
+          "path": "release-public/LICENSE-NOTICE.md"
+        },
+        {
+          "node": "L",
+          "path": "scripts/windows/install_windows_sender_task.ps1"
+        },
+        {
+          "node": "O",
+          "path": "scripts/windows/install_windows_sender_task.ps1"
+        },
+        {
+          "node": "L",
+          "path": "scripts/windows/start_windows_sender.ps1"
+        },
+        {
+          "node": "N",
+          "path": "scripts/windows/validate_sender_package.ps1"
+        },
+        {
+          "node": "O",
+          "path": "scripts/windows/validate_sender_package.ps1"
+        },
+        {
+          "node": "N",
+          "path": "scripts/windows/activate_sender_package.ps1"
+        },
+        {
+          "node": "O",
+          "path": "scripts/windows/activate_sender_package.ps1"
+        },
+        {
+          "node": "I",
+          "path": "release-notices/linux-x64-cpython-3.11.15-pbs-20260728/runtime-bundle.txt"
+        },
+        {
+          "node": "I",
+          "path": "release-notices/linux-arm64-cpython-3.11.15-pbs-20260728/runtime-bundle.txt"
+        },
+        {
+          "node": "I",
+          "path": "tests/fixtures/release-notices/paho-mqtt.txt"
+        },
+        {
+          "node": "I",
+          "path": "tests/fixtures/release-notices/psutil.txt"
+        },
+        {
+          "node": "I",
+          "path": "tests/fixtures/release-notices/python-dotenv.txt"
+        },
+        {
+          "node": "K",
+          "path": "release-notices/windows-x64-cpython-3.13.17/runtime-bundle.txt"
+        },
+        {
+          "node": "K",
+          "path": "release-notices/windows-x64-cpython-3.13.17/openssl-3.5.9-LICENSE.txt"
+        },
+        {
+          "node": "K",
+          "path": "release-notices/windows-x64-cpython-3.13.17/xz-5.2.5-COPYING"
+        },
+        {
+          "node": "K",
+          "path": "release-notices/windows-x64-cpython-3.13.17/cpython-3.13.17-expat-COPYING"
+        },
+        {
+          "node": "C",
+          "path": "tests/test_build_sender_package.py"
+        },
+        {
+          "node": "D",
+          "path": "tests/test_build_sender_package.py"
+        },
+        {
+          "node": "I",
+          "path": "tests/test_build_sender_package.py"
+        },
+        {
+          "node": "F",
+          "path": "tests/test_sender_capture.py"
+        },
+        {
+          "node": "H",
+          "path": "tests/test_sender_capture.py"
+        },
+        {
+          "node": "J",
+          "path": "tests/test_sender_capture.py"
+        },
+        {
+          "node": "E",
+          "path": "tests/test_arm_startup.py"
+        },
+        {
+          "node": "G",
+          "path": "tests/test_arm_startup.py"
+        },
+        {
+          "node": "H",
+          "path": "tests/test_arm_startup.py"
+        },
+        {
+          "node": "M",
+          "path": "tests/test_sender_input_receipts.py"
+        },
+        {
+          "node": "Q",
+          "path": "tests/test_sender_input_receipts.py"
+        },
+        {
+          "node": "N",
+          "path": "tests/test_sender_build_record.py"
+        },
+        {
+          "node": "K",
+          "path": "tests/test_windows_notices.py"
+        },
+        {
+          "node": "L",
+          "path": "tests/test_windows_package_build.py"
+        },
+        {
+          "node": "J",
+          "path": "tests/test_windows_dist_inventory.py"
+        },
+        {
+          "node": "A",
+          "path": "tests/test_release_workflow.py"
+        },
+        {
+          "node": "O",
+          "path": "tests/test_release_workflow.py"
+        },
+        {
+          "node": "O",
+          "path": "tests/test_compiled_bootstrap_integration.py"
+        },
+        {
+          "node": "O",
+          "path": "tests/windows_compiled_mqtt_smoke.ps1"
+        },
+        {
+          "node": "O",
+          "path": "tests/windows_official_install_smoke.ps1"
+        },
+        {
+          "node": "F",
+          "path": "tests/fixtures/nuitka-2.7.16/Backend.scons"
+        },
+        {
+          "node": "F",
+          "path": "tests/fixtures/nuitka-2.7.16/Onefile.scons"
+        },
+        {
+          "node": "F",
+          "path": "tests/fixtures/nuitka-2.7.16/README.md"
+        },
+        {
+          "node": "F",
+          "path": "tests/fixtures/nuitka-2.7.16/SconsCompilerSettings.py"
+        },
+        {
+          "node": "F",
+          "path": "tests/fixtures/nuitka-2.7.16/SconsHacks.py"
+        },
+        {
+          "node": "F",
+          "path": "tests/fixtures/nuitka-2.7.16/SconsUtils.py"
+        },
+        {
+          "node": "O",
+          "path": "scripts/release-tests/Dockerfile.installer-double"
+        },
+        {
+          "node": "O",
+          "path": "scripts/release-tests/Dockerfile.pve"
+        },
+        {
+          "node": "O",
+          "path": "scripts/release-tests/docker_acceptance.py"
+        },
+        {
+          "node": "O",
+          "path": "scripts/release-tests/docker_acceptance_inner.sh"
+        },
+        {
+          "node": "O",
+          "path": "scripts/release-tests/pve_acceptance.py"
+        },
+        {
+          "node": "O",
+          "path": "scripts/release-tests/pve_guest.sh"
+        },
+        {
+          "node": "O",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "A",
+          "path": ".gitattributes"
+        },
+        {
+          "node": "N",
+          "path": "scripts/inspect_sender_candidate.py"
+        },
+        {
+          "node": "O",
+          "path": "scripts/release-tests/release_endpoint.py"
+        },
+        {
+          "node": "O",
+          "path": "scripts/release-tests/pve_provision.sh"
+        },
+        {
+          "node": "O",
+          "path": "tests/windows_mqtt_observer.py"
+        }
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "sender.release-orchestration",
+      "flow": "docs/flows/sender.release-orchestration.mmd",
+      "mappings": [
+        {
+          "node": "A",
+          "path": ".github/workflows/sender-release.yml"
+        },
+        {
+          "node": "B",
+          "path": ".github/workflows/sender-release.yml"
+        },
+        {
+          "node": "C",
+          "path": ".github/workflows/sender-release.yml"
+        },
+        {
+          "node": "M",
+          "path": ".github/workflows/sender-release.yml"
+        },
+        {
+          "node": "P",
+          "path": ".github/workflows/sender-release.yml"
+        },
+        {
+          "node": "A",
+          "path": "scripts/release_version.py"
+        },
+        {
+          "node": "D",
+          "path": "scripts/release_controller.py"
+        },
+        {
+          "node": "E",
+          "path": "scripts/release_controller.py"
+        },
+        {
+          "node": "F",
+          "path": "scripts/release_controller.py"
+        },
+        {
+          "node": "P",
+          "path": "scripts/release_controller.py"
+        },
+        {
+          "node": "D",
+          "path": "scripts/check_release_assets.py"
+        },
+        {
+          "node": "G",
+          "path": "scripts/release_backend.py"
+        },
+        {
+          "node": "H",
+          "path": "scripts/release_backend.py"
+        },
+        {
+          "node": "I",
+          "path": "scripts/release_backend.py"
+        },
+        {
+          "node": "J",
+          "path": "scripts/release_backend.py"
+        },
+        {
+          "node": "K",
+          "path": "scripts/release_backend.py"
+        },
+        {
+          "node": "L",
+          "path": "scripts/release_backend.py"
+        },
+        {
+          "node": "M",
+          "path": "scripts/release_backend.py"
+        },
+        {
+          "node": "N",
+          "path": "scripts/release_backend.py"
+        },
+        {
+          "node": "Q",
+          "path": "scripts/stage_release_draft.py"
+        },
+        {
+          "node": "A",
+          "path": "tests/test_release_version.py"
+        },
+        {
+          "node": "D",
+          "path": "tests/test_release_assets.py"
+        },
+        {
+          "node": "Q",
+          "path": "tests/test_release_draft.py"
+        },
+        {
+          "node": "K",
+          "path": "tests/test_release_backend.py"
+        },
+        {
+          "node": "B",
+          "path": "tests/test_release_workflow.py"
+        },
+        {
+          "node": "E",
+          "path": "tests/test_release_controller.py"
+        },
+        {
+          "node": "O",
+          "path": "scripts/release_controller.py"
+        },
+        {
+          "node": "B",
+          "path": "scripts/native_install_smoke.py"
+        },
+        {
+          "node": "B",
+          "path": "tests/test_native_install_smoke.py"
+        }
+      ],
+      "depends_on": [
+        "sender.build",
+        "sender.release-inspection"
+      ]
+    },
+    {
+      "id": "sender.compiled-lifecycle",
+      "flow": "docs/flows/sender.compiled-lifecycle.mmd",
+      "mappings": [
+        {
+          "node": "A",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "A",
+          "path": "bootstrap.ps1"
+        },
+        {
+          "node": "A",
+          "path": "hwmonitor_mqtt/platforms/sender_archive.py"
+        },
+        {
+          "node": "A",
+          "path": "scripts/windows/validate_sender_package.ps1"
+        },
+        {
+          "node": "A",
+          "path": "scripts/build_sender_package.py"
+        },
+        {
+          "node": "B",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "B",
+          "path": "bootstrap.ps1"
+        },
+        {
+          "node": "C",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "D",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "E",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "E",
+          "path": "hwmonitor_mqtt/platforms/pve_bootstrap.py"
+        },
+        {
+          "node": "E",
+          "path": "hwmonitor_mqtt/platforms/pve_token.py"
+        },
+        {
+          "node": "E",
+          "path": "hwmonitor_mqtt/clients/pve.py"
+        },
+        {
+          "node": "E",
+          "path": "docs/configuration/pve.env.example"
+        },
+        {
+          "node": "F",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "F",
+          "path": "hwmonitor_mqtt/platforms/installers/linux.py"
+        },
+        {
+          "node": "G",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "H",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "I",
+          "path": "hwmonitor_mqtt/platforms/install.py"
+        },
+        {
+          "node": "I",
+          "path": "hwmonitor_mqtt/platforms/detect.py"
+        },
+        {
+          "node": "I",
+          "path": "hwmonitor_mqtt/platforms/dispatch.py"
+        },
+        {
+          "node": "J",
+          "path": "hwmonitor_mqtt/platforms/install.py"
+        },
+        {
+          "node": "K",
+          "path": "hwmonitor_mqtt/platforms/installers/linux.py"
+        },
+        {
+          "node": "K",
+          "path": "hwmonitor_mqtt/platforms/installers/pve_docker.py"
+        },
+        {
+          "node": "K",
+          "path": "docker-compose.linux.yml"
+        },
+        {
+          "node": "K",
+          "path": "docker-compose.pve.yml"
+        },
+        {
+          "node": "K",
+          "path": "Dockerfile"
+        },
+        {
+          "node": "L",
+          "path": "hwmonitor_mqtt/platforms/installers/pve.py"
+        },
+        {
+          "node": "M",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "N",
+          "path": "hwmonitor_mqtt/platforms/installers/pve.py"
+        },
+        {
+          "node": "O",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "O",
+          "path": "hwmonitor_mqtt/platforms/installers/pve.py"
+        },
+        {
+          "node": "P",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "P",
+          "path": "hwmonitor_mqtt/platforms/installers/pve.py"
+        },
+        {
+          "node": "Q",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "Q",
+          "path": "hwmonitor_mqtt/platforms/installers/pve.py"
+        },
+        {
+          "node": "Q",
+          "path": "scripts/windows/activate_sender_package.ps1"
+        },
+        {
+          "node": "R",
+          "path": "bootstrap.ps1"
+        },
+        {
+          "node": "R",
+          "path": "scripts/windows/activate_sender_package.ps1"
+        },
+        {
+          "node": "S",
+          "path": "bootstrap.ps1"
+        },
+        {
+          "node": "T",
+          "path": "scripts/windows/activate_sender_package.ps1"
+        },
+        {
+          "node": "U",
+          "path": "scripts/windows/activate_sender_package.ps1"
+        },
+        {
+          "node": "U",
+          "path": "scripts/windows/install_windows_sender_task.ps1"
+        },
+        {
+          "node": "U",
+          "path": "scripts/windows/start_windows_sender.ps1"
+        },
+        {
+          "node": "V",
+          "path": "scripts/windows/activate_sender_package.ps1"
+        },
+        {
+          "node": "W",
+          "path": "scripts/windows/activate_sender_package.ps1"
+        },
+        {
+          "node": "X",
+          "path": "bootstrap.sh"
+        },
+        {
+          "node": "X",
+          "path": "hwmonitor_mqtt/platforms/pve_bootstrap.py"
+        },
+        {
+          "node": "X",
+          "path": "hwmonitor_mqtt/platforms/pve_token.py"
+        },
+        {
+          "node": "X",
+          "path": "scripts/windows/install_windows_sender_task.ps1"
+        },
+        {
+          "node": "Y",
+          "path": "scripts/build_sender_package.py"
+        },
+        {
+          "node": "Y",
+          "path": "scripts/windows/start_windows_sender.ps1"
+        },
+        {
+          "node": "Y",
+          "path": "hwmonitor_mqtt/platforms/installers/pve.py"
+        },
+        {
+          "node": "Y",
+          "path": "docker-compose.linux.yml"
+        },
+        {
+          "node": "C",
+          "path": "tests/test_compiled_bootstrap.py"
+        },
+        {
+          "node": "P",
+          "path": "tests/test_compiled_bootstrap_integration.py"
+        },
+        {
+          "node": "I",
+          "path": "tests/test_platform_detection.py"
+        },
+        {
+          "node": "L",
+          "path": "tests/test_pve_sender.py"
+        },
+        {
+          "node": "E",
+          "path": "tests/test_pve_bootstrap_setup.py"
+        },
+        {
+          "node": "E",
+          "path": "tests/test_pve_token.py"
+        },
+        {
+          "node": "Y",
+          "path": "tests/test_windows_compiled_start.py"
+        },
+        {
+          "node": "W",
+          "path": "tests/test_windows_package_activation.py"
+        },
+        {
+          "node": "V",
+          "path": "tests/windows_official_install_smoke.ps1"
+        },
+        {
+          "node": "A",
+          "path": "tests/test_sender_archive.py"
+        },
+        {
+          "node": "V",
+          "path": "tests/_pwsh.py"
+        },
+        {
+          "node": "Y",
+          "path": "hwmonitor_mqtt/agents/agent_sender_windows.py"
+        },
+        {
+          "node": "Y",
+          "path": "scripts/windows/package_sender.py"
+        },
+        {
+          "node": "O",
+          "path": "tests/test_compiled_bootstrap.py"
+        }
+      ],
+      "depends_on": [
+        "sender.distribution",
+        "sender.build"
+      ]
     }
   ],
   "reviews": [
@@ -397,6 +2122,69 @@
       "reviewer": "orca_session_id:a282d825-5f46-4890-95b8-5474ef2bec54 / task_69bdca2201f0 / ctx_cec1cc6dd37f",
       "verdict": "pass",
       "evidence": "docs/flow-evidence/reviews/sender.smart-discovery/ee96fcf37fcb5e9fb725cc3228f74e921bc8f60a22f6557c1518ab079c445037.json"
+    },
+    {
+      "feature": "sender.license",
+      "fingerprint": "cce3006fffd8a43a7fb1053a760d77dcf4c6beb73c296e724d1557d51f92e203",
+      "reviewer": "orca_session_id:ce6f0ed4-68f9-449b-b194-0da29d582759 task_c3eb2aa7ee7d dispatch ctx_9e4b468508d9",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.license/cce3006fffd8a43a7fb1053a760d77dcf4c6beb73c296e724d1557d51f92e203.json"
+    },
+    {
+      "feature": "sender.smart-discovery",
+      "fingerprint": "dcefc1f8b13e6115db445143bfefff85d75a8d61dcf8b09c92a76447ac80fe71",
+      "reviewer": "orca_session_id:715b8899-a267-4016-9c69-159f0f2e620b task_725bbba08839 dispatch ctx_26306d603da6",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.smart-discovery/dcefc1f8b13e6115db445143bfefff85d75a8d61dcf8b09c92a76447ac80fe71.json"
+    },
+    {
+      "feature": "sender.distribution",
+      "fingerprint": "49b8eef97b73408596c025529657cf1077c885971b16af06d40304d4a98c8e81",
+      "reviewer": "user-designated root reviewer / orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.distribution/49b8eef97b73408596c025529657cf1077c885971b16af06d40304d4a98c8e81.json"
+    },
+    {
+      "feature": "sender.release-inspection",
+      "fingerprint": "a4a538609500e429fc63198a2215d2cc95a662aab1e118e0fc4c97c860c892b0",
+      "reviewer": "user-designated root reviewer / orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.release-inspection/a4a538609500e429fc63198a2215d2cc95a662aab1e118e0fc4c97c860c892b0.json"
+    },
+    {
+      "feature": "sender.build",
+      "fingerprint": "ca793d86a1d612620e77e04ad56796b048f378e225dcf0ac84159a6a95913109",
+      "reviewer": "user-designated root reviewer / orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.build/ca793d86a1d612620e77e04ad56796b048f378e225dcf0ac84159a6a95913109.json"
+    },
+    {
+      "feature": "sender.compiled-lifecycle",
+      "fingerprint": "d8e5e2f196108ef6b58a756490362fd7932350d67d3a12de6b18a61f51597248",
+      "reviewer": "user-designated root reviewer / orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.compiled-lifecycle/d8e5e2f196108ef6b58a756490362fd7932350d67d3a12de6b18a61f51597248.json"
+    },
+    {
+      "feature": "sender.distribution",
+      "fingerprint": "ddb8ff2a98323db7ba283ed7d4413e3daf137bf99a82834087bc3aab2409fffb",
+      "reviewer": "user-designated root reviewer / orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.distribution/ddb8ff2a98323db7ba283ed7d4413e3daf137bf99a82834087bc3aab2409fffb.json"
+    },
+    {
+      "feature": "sender.compiled-lifecycle",
+      "fingerprint": "1ea687871d8a93886111d6f7809767b12a296b2684d1ac71c07db096fd428f94",
+      "reviewer": "user-designated root reviewer / orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.compiled-lifecycle/1ea687871d8a93886111d6f7809767b12a296b2684d1ac71c07db096fd428f94.json"
+    },
+    {
+      "feature": "sender.release-orchestration",
+      "fingerprint": "ba1aa17bfc3c0906a736d7b90738f829bbff52c08003049f4e0cf865b9a2c184",
+      "reviewer": "user-designated root reviewer / orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.release-orchestration/ba1aa17bfc3c0906a736d7b90738f829bbff52c08003049f4e0cf865b9a2c184.json"
     }
   ],
   "policy_inputs": [

@@ -221,7 +221,28 @@ if [[ $target == linux && -n $old_image ]]; then
 fi
 for file in "${files[@]}"; do cp -p "$scratch/root-staged/$file" "$root/$file"; done
 docker_attempted=1
-"$root/sender" --install --project-root "$root" --pve-config "$pve_config"
+if [[ $target == pve ]]; then
+    command -v setsid >/dev/null || { echo 'Install the required tool: setsid' >&2; exit 1; }
+    mkfifo "$scratch/cancel"
+    exec 8<>"$scratch/cancel"
+    interrupted=0
+    notified=0
+    trap 'interrupted=1; if [[ $notified == 0 ]]; then printf I >&8; notified=1; fi' INT
+    HWMONITOR_CANCEL_FD=8 setsid "$root/sender" --install --project-root "$root" --pve-config "$pve_config" <&0 &
+    installer_pid=$!
+    status=0
+    while :; do
+        interrupted=0
+        if wait "$installer_pid"; then status=0; else status=$?; fi
+        [[ $interrupted == 0 ]] && break
+    done
+    trap '' INT
+    exec 8>&-
+    [[ $status == 0 ]] || exit "$status"
+    transaction=0
+else
+    "$root/sender" --install --project-root "$root" --pve-config "$pve_config"
+fi
 if [[ $target == linux ]]; then
     previous_state=
     for _ in 1 2 3; do
@@ -234,6 +255,7 @@ if [[ $target == linux ]]; then
 fi
 touch "$root/.hwmonitor-mqtt-bootstrap"
 transaction=0
+[[ $target != pve ]] || trap - INT
 if ! drop_pin; then echo "Could not remove rollback image reference: $old_pin" >&2; fi
 rm -rf "$backup"
 echo "Sender $version installed."

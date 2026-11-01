@@ -199,7 +199,9 @@ def install_compiled(project_root, config_file, systemctl, run):
             if status.returncode or not pid.isdigit() or int(pid) == 0 or previous_pid is not None and pid != previous_pid:
                 raise RuntimeError("compiled sender did not remain stable")
             previous_pid = pid
-    except (OSError, RuntimeError):
+        from hwmonitor_mqtt.platforms.install import commit_cancellation
+        commit_cancellation()
+    except (OSError, RuntimeError, KeyboardInterrupt) as failure:
         try:
             preliminary = []
             if not existed and started:
@@ -226,11 +228,16 @@ def install_compiled(project_root, config_file, systemctl, run):
             results = preliminary + [run(args, check=False).returncode for args in rollback]
             if any(results):
                 raise RuntimeError("service recovery failed")
-        except (OSError, RuntimeError) as error:
+        except (OSError, RuntimeError, KeyboardInterrupt) as error:
             raise RuntimeError(f"sender startup and rollback failed; backup retained at {backup}") from error
         shutil.rmtree(backup)
+        if isinstance(failure, KeyboardInterrupt):
+            raise
         return 1
-    shutil.rmtree(backup)
+    try:
+        shutil.rmtree(backup)
+    except OSError as error:
+        print(f"sender installed; backup cleanup failed at {backup}: {error}", file=sys.stderr)
     return 0
 
 

@@ -23,7 +23,7 @@ PVE 本機的節點名稱與 CA 由 PVE 安裝模組準備。模組將本機 `/e
 
 ### 安裝檔會做什麼
 
-下載命令執行 `bootstrap.sh`，由它辨識系統並呼叫對應平台模組。一般 Linux 缺少 Docker 時，若系統套件來源提供 Docker Engine 與 Compose v2，安裝器會使用 APT 安裝；否則先自行安裝這兩項。它會下載或更新 `/opt/hwmonitor-mqtt` 內的程式，保留 MQTT `.env`、PVE 私有設定與 Docker 自訂覆寫檔。一般 Linux 使用 Docker Compose sender；PVE 使用原生 systemd sender。Windows 的 PowerShell 入口會準備 Python/uv、LibreHardwareMonitor 與開機排程。
+下載命令執行 `bootstrap.sh`，由它辨識系統並呼叫對應平台模組。一般 Linux 缺少 Docker 時，若系統套件來源提供 Docker Engine 與 Compose v2，安裝器會使用 APT 安裝；否則先自行安裝這兩項。它會下載或更新 `/opt/hwmonitor-mqtt` 內的程式，保留 MQTT `.env`、PVE 私有設定與 Docker 自訂覆寫檔。一般 Linux 使用 Docker Compose sender；PVE 使用原生 systemd sender。Windows 編譯版入口會驗證並安裝套件、準備 LibreHardwareMonitor 與開機排程；從原始碼執行 Windows task installer 時才需 Python/uv。
 
 PVE 分支依序執行下列操作：
 
@@ -81,7 +81,7 @@ docker rename sys-agent-before-native sys-agent && docker start sys-agent
 
 ## Windows Sender 安裝與注意事項
 
-在「系統管理員」PowerShell 執行以下命令。首次執行會隱藏 MQTT 密碼輸入，並建立僅 Administrators 與 SYSTEM 可讀的 `.env`；既有設定會保留。安裝器會準備 Python/uv、LibreHardwareMonitor 與 PawnIO 驅動，註冊開機排程並立即啟動 sender。
+Windows 編譯版尚未公開，公開發布完成前請勿使用下列入口。發布後在「系統管理員」PowerShell 執行；首次執行會隱藏 MQTT 密碼輸入，並建立僅 Administrators 與 SYSTEM 可讀的 `.env`，既有設定會保留。安裝器驗證編譯套件，準備 LibreHardwareMonitor 與 PawnIO，註冊開機排程並立即啟動 sender；從原始碼執行 task installer 的路徑才需 Python/uv。
 
 ```powershell
 irm https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/refs/heads/master/bootstrap.ps1 -ErrorAction Stop | iex

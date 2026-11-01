@@ -1,43 +1,32 @@
 flowchart TD
-    A["Parse platform and candidate arguments"]
-    B{"Arguments accepted"}
-    C{"Candidate is a real directory"}
-    R{"External approval is outside candidate, platform matches and fields are well formed"}
-    D["Select fixed platform paths and notice hashes"]
-    E{"Another entry"}
-    F{"Link or unapproved entry"}
-    G{"Entry is the allowed licenses directory"}
-    H["Read approved regular file"]
-    I{"Empty, archive, secret or wrong executable prefix"}
-    J{"Executable approval or notice hash mismatches"}
-    K["Record approved file"]
-    L{"All required paths found"}
-    M["Report layout accepted, not release approval"]
-    N["Reject candidate or report file error"]
-    O["Exit with argument error"]
-    P["Tests exercise sample layouts and rejection cases"]
-    Q["Candidate guide records artifact and licensing gates"]
+    A["Parse platform, candidate, independent record and options"]
+    B{"Archive mode"}
+    C["Check sample directory, independent approval, fixed paths and notice hashes"]
+    D["Validate independent record and archive digest"]
+    E["Check exact archive entries, bounds, selected secrets and source files"]
+    F["Bind manifest, executable, architecture, compiler, runtime and pinned notices"]
+    G{"Required evidence supplied"}
+    H["Check report and inventory against record and compiled module rules"]
+    I["Check captured runtime paths, hashes, architecture and selected secrets"]
+    J{"Windows platform"}
+    K["Check package, validator and activator assets and checksums"]
+    L["Check Linux archive checksum and image digest, configuration and layers"]
+    M["Validate selected inputs and exact expected notice descriptor"]
+    N["Report boundary accepted; artifact and license review required"]
+    O["Any validation or file error in C, D, E, F, H, I, K, L or M rejects candidate"]
     A --> B
-    B -->|no| O
-    B -->|yes| C
-    C -->|no| N
-    C -->|yes| R
-    R -->|no| N
-    R -->|yes| D
-    D --> E
-    E -->|error| N
-    E -->|yes| F
-    F -->|yes| N
-    F -->|no| G
-    G -->|yes| E
-    G -->|no| H
-    H -->|error| N
-    H -->|read| I
-    I -->|yes| N
-    I -->|no| J
-    J -->|yes| N
-    J -->|no| K
-    K --> E
-    E -->|no| L
-    L -->|no| N
-    L -->|yes| M
+    B -->|no| C
+    C -->|accepted| N
+    B -->|yes| D
+    D -->|accepted| E
+    E -->|accepted| F
+    F -->|accepted| G
+    G -->|no| O
+    G -->|yes| H
+    H -->|accepted| I
+    I -->|accepted| J
+    J -->|yes| K
+    J -->|no| L
+    K -->|accepted| M
+    L -->|accepted| M
+    M -->|accepted| N
