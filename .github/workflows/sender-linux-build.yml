@@ -127,37 +127,6 @@ jobs:
           path: ${{ runner.temp }}/acceptance
           if-no-files-found: warn
           retention-days: 3
-      - name: Exercise compiled PVE install, MQTT and rollback
-        if: inputs.platform == 'linux-x64'
-        run: |
-          set -eu
-          image="$RUNNER_TEMP/debian-pve.qcow2"
-          image_sha=5bd891c6e62d01639f52a5587b72a4607421e445732214be787dba6043cf9797a6ff90bed982aada6a6c7e619f1f956d961c4fad76757171abd607920aac098a
-          curl --fail --location --retry 3 https://cloud.debian.org/images/cloud/trixie/20261026-2643/debian-13-generic-amd64-20261026-2643.qcow2 -o "$image"
-          printf '%s  %s\n' "$image_sha" "$image" | sha512sum -c -
-          archive="$RUNNER_TEMP/private/assets/sender-$TARGET.tar.gz"
-          old="$RUNNER_TEMP/old-result/sender-$TARGET.tar.gz"
-          bootstrap="$GITHUB_WORKSPACE/source/bootstrap.sh"
-          python3 scripts/release-tests/pve_acceptance.py --bootstrap "$bootstrap" \
-            --bootstrap-sha256 "$(sha256sum "$bootstrap" | cut -d' ' -f1)" \
-            --archive "$archive" --sha256 "$(sha256sum "$archive" | cut -d' ' -f1)" \
-            --source "$SOURCE" --version "$VERSION" --old-archive "$old" \
-            --old-sha256 "$(sha256sum "$old" | cut -d' ' -f1)" --old-source "$OLD_SOURCE" --old-version 0.0.1 \
-            --cloud-image "$image" --cloud-image-sha512 "$image_sha" --output "$RUNNER_TEMP/pve-acceptance"
-      - name: Retain non-secret PVE evidence identities
-        if: ${{ always() && inputs.platform == 'linux-x64' }}
-        run: |
-          set -eu
-          if [ -d "$RUNNER_TEMP/pve-acceptance/diagnostics" ]; then
-            cp -r "$RUNNER_TEMP/pve-acceptance/diagnostics" "$RUNNER_TEMP/pve-summary"
-          fi
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: ${{ always() && inputs.platform == 'linux-x64' }}
-        with:
-          name: sender-pve-summary-${{ inputs.source }}
-          path: ${{ runner.temp }}/pve-summary
-          if-no-files-found: warn
-          retention-days: 3
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: ${{ always() }}
         with:

@@ -172,17 +172,17 @@
     {
       "path": "scripts/inspect_sender_candidate.py",
       "kind": "file",
-      "md5": "e33b59f2640178b89e505b8d6db40e10"
+      "md5": "4eec841fefab39c51a219a86ca9a1150"
     },
     {
       "path": "tests/test_release_candidate.py",
       "kind": "file",
-      "md5": "88b1b3c79e6dabb0d86843ad38429754"
+      "md5": "bf6cf60be83bb840addcaeebf1413078"
     },
     {
       "path": "docs/release/sender-candidate.md",
       "kind": "file",
-      "md5": "854019080b9e236d8389d20a14688b01"
+      "md5": "d9a4292ca7ddcdd0d4aa4941a85af2cc"
     },
     {
       "path": "hwmonitor_mqtt/collectors/smart.py",
@@ -227,7 +227,7 @@
     {
       "path": ".github/workflows/sender-linux-build.yml",
       "kind": "file",
-      "md5": "f0f173d87c813248619845710a0f3f91"
+      "md5": "513f923ca841094bcd168b20fb1367df"
     },
     {
       "path": ".github/workflows/protected-windows-package.yml",
@@ -322,7 +322,7 @@
     {
       "path": "scripts/release_backend.py",
       "kind": "file",
-      "md5": "1b265ecaea066cb69ee5b27f3917497e"
+      "md5": "15cfdb0498e25c82d821aa249c05013e"
     },
     {
       "path": "scripts/stage_release_draft.py",
@@ -442,7 +442,7 @@
     {
       "path": "tests/test_release_workflow.py",
       "kind": "file",
-      "md5": "9ddce2043405caa4c0fc886765e26cbe"
+      "md5": "82f36e159a756cfe34e1f1acf17a77d7"
     },
     {
       "path": "tests/test_compiled_bootstrap_integration.py",
@@ -627,7 +627,7 @@
     {
       "path": "tests/test_release_backend.py",
       "kind": "file",
-      "md5": "c937257168512145fc232b207294fc30"
+      "md5": "92c51854b0a1a0498f9e551d2e07fe31"
     },
     {
       "path": "tests/test_release_controller.py",
@@ -1631,7 +1631,7 @@
           "path": "scripts/release-tests/Dockerfile.installer-double"
         },
         {
-          "node": "O",
+          "node": "S",
           "path": "scripts/release-tests/Dockerfile.pve"
         },
         {
@@ -1643,11 +1643,11 @@
           "path": "scripts/release-tests/docker_acceptance_inner.sh"
         },
         {
-          "node": "O",
+          "node": "S",
           "path": "scripts/release-tests/pve_acceptance.py"
         },
         {
-          "node": "O",
+          "node": "S",
           "path": "scripts/release-tests/pve_guest.sh"
         },
         {
@@ -1667,7 +1667,7 @@
           "path": "scripts/release-tests/release_endpoint.py"
         },
         {
-          "node": "O",
+          "node": "S",
           "path": "scripts/release-tests/pve_provision.sh"
         },
         {
@@ -1675,7 +1675,7 @@
           "path": "tests/windows_mqtt_observer.py"
         },
         {
-          "node": "O",
+          "node": "S",
           "path": "tests/test_pve_acceptance.py"
         }
       ],
@@ -2237,6 +2237,55 @@
       "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent unchanged-input delta review",
       "verdict": "pass",
       "evidence": "docs/flow-evidence/reviews/sender.smart-discovery/49f0e315b606e8e27e810c78564e1050b1a8fd9e85924b98e2038ea999b75d66.json"
+    },
+    {
+      "feature": "sender.distribution",
+      "fingerprint": "4eee998fa0164ea415fbac42d3e2dcb6f14e5538a0502d7a94895287a6d78ddf",
+      "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.distribution/4eee998fa0164ea415fbac42d3e2dcb6f14e5538a0502d7a94895287a6d78ddf.json"
+    },
+    {
+      "feature": "sender.license",
+      "fingerprint": "d5e7968cf2ed4c8a786197fd3a9aad20b7c2ccb6d80b9ea5b316d2e081045ece",
+      "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.license/d5e7968cf2ed4c8a786197fd3a9aad20b7c2ccb6d80b9ea5b316d2e081045ece.json"
+    },
+    {
+      "feature": "sender.release-inspection",
+      "fingerprint": "97540b9da150a5a2f11317b489ef00096113f376d87729726413eb620eaea7e2",
+      "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.release-inspection/97540b9da150a5a2f11317b489ef00096113f376d87729726413eb620eaea7e2.json"
+    },
+    {
+      "feature": "sender.smart-discovery",
+      "fingerprint": "6209da7eafbfe951328048a64b6870dca2f55f37fd995972076780656fc26e1c",
+      "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.smart-discovery/6209da7eafbfe951328048a64b6870dca2f55f37fd995972076780656fc26e1c.json"
+    },
+    {
+      "feature": "sender.build",
+      "fingerprint": "87f30cb71c3084f62aa69809cbf86a92d00fc1b1e8973c0d32db915663831dc7",
+      "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.build/87f30cb71c3084f62aa69809cbf86a92d00fc1b1e8973c0d32db915663831dc7.json"
+    },
+    {
+      "feature": "sender.release-orchestration",
+      "fingerprint": "bb9f17944328e124689712f93bb2c3ad07b981443e6cea14183cad2ec0232eaa",
+      "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.release-orchestration/bb9f17944328e124689712f93bb2c3ad07b981443e6cea14183cad2ec0232eaa.json"
+    },
+    {
+      "feature": "sender.compiled-lifecycle",
+      "fingerprint": "f4a21a43d921edae37983e57511fea3ebe26625818a976bd39b652e175c8df15",
+      "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent author-delta review",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.compiled-lifecycle/f4a21a43d921edae37983e57511fea3ebe26625818a976bd39b652e175c8df15.json"
     }
   ],
   "policy_inputs": [

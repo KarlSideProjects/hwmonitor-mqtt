@@ -661,6 +661,7 @@ def inspect_image_layers(image, expected, expected_sender, platform='linux-x64')
 # Runtime notice/source arrangements must be established in trusted code before release.
 APPROVED_NOTICE_SETS = frozenset({'c0db37d734108364af59cf858a30ba4bcff9fac817209ed970b6b3461d48f6ac',
                                   'd681000a49ee24ac7a054b53a0a0bf22e15f62aed4530b49c19f64d3051656be',
+                                  'e92cbc18084e62080ed02c4627c1e619e43ebeba4590855108e03f4cca6f66d7',
                                   'edadf7c760e09de96e71748617f8799803c5bc2d83075a57a2660438330f9eca'})
 
 

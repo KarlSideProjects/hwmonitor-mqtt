@@ -11,7 +11,7 @@ flowchart TD
     J{"Windows platform"}
     K["Check package, validator and activator assets and checksums"]
     L["Check Linux archive checksum and image digest, configuration and layers"]
-    M["Validate selected inputs and exact expected notice descriptor"]
+    M["Validate selected inputs and exact approved notice descriptor; Linux x64 accepts fixture and canonical runtime filenames only with their approved fingerprints"]
     N["Report boundary accepted; artifact and license review required"]
     O["Any validation or file error in C, D, E, F, H, I, K, L or M rejects candidate"]
     A --> B
