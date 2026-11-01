@@ -2163,52 +2163,52 @@
   "reviews": [
     {
       "feature": "sender.distribution",
-      "fingerprint": "8c2a6775d1de0ebd76764d98141debd4f386ac2850c1d4f8cd654311c1512da6",
+      "fingerprint": "9e37eddac7bd804a2ab52f3244ccceb4c43a3ed640a6ad04e26597d0f950e76e",
       "reviewer": "root independent author-delta review / 01a18d52-22b5-7320-93cf-129becdcc9fe",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.distribution/8c2a6775d1de0ebd76764d98141debd4f386ac2850c1d4f8cd654311c1512da6.json"
+      "evidence": "docs/flow-evidence/reviews/sender.distribution/9e37eddac7bd804a2ab52f3244ccceb4c43a3ed640a6ad04e26597d0f950e76e.json"
     },
     {
       "feature": "sender.license",
-      "fingerprint": "70370e1461deef7f86a4fa49b5c2448e9b89833aaff147d95a4e05e39373b328",
+      "fingerprint": "7cf38ac496bdc8d01607d331449fbed3986e6205c65f2ecf1f0e0afe0e5c650d",
       "reviewer": "root independent author-delta review / 01a18d52-22b5-7320-93cf-129becdcc9fe",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.license/70370e1461deef7f86a4fa49b5c2448e9b89833aaff147d95a4e05e39373b328.json"
+      "evidence": "docs/flow-evidence/reviews/sender.license/7cf38ac496bdc8d01607d331449fbed3986e6205c65f2ecf1f0e0afe0e5c650d.json"
     },
     {
       "feature": "sender.release-inspection",
-      "fingerprint": "caee959f500c516e92df8448f48af5fc2f74c54f32cfe293f0ec0e90aea6dfa0",
+      "fingerprint": "7a794165a32bb773c80de63c10c80f3737bf42076f5bb612108669373373b7d6",
       "reviewer": "root independent author-delta review / 01a18d52-22b5-7320-93cf-129becdcc9fe",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.release-inspection/caee959f500c516e92df8448f48af5fc2f74c54f32cfe293f0ec0e90aea6dfa0.json"
+      "evidence": "docs/flow-evidence/reviews/sender.release-inspection/7a794165a32bb773c80de63c10c80f3737bf42076f5bb612108669373373b7d6.json"
     },
     {
       "feature": "sender.smart-discovery",
-      "fingerprint": "c95a1b17aef710f20c978407c2ed990523945b999a17b97b099bcd4235ab4a0b",
+      "fingerprint": "c6dec1ff724f6272bceee74db746445c2cd22dc06aa9c551e2ee14b16213488b",
       "reviewer": "root independent author-delta review / 01a18d52-22b5-7320-93cf-129becdcc9fe",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.smart-discovery/c95a1b17aef710f20c978407c2ed990523945b999a17b97b099bcd4235ab4a0b.json"
+      "evidence": "docs/flow-evidence/reviews/sender.smart-discovery/c6dec1ff724f6272bceee74db746445c2cd22dc06aa9c551e2ee14b16213488b.json"
     },
     {
       "feature": "sender.build",
-      "fingerprint": "f9ba0fb3ce37ae437d2fc549df7a87d0f7ffdf7f79337aadc79d43211cbbef76",
+      "fingerprint": "555256d537eb5a751a6bdbcafceab4f04ab80375e699a0a8101eade40065d0a7",
       "reviewer": "root independent author-delta review / 01a18d52-22b5-7320-93cf-129becdcc9fe",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.build/f9ba0fb3ce37ae437d2fc549df7a87d0f7ffdf7f79337aadc79d43211cbbef76.json"
+      "evidence": "docs/flow-evidence/reviews/sender.build/555256d537eb5a751a6bdbcafceab4f04ab80375e699a0a8101eade40065d0a7.json"
     },
     {
       "feature": "sender.release-orchestration",
-      "fingerprint": "76455deb45f38baf03f9138572b0aabd09007413c34d5a3deb2f4313aa630927",
+      "fingerprint": "7add0abc596c26ce2cfe18d7d829f1328390762407c68a55ccf01d9df3981807",
       "reviewer": "root independent author-delta review / 01a18d52-22b5-7320-93cf-129becdcc9fe",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.release-orchestration/76455deb45f38baf03f9138572b0aabd09007413c34d5a3deb2f4313aa630927.json"
+      "evidence": "docs/flow-evidence/reviews/sender.release-orchestration/7add0abc596c26ce2cfe18d7d829f1328390762407c68a55ccf01d9df3981807.json"
     },
     {
       "feature": "sender.compiled-lifecycle",
-      "fingerprint": "6f1bd74f3b7dd2be11527f27c70177359fcaa962002b32a0866e8300c892be97",
+      "fingerprint": "176c2d2608e58c364a54392a5c168fd72718f69c9bcb14d1d663fd9942d6987c",
       "reviewer": "root independent author-delta review / 01a18d52-22b5-7320-93cf-129becdcc9fe",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.compiled-lifecycle/6f1bd74f3b7dd2be11527f27c70177359fcaa962002b32a0866e8300c892be97.json"
+      "evidence": "docs/flow-evidence/reviews/sender.compiled-lifecycle/176c2d2608e58c364a54392a5c168fd72718f69c9bcb14d1d663fd9942d6987c.json"
     }
   ],
   "policy_inputs": [

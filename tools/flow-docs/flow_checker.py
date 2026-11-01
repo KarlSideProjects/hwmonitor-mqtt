@@ -397,8 +397,11 @@ def pinned_base(tree):
     path = base_receipt_path(tree)
     require(path.is_file(), 'no pinned base; run pin-base with the fetched PR base SHA')
     info = path.stat()
-    require(stat.S_ISREG(info.st_mode) and info.st_uid == os.geteuid()
-            and not info.st_mode & 0o022 and info.st_size <= 4096, 'unsafe pinned base receipt')
+    require(stat.S_ISREG(info.st_mode) and info.st_size <= 4096, 'unsafe pinned base receipt')
+    uid = getattr(os, 'geteuid', None)
+    # Windows stat modes are not NTFS ACLs; Git-path, branch and ancestry checks still apply.
+    if uid is not None:
+        require(info.st_uid == uid() and not info.st_mode & 0o022, 'unsafe pinned base receipt')
     return validate_pinned_base(tree, json.loads(path.read_bytes()))
 
 

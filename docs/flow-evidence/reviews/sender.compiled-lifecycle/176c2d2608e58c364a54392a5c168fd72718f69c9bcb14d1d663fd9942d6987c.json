@@ -1,0 +1,16 @@
+{
+  "feature": "sender.compiled-lifecycle",
+  "fingerprint": "176c2d2608e58c364a54392a5c168fd72718f69c9bcb14d1d663fd9942d6987c",
+  "reviewer": "root independent author-delta review / 01a18d52-22b5-7320-93cf-129becdcc9fe",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "Root independently reviewed assigned author implementation deltas and semantic flow/contract changes against edde90f0514c7e5b242fd6c0b10c21138e43dbb5. Changed direct inputs: . Unchanged product behavior reuses the verified canonical baseline; global policy impact is not a claim of new runtime testing.",
+    "Cross-policy review: implementation author ctx_0873bb7ff10c independently checked Viewer workflow gating (4 cases), and operations author ctx_94b3f699acd9 independently checked the root pin-base/checker/hook policy and identified fixture/documentation corrections. Those corrections and API compatibility restoration were verified by real Git/linked-worktree, staged, first-push and existing-schema regression tests. No fresh reviewer dispatch or review-budget reset.",
+    "Verification: Viewer full50 checks passed in the existing pinned-paho environment; Sender final full540 passed17existing skips and focused64 passed; skills full20Node/95Python passed13optional-parser skips. Dynamic GitHub counter mismatch regression was RED then fixed by exact ID/receipt comparison; no PID fallback, credentials in compiler, Public or device writes were introduced.",
+    "Independent new pin-base case review ctx_fd43465cfc1f found Windows UID API defect F1; bounded corrective review ctx_8405ea818505 passed all13cases/4boundaries with no new findings. Exact shared checker preserves POSIX owner/mode guards, unconditional receipt/branch/history and independent CI base. 49focused tests pass3skips; fullskills20Node/97Python pass13skips. NativeWindows/NTFSACL and live automaticpublication remain unverified. Raw original failed and corrected passing reports retained privately, not rebound."
+  ],
+  "limitations": [
+    "Fresh compiled installer runtime and credentialed automatic publication remain separate acceptance; no physical LCD/button acceptance claimed."
+  ]
+}
