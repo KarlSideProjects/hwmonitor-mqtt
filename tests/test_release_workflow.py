@@ -165,7 +165,7 @@ def test_source_checks_have_one_pr_and_master_path_and_keep_native_windows():
     assert 'uses: ./.github/workflows/ci.yml' in workflow.split('  checks:', 1)[1].split('  linux-build:', 1)[0]
     assert 'native-install-smoke:' in ci and 'windows-sender:' in ci
     assert 'PWSH_EXE: powershell.exe' in ci and 'PWSH_EXE: pwsh' in ci
-    assert ci.count('ref: ${{ inputs.source || github.sha }}') == 3
+    assert ci.count('ref: ${{ inputs.source || github.sha }}') == 4
 
 
 def test_missing_publisher_credential_gates_builds_but_not_checks():
@@ -176,7 +176,7 @@ def test_missing_publisher_credential_gates_builds_but_not_checks():
     assert '--require-publish' in preflight
     for name in ('linux-build', 'windows-build'):
         job = workflow.split(f'  {name}:', 1)[1].split('\n\n', 1)[0]
-        assert 'needs: [version, preflight]' in job
+        assert 'needs: [version, checks, preflight]' in job
     checks = workflow.split('  checks:', 1)[1].split('  linux-build:', 1)[0]
     assert 'needs: version' in checks
     assert 'SENDER_RELEASE_TOKEN' not in checks
@@ -194,13 +194,16 @@ def test_manual_build_only_skips_publisher_environment_and_public_preparation():
         job = workflow.split(f'  {name}:', 1)[1].split('    uses:', 1)[0]
         expression = job.split('if: ${{ ', 1)[1].split(' }}', 1)[0]
         expression = expression.replace('!cancelled()', 'True').replace('&&', ' and ').replace('||', ' or ')
-        for key, value in {'needs.version.result': 'version', 'needs.preflight.result': 'preflight',
+        for key, value in {'needs.version.result': 'version', 'needs.preflight.result': 'preflight', 'needs.checks.result': 'checks',
                            'github.event_name': 'event', 'inputs.build_only': 'build_only'}.items():
             expression = expression.replace(key, value)
-        def allowed(event, build_only, preflight, version='success'):
+        def allowed(event, build_only, preflight, version='success', checks='success'):
             return eval(expression, {'__builtins__': {}}, dict(event=event, build_only=build_only,
-                                                             preflight=preflight, version=version))
+                                                             preflight=preflight, version=version, checks=checks))
         assert allowed('workflow_dispatch', True, 'skipped')
+        for result in ('failure', 'skipped', 'cancelled'):
+            assert not allowed('workflow_dispatch', True, 'skipped', checks=result)
+            assert not allowed('push', False, 'success', checks=result)
         assert allowed('push', False, 'success')
         assert not allowed('push', False, 'failure')
         assert not allowed('push', True, 'skipped')
@@ -218,3 +221,78 @@ def test_windows_build_has_manual_and_reusable_triggers_without_obsolete_branch_
     triggers = workflow.split('permissions:', 1)[0]
     assert '  push:' not in triggers
     assert '  workflow_dispatch:' in triggers and '  workflow_call:' in triggers
+
+
+def test_flow_gate_uses_exact_source_parent_and_stops_on_failure():
+    import os
+    import subprocess
+    import tempfile
+    import textwrap
+    root = Path(__file__).resolve().parents[1]
+    ci = (root / '.github/workflows/ci.yml').read_text()
+    block = ci.split('      - name: Validate selected source flows\n', 1)[1].split('      - ', 1)[0]
+    script = textwrap.dedent(block.split('        run: |\n', 1)[1].split('\n\n', 1)[0])
+    assert 'secrets.' not in ci and 'environment:' not in ci
+    assert 'continue-on-error:' not in ci
+    assert '${{' not in script
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = Path(tmp)
+        def git(*args):
+            return subprocess.check_output(['git', *args], cwd=repo, text=True).strip()
+        git('init', '-q')
+        git('config', 'user.email', 'gate@example.invalid')
+        git('config', 'user.name', 'Gate Test')
+        commits = []
+        for i in range(3):
+            (repo / 'input').write_text(str(i))
+            git('add', '.')
+            git('commit', '-qm', str(i))
+            commits.append(git('rev-parse', 'HEAD'))
+        git('checkout', '-q', commits[1])
+        bin_dir = repo / 'bin'
+        bin_dir.mkdir()
+        fake = bin_dir / 'python3'
+        fake.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$CALL_LOG"\nif [ "$2" = "$FAIL_COMMAND" ]; then exit 1; fi\nexit 0\n')
+        fake.chmod(0o755)
+        log = repo / 'calls'
+        env = dict(os.environ, PATH=str(bin_dir) + ':' + os.environ['PATH'], CALL_LOG=str(log),
+                   FAIL_COMMAND='', SOURCE=commits[1], FLOW_BASE=commits[2], FLOW_DEFAULT_BRANCH='main',
+                   GITHUB_EVENT_NAME='workflow_dispatch')
+        def run(**values):
+            log.unlink(missing_ok=True)
+            return subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', script], cwd=repo,
+                                  env=dict(env, **values), capture_output=True, text=True)
+        assert run().returncode == 0
+        assert '--base ' + commits[0] in log.read_text()
+        for event in ('pull_request', 'push'):
+            assert run(SOURCE='', GITHUB_EVENT_NAME=event, FLOW_BASE=commits[2]).returncode == 0
+            assert '--base ' + commits[2] in log.read_text()
+        for command in ('explain', 'check'):
+            assert run(FAIL_COMMAND=command).returncode != 0
+        for source in ('main', '$(touch injected)', commits[2]):
+            assert run(SOURCE=source).returncode != 0
+            assert not log.exists()
+        for base in ('', 'HEAD', '0' * 40, '$(touch injected)'):
+            assert run(SOURCE='', GITHUB_EVENT_NAME='push', FLOW_BASE=base).returncode != 0
+            assert not log.exists()
+        assert not (repo / 'injected').exists()
+
+
+def test_reusable_flow_failure_blocks_every_full_check_and_release_preparation():
+    root = Path(__file__).resolve().parents[1]
+    ci = (root / '.github/workflows/ci.yml').read_text()
+    workflow = (root / '.github/workflows/sender-release.yml').read_text()
+    for name in ('tests', 'native-install-smoke', 'windows-sender'):
+        block = ci.split('  ' + name + ':', 1)[1].split('    steps:', 1)[0]
+        assert 'needs: flow-docs' in block
+        assert 'always()' not in block and 'continue-on-error:' not in block
+    checks = workflow.split('  checks:', 1)[1].split('  linux-build:', 1)[0]
+    assert 'source: ${{ needs.version.outputs.source }}' in checks
+    assert 'secrets:' not in checks and 'preflight' not in checks
+    prepare = workflow.split('  prepare:', 1)[1].split('    runs-on:', 1)[0]
+    assert 'needs: [version, checks, linux-build, windows-build]' in prepare
+    assert 'always()' not in prepare
+    publisher = workflow.split('  publisher:', 1)[1]
+    assert 'needs: prepare' in publisher
+    # Source-bound publication requires prepare success; drains recover previously validated READY drafts.
+    assert "needs.prepare.result == 'success'" in publisher

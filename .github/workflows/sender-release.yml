@@ -67,8 +67,8 @@ jobs:
       source: ${{ needs.version.outputs.source }}
 
   linux-build:
-    needs: [version, preflight]
-    if: ${{ !cancelled() && needs.version.result == 'success' && (needs.preflight.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.build_only && needs.preflight.result == 'skipped')) }}
+    needs: [version, checks, preflight]
+    if: ${{ !cancelled() && needs.version.result == 'success' && needs.checks.result == 'success' && (needs.preflight.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.build_only && needs.preflight.result == 'skipped')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -80,8 +80,8 @@ jobs:
       platform: ${{ matrix.platform }}
 
   windows-build:
-    needs: [version, preflight]
-    if: ${{ !cancelled() && needs.version.result == 'success' && (needs.preflight.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.build_only && needs.preflight.result == 'skipped')) }}
+    needs: [version, checks, preflight]
+    if: ${{ !cancelled() && needs.version.result == 'success' && needs.checks.result == 'success' && (needs.preflight.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.build_only && needs.preflight.result == 'skipped')) }}
     uses: ./.github/workflows/protected-windows-package.yml
     with:
       source: ${{ needs.version.outputs.source }}
