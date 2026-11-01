@@ -14,7 +14,7 @@ flowchart TD
     L["Assemble Windows ZIP, manifest, scripts, notices and checksum"]
     M["Record selected package archives, runtime reference and observed toolchain"]
     N["Build image on Linux only; check source, archive manifest, provenance, runtime, receipt and platform evidence; record archive digest and write private record; full archive inspection is separate"]
-    O["Run platform acceptance and retain private artifacts for inspection"]
+    O["Run platform acceptance; always retain private build artifacts and allowlisted PVE diagnostics with sandbox credentials redacted"]
     P["Errors in C, E, F, G, H, I, J, K, Q, L, M, N or O stop the job; always-run diagnostics do not establish success"]
     R["Standalone Windows distribution inventory utility; workflow uses capture inventory"]
     A --> B

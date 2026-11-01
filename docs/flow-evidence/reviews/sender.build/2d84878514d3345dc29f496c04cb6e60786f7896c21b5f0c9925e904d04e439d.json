@@ -1,0 +1,13 @@
+{
+  "feature": "sender.build",
+  "fingerprint": "2d84878514d3345dc29f496c04cb6e60786f7896c21b5f0c9925e904d04e439d",
+  "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent PVE diagnostics delta review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "Reviewed exact seven-file worktree delta against actual remote master b4e17aac52bf7e9b8434f974a2c88c7d0c1caa1d; fingerprint independently reproduced. PVE helper emits line/status marker without command/credential expansion. Fixed sandbox credential patterns and private-key blocks are redacted from retained logs; tar retention admits only named regular guest evidence files, limits per-file size, drops other entries and writes mode0600 members. No SSH private key or raw configuration file enters retained diagnostics.",
+    "Root independently ran uv run --locked pytest -q tests/test_pve_acceptance.py tests/test_release_workflow.py:22pass. Author complete make check512pass17skip, prepared evidence replay24JSONmessages8datasets and SMART value42 preservation supplement this focused review. Source/PVE token/API product modules are unchanged; original CI PVE exit2 remains unknown and this review is not native/PVE success or permission to skip its gate.",
+    "Always-run artifact retention keeps private source-bound build/evidence available after acceptance failure; Linux acceptance job failure and downstream needs remain unchanged. No public artifact, release or latest promotion occurs from failure. Security review /tmp/hwmonitor-publish-20261101/root-workflow-security-review.md covers pinned actions, read-only token scope, trusted source, no injection sink and limited retained paths.",
+    "Baseline c40 vsda634 absent-CLI hypothesis was refuted by author byte-identical entrypoint/PVE-module comparison, not asserted as root cause. Final actual-base staged check is required before normal commit and integration."
+  ]
+}

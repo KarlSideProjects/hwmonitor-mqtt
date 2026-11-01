@@ -1,0 +1,12 @@
+{
+  "feature": "sender.smart-discovery",
+  "fingerprint": "49f0e315b606e8e27e810c78564e1050b1a8fd9e85924b98e2038ea999b75d66",
+  "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent unchanged-input delta review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "Root independently enumerated this feature mapped sources/policy inputs and common policy paths against actual b4e17aac52bf7e9b8434f974a2c88c7d0c1caa1d: no direct or global policy input changed. Read current feature flow and authoritative contracts; prior complete implementation evidence remains applicable to those byte-identical inputs. Current project checker nevertheless requires a new base-bound record; no fresh reviewer dispatch or budget reset.",
+    "Provider, smartctl scan, PVE fallback, normalization and unavailable/error behavior are unchanged. Redaction operates only on copied private acceptance evidence, never live MQTT/SMART payloads; regression preserves SMART value42 and replay retains24validJSONmessages.",
+    "Current sender.build diagnostic/retention delta was independently reviewed, including failure-blocking native job and downstream preparation gates. Root22focused tests and author512pass17skip verify the changed harness; source-only comparison refuted absent-old-flag hypothesis. Original canonical PVE exit2 remains unknown, and this source review gives no native, legal, deployment or publication approval."
+  ]
+}

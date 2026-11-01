@@ -1,0 +1,12 @@
+{
+  "feature": "sender.release-inspection",
+  "fingerprint": "0335a0b8b37bf502ffa879b25b84f92d3c759c68ef3082d1ca3bf6dcce3f555a",
+  "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent unchanged-input delta review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "Root independently enumerated this feature mapped sources/policy inputs and common policy paths against actual b4e17aac52bf7e9b8434f974a2c88c7d0c1caa1d: no direct or global policy input changed. Read current feature flow and authoritative contracts; prior complete implementation evidence remains applicable to those byte-identical inputs. Current project checker nevertheless requires a new base-bound record; no fresh reviewer dispatch or budget reset.",
+    "Archive allowlists, source/version/provenance/runtime bindings, selected-input receipt and notice-descriptor validation are unchanged. A retained artifact after failed acceptance remains an unapproved private candidate; inspection alone is not native acceptance and publisher workflow success dependencies still apply.",
+    "Current sender.build diagnostic/retention delta was independently reviewed, including failure-blocking native job and downstream preparation gates. Root22focused tests and author512pass17skip verify the changed harness; source-only comparison refuted absent-old-flag hypothesis. Original canonical PVE exit2 remains unknown, and this source review gives no native, legal, deployment or publication approval."
+  ]
+}

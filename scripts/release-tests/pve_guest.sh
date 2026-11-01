@@ -1,5 +1,6 @@
 #!/bin/bash
-set -euo pipefail
+set -Eeuo pipefail
+trap 'status=$?; printf "PVE acceptance failed: line=%s status=%s\n" "$LINENO" "$status" >&2' ERR
 umask 077
 cd /home/debian
 old_sha=$1 old_source=$2 old_version=$3 new_sha=$4 new_source=$5 new_version=$6
