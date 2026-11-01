@@ -1,0 +1,12 @@
+{
+  "feature": "sender.release-orchestration",
+  "fingerprint": "fe1d28f9f33b3847f318d34a6e4bb9c713667368fe80aeec4674dc3a98af60f3",
+  "reviewer": "orca_session_id:codex_ed7611ce_a995_403c_90a6_80505b426fde / root independent publication fix review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "Root reviewed unchanged current feature flow/contracts and direct consuming trust boundary against actual b4e17aac52bf7e9b8434f974a2c88c7d0c1caa1d, with sender.build dependency delta2d848 reviewed separately. Only build/test/diagnostic retention files change; runtime installer, bootstrap, release controller/backend and source/version/asset validation remain unchanged.",
+    "Retained private build artifacts after failed acceptance are diagnostics, never acceptance approval. Workflow prepare still requires checks and all platform build jobs success; any native/PVE acceptance failure blocks prepare and publisher. Public bootstrap consumes only validated public releases, not private CI artifacts. No source/version/evidence rebinding, new credential or lifecycle permission is introduced.",
+    "Root focused22 tests pass; author512pass17skip and unchanged consuming feature tests remain valid for recorded identical source inputs. Actual canonical PVE exit2 is unresolved; this dependency-bound source review is not runtime approval or release readiness. Final actual-base staged checker remains required."
+  ]
+}
