@@ -226,3 +226,74 @@ def drain_ready(api):
         if status != 200 or published['draft'] or parse(published)[:2] != ('READY', receipt):
             raise ValueError('publication failed')
     reconcile_latest(api)
+    return [release for _, release in ready]
+
+
+def verify_public(api, release_id, receipt):
+    """Read-only resume: caller retains the trusted receipt and exact release ID."""
+    ordinal = identity(receipt)
+    if type(release_id) is not int or release_id <= 0:
+        raise ValueError('invalid release ID')
+    status, release = api.request('GET', f'/releases/{release_id}')
+    if (status != 200 or not isinstance(release, dict) or release.get('id') != release_id
+            or parse(release)[:2] != ('READY', receipt) or release['draft']
+            or release.get('prerelease') is not False):
+        raise ValueError('exact published release not confirmed')
+    report = {'state': 'published-but-verification-pending', 'release_id': release_id, 'receipt': receipt}
+    try:
+        if remote_assets(api, release, receipt) != set(receipt['assets']):
+            raise ValueError('published release incomplete')
+        status, latest = api.request('GET', '/releases/latest')
+        if status != 200:
+            return report
+        latest_state, latest_receipt, latest_ordinal = parse(latest)
+        if (latest_state != 'READY' or latest['draft'] or latest.get('prerelease') is not False
+                or latest_ordinal < ordinal or (latest_ordinal == ordinal
+                    and (latest['id'] != release_id or latest_receipt != receipt))):
+            raise ValueError('latest identity mismatch or downgrade')
+        if remote_assets(api, latest, latest_receipt) != set(latest_receipt['assets']):
+            raise ValueError('latest release incomplete')
+        anonymous = build_opener()
+        for path, expected in ((f'/releases/{release_id}', release), ('/releases/latest', latest)):
+            request = Request('https://api.github.com' + REPO + path,
+                              headers={'Accept': 'application/vnd.github+json'})
+            try:
+                with anonymous.open(request, timeout=30) as response:
+                    public = json.loads(response.read(1024 * 1024))
+                if (parse(public) != parse(expected) or public['id'] != expected['id']
+                        or public['draft'] or public.get('prerelease') is not False):
+                    raise ValueError('anonymous release identity mismatch')
+            except HTTPError as error:
+                if error.code != 403:
+                    raise
+                # Rate limits affect anonymous API reads; public pages and bytes still prove visibility.
+        base = 'https://github.com/KarlSideProjects/hwmonitor-mqtt-releases/releases'
+        for url, expected in ((base + '/tag/' + release['tag_name'], base + '/tag/' + release['tag_name']),
+                              (base + '/latest', base + '/tag/' + latest['tag_name'])):
+            with anonymous.open(Request(url), timeout=30) as response:
+                if response.status != 200 or response.geturl() != expected:
+                    raise ValueError('anonymous release page or latest mismatch')
+        for name, expected in sorted(receipt['assets'].items()):
+            url = base + '/download/' + release['tag_name'] + '/' + quote(name, safe='')
+            digest, size = hashlib.sha256(), 0
+            metadata = bytearray()
+            with anonymous.open(Request(url), timeout=30) as response:
+                if response.status != 200:
+                    raise ValueError('anonymous asset unavailable')
+                while chunk := response.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > expected['size']:
+                        raise ValueError('anonymous asset too large: ' + name)
+                    digest.update(chunk)
+                    if name == 'version.json':
+                        if size > 4096:
+                            raise ValueError('public metadata too large')
+                        metadata.extend(chunk)
+            if size != expected['size'] or 'sha256:' + digest.hexdigest() != expected['digest']:
+                raise ValueError('anonymous asset mismatch: ' + name)
+            if name == 'version.json' and json.loads(metadata) != {'source': receipt['source'], 'version': receipt['version']}:
+                raise ValueError('public metadata identity mismatch')
+    except OSError:
+        return report
+    report['state'] = 'verified'
+    return report

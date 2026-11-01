@@ -237,3 +237,92 @@ def test_oversized_receipt_rejected(service, tmp_path):
     receipt['assets']['version.json']['size'] = 1024 ** 3 + 1
     with pytest.raises(ValueError): identity(receipt)
     assert not state['writes']
+
+
+@pytest.mark.parametrize('mode', ['api', 'rate-limit', 'transport', 'digest', 'latest', 'receipt', 'unknown', 'dynamic-metadata'])
+def test_exact_public_verification_is_read_only_and_resumable(service, tmp_path, monkeypatch, mode):
+    import io
+    import release_backend as backend
+    from urllib.error import URLError
+    api, state = service
+    directory = tmp_path / 'candidate'
+    receipt = make_candidate(directory, 1)
+    release = prepare_candidate(api, receipt, directory)
+    drain_ready(api)
+    release = state['releases'][0]
+    writes = list(state['writes'])
+    base = 'https://github.com/KarlSideProjects/hwmonitor-mqtt-releases/releases'
+    calls = []
+    class Response(io.BytesIO):
+        status = 200
+        def __init__(self, data, url):
+            super().__init__(data)
+            self.url = url
+        def geturl(self):
+            return self.url
+    class Anonymous:
+        def open(self, request, timeout):
+            assert not request.has_header('Authorization')
+            url = request.full_url
+            calls.append(url)
+            if mode == 'transport':
+                raise URLError('injected post-publication failure')
+            if url.startswith('https://api.github.com'):
+                if mode == 'rate-limit':
+                    from urllib.error import HTTPError
+                    raise HTTPError(url, 403, 'rate limited', {}, None)
+                return Response(json.dumps(release).encode(), url)
+            if url.endswith('/latest'):
+                return Response(b'page', base + ('/tag/v0.1.2' if mode == 'latest' else '/tag/v0.1.1'))
+            if '/download/' in url:
+                name = url.rsplit('/', 1)[1]
+                data = (directory / name).read_bytes()
+                return Response(b'bad' if mode == 'digest' else data, url)
+            return Response(b'page', url)
+    from urllib.request import build_opener as real_opener
+    # Only anonymous requests use the double; authenticated reads retain the local transport.
+    monkeypatch.setattr(backend, 'build_opener', lambda *handlers: real_opener(*handlers) if handlers else Anonymous())
+    if mode == 'dynamic-metadata':
+        original = api.request
+        def request(method, path, *args, **kwargs):
+            status, row = original(method, path, *args, **kwargs)
+            if method == 'GET' and path == '/releases/latest':
+                row['download_count'] = 7
+            return status, row
+        monkeypatch.setattr(api, 'request', request)
+    if mode == 'receipt':
+        receipt = dict(receipt, source='f' * 40)
+    if mode == 'unknown':
+        release['body'] = release['body'].replace('READY', 'UNKNOWN')
+    if mode in ('digest', 'latest', 'receipt', 'unknown'):
+        with pytest.raises(ValueError):
+            backend.verify_public(api, release['id'], receipt)
+    else:
+        report = backend.verify_public(api, release['id'], receipt)
+        assert report['state'] == ('published-but-verification-pending' if mode == 'transport' else 'verified')
+        assert report['release_id'] == release['id'] and report['receipt'] == receipt
+        if mode == 'transport':
+            mode = 'api'
+            assert backend.verify_public(api, release['id'], receipt)['state'] == 'verified'
+        assert len([url for url in calls if '/download/' in url]) == 15
+    assert state['writes'] == writes
+
+
+def test_read_only_verification_rejects_latest_downgrade_and_unpublished(service, tmp_path):
+    from release_backend import verify_public
+    api, state = service
+    first = make_candidate(tmp_path / 'first', 1)
+    second = make_candidate(tmp_path / 'second', 2)
+    one = prepare_candidate(api, first, tmp_path / 'first')
+    drain_ready(api)
+    two = prepare_candidate(api, second, tmp_path / 'second')
+    writes = list(state['writes'])
+    with pytest.raises(ValueError, match='exact published'):
+        verify_public(api, two['id'], second)
+    assert state['writes'] == writes
+    drain_ready(api)
+    state['latest'] = one['id']
+    writes = list(state['writes'])
+    with pytest.raises(ValueError, match='downgrade'):
+        verify_public(api, two['id'], second)
+    assert state['writes'] == writes

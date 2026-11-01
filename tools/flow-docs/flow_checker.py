@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -290,11 +291,9 @@ def load(tree, manifest_path, verify=True):
             require(source['symbols'], 'AST source has no mappable symbols; use kind:file: ' + path)
         else:
             require(covered[path], 'unmapped source: ' + path)
-    for owner in [manifest, *features.values()]:
-        inputs = owner.get('policy_inputs', [])
-        require(isinstance(inputs, list), 'policy_inputs must be a list')
-        for path in inputs:
-            tree.read(safe_path(path))
+    policy_hashes(manifest, tree)
+    for feature in features.values():
+        policy_hashes(feature, tree)
     closure(features)
     return manifest, sources, features
 
@@ -317,9 +316,17 @@ def closure(features):
     return result
 
 
+def policy_hashes(record, tree):
+    paths = record.get('policy_inputs', [])
+    require(isinstance(paths, list), 'policy_inputs must be a list')
+    require(all(isinstance(path, str) for path in paths), 'policy inputs must be paths')
+    require(len(paths) == len(set(paths)), 'duplicate policy input')
+    return {safe_path(path): hashlib.sha256(tree.read(path)).hexdigest() for path in paths}
+
+
 def policy(manifest, tree):
     return {'scope': manifest['scope'], 'limits': manifest.get('limits', {}), 'hash_adapters': ADAPTER_IDS,
-            'policy_inputs': {path: hashlib.sha256(tree.read(path)).hexdigest() for path in manifest.get('policy_inputs', [])}}
+            'policy_inputs': policy_hashes(manifest, tree)}
 
 
 def feature_content(identity, tree, sources, features):
@@ -335,10 +342,10 @@ def feature_content(identity, tree, sources, features):
         if source['kind'] == 'tree-sitter':
             adapter['language'] = source['language']
         relevant.append({'mapping': mapping, 'adapter': adapter, 'source': value})
-    content = {'feature': feature, 'flow_sha256': hashlib.sha256(tree.read(feature['flow'])).hexdigest(), 'inputs': relevant}
+    result = {'feature': feature, 'flow_sha256': hashlib.sha256(tree.read(feature['flow'])).hexdigest(), 'inputs': relevant}
     if 'policy_inputs' in feature:
-        content['policy_inputs'] = {path: hashlib.sha256(tree.read(path)).hexdigest() for path in feature['policy_inputs']}
-    return content
+        result['policy_inputs'] = policy_hashes(feature, tree)
+    return result
 
 
 def fingerprints(tree, loaded, base_oid):
@@ -349,9 +356,143 @@ def fingerprints(tree, loaded, base_oid):
     return {identity: digest({'base': base_oid, 'policy': common, 'features': {key: contents[key] for key in sorted(closures[identity])}}) for identity in features}
 
 
+def resolve_base(tree, base, default_branch=None):
+    require(isinstance(base, str) and base.strip() == base and base,
+            'base must be an explicit commit or ref')
+    if re.fullmatch(r'0{40}|0{64}', base):
+        require(default_branch, 'first push requires --default-branch')
+        branch_ref = 'refs/heads/' + default_branch
+        tree.git('check-ref-format', branch_ref)
+        remote_ref = 'refs/remotes/origin/' + default_branch
+        tree.git('fetch', '--no-tags', 'origin', '+' + branch_ref + ':' + remote_ref)
+        base = tree.git('merge-base', 'HEAD', remote_ref).decode().strip()
+    return tree.git('rev-parse', '--verify', '--end-of-options', base + '^{commit}').decode().strip()
+
+
+def base_receipt_path(tree):
+    path = Path(os.fsdecode(tree.git('rev-parse', '--git-path', 'flow-docs-base.json')).strip())
+    if not path.is_absolute():
+        path = tree.root / path
+    require(not path.is_symlink(), 'pinned base receipt cannot be a symlink')
+    return path
+
+
+def validate_pinned_base(tree, record):
+    require(isinstance(record, dict) and set(record) == {'version', 'branch', 'base', 'default_branch'}
+            and type(record['version']) is int and record['version'] == 1, 'invalid pinned base receipt')
+    branch = tree.git('symbolic-ref', '--quiet', 'HEAD').decode().strip()
+    require(branch == record['branch'], 'pinned base belongs to another branch; run pin-base')
+    require(isinstance(record['base'], str) and re.fullmatch(r'[a-f0-9]{40}|[a-f0-9]{64}', record['base']),
+            'pinned base must be a full commit SHA')
+    require(isinstance(record['default_branch'], str), 'invalid default branch')
+    tree.git('check-ref-format', 'refs/heads/' + record['default_branch'])
+    # A local feature commit cannot substitute for a trusted default-branch base.
+    tree.git('merge-base', '--is-ancestor', record['base'],
+             'refs/remotes/origin/' + record['default_branch'])
+    tree.git('merge-base', '--is-ancestor', record['base'], 'HEAD')
+    return record['base']
+
+
+def pinned_base(tree):
+    path = base_receipt_path(tree)
+    require(path.is_file(), 'no pinned base; run pin-base with the fetched PR base SHA')
+    info = path.stat()
+    require(stat.S_ISREG(info.st_mode) and info.st_size <= 4096, 'unsafe pinned base receipt')
+    uid = getattr(os, 'geteuid', None)
+    # Windows stat modes are not NTFS ACLs; Git-path, branch and ancestry checks still apply.
+    if uid is not None:
+        require(info.st_uid == uid() and not info.st_mode & 0o022, 'unsafe pinned base receipt')
+    return validate_pinned_base(tree, json.loads(path.read_bytes()))
+
+
+def pin_base(tree, base, default_branch):
+    record = {'version': 1, 'branch': tree.git('symbolic-ref', '--quiet', 'HEAD').decode().strip(),
+              'base': resolve_base(tree, base, default_branch), 'default_branch': default_branch}
+    validate_pinned_base(tree, record)
+    path = base_receipt_path(tree)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile('w', dir=path.parent, delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(json.dumps(record, sort_keys=True) + '\n')
+        os.replace(temporary, path)
+    finally:
+        if temporary:
+            temporary.unlink(missing_ok=True)
+    print(json.dumps(record, sort_keys=True))
+
+
+def review_status(tree, reviews, identity, fingerprint):
+    matching = [review for review in reviews if review.get('feature') == identity
+                and review.get('fingerprint') == fingerprint and review.get('verdict') == 'pass'
+                and isinstance(review.get('reviewer'), str) and review['reviewer'].strip()]
+    if not matching:
+        return 'missing current review'
+    for review in matching:
+        try:
+            evidence = tree.json(review['evidence'])
+            if (isinstance(evidence, dict)
+                    and all(evidence.get(key) == review[key] for key in ('feature', 'fingerprint', 'reviewer', 'verdict'))
+                    and evidence.get('findings') == []):
+                return None
+        except (Invalid, KeyError, TypeError, ValueError, OSError):
+            continue
+    return 'invalid review evidence'
+
+
+def review_packet(identity, tree, loaded, base_tree, previous, current, old, oid):
+    manifest, sources, features = loaded
+    before = previous[2] if previous else {}
+    feature = features[identity]
+    former = before.get(identity, {})
+
+    def paths(record):
+        return ({item['path'] for item in record.get('mappings', [])}
+                | set(record.get('policy_inputs', []))
+                | ({record['flow']} if 'flow' in record else set()))
+
+    def version(view, path, bound):
+        if path not in bound:
+            return None
+        data = view.read(path)
+        return {'sha256': hashlib.sha256(data).hexdigest(), 'lines': len(data.splitlines())}
+
+    prior_paths, current_paths = paths(former), paths(feature)
+    inputs = {}
+    for path in sorted(prior_paths | current_paths):
+        symbols = sorted({m['symbol'] for record in (former, feature) for m in record.get('mappings', [])
+                          if m['path'] == path and 'symbol' in m})
+        inputs[path] = {'base': version(base_tree, path, prior_paths),
+                        'candidate': version(tree, path, current_paths), 'symbols': symbols}
+    dependencies = []
+    dependency_ids = closure(features)[identity] | (closure(before)[identity] if identity in before else set())
+    for dependency in sorted(dependency_ids - {identity}):
+        new, prior = features.get(dependency, {}), before.get(dependency, {})
+        dependencies.append({'feature': dependency, 'flow': new.get('flow', prior.get('flow')),
+                             'changed': current.get(dependency) != old.get(dependency),
+                             'fingerprint': current.get(dependency),
+                             'policy_inputs': sorted(set(new.get('policy_inputs', [])) | set(prior.get('policy_inputs', []))),
+                             'paths': sorted(paths(new) | paths(prior))})
+    prior_global = set(previous[0].get('policy_inputs', [])) if previous else set()
+    current_global = set(manifest.get('policy_inputs', []))
+    policy_changes = {}
+    for path in sorted(prior_global | current_global):
+        prior, new = version(base_tree, path, prior_global), version(tree, path, current_global)
+        if prior != new:
+            policy_changes[path] = {'base': prior, 'candidate': new}
+    return {'feature': identity, 'fingerprint': current[identity], 'resolved_base': oid,
+            'candidate': 'index' if tree.staged else 'worktree',
+            'inputs': inputs, 'dependencies': dependencies, 'global_policy_changes': policy_changes,
+            'scope_changed': not previous or previous[0]['scope'] != manifest['scope'],
+            'limits_changed': not previous or previous[0].get('limits', {}) != manifest.get('limits', {})}
+
+
 def run(args):
     root = Path(args.root).resolve()
-    tree = Tree(root, staged=args.staged)
+    tree = Tree(root, staged=getattr(args, 'staged', False))
+    if args.command == 'pin-base':
+        pin_base(tree, args.base, args.default_branch)
+        return
     safe_path(args.manifest)
     if args.command == 'snapshot':
         require(not args.staged, 'snapshot --staged is unsupported; snapshot writes only the worktree and never stages')
@@ -377,7 +518,8 @@ def run(args):
                 temporary.unlink(missing_ok=True)
         print('snapshot refreshed registered sources (worktree only)')
         return
-    oid = tree.git('rev-parse', '--verify', args.base + '^{commit}').decode().strip()
+    oid = pinned_base(tree) if getattr(args, 'pinned_base', False) else resolve_base(
+        tree, args.base, getattr(args, 'default_branch', None))
     loaded = load(tree, args.manifest)
     current = fingerprints(tree, loaded, oid)
     if args.command == 'fingerprint':
@@ -385,9 +527,11 @@ def run(args):
         print(current[args.feature])
         return
     base_tree = Tree(root, ref=oid)
+    previous = None
+    old = {}
     if args.manifest not in base_tree.entries:
         affected = set(current)
-        if args.command != 'explain':
+        if args.command == 'check':
             print('baseline: base has no manifest; all features require review')
     else:
         previous = load(base_tree, args.manifest)
@@ -395,38 +539,48 @@ def run(args):
         require(not removed, 'removed features require explicit disposition (unsupported): ' + ', '.join(sorted(removed)))
         old = fingerprints(base_tree, previous, oid)
         affected = {identity for identity in current if current[identity] != old.get(identity)}
-    if args.command == 'explain':
-        print(json.dumps({'schema_version': 1, 'base': oid,
-                          'mode': 'index' if args.staged else 'worktree',
-                          'affected': sorted(affected),
-                          'fingerprints': {identity: current[identity] for identity in sorted(affected)}},
-                         sort_keys=True))
+    if args.command == 'packet':
+        require(args.feature in current, 'unknown feature: ' + args.feature)
+        print(json.dumps(review_packet(args.feature, tree, loaded, base_tree, previous, current, old, oid), sort_keys=True))
         return
     reviews = loaded[0].get('reviews', [])
     require(isinstance(reviews, list), 'reviews must be a list')
-    for identity in sorted(affected):
-        matching = [review for review in reviews if review.get('feature') == identity and review.get('fingerprint') == current[identity] and review.get('verdict') == 'pass' and isinstance(review.get('reviewer'), str) and review['reviewer'].strip()]
-        require(matching, 'missing current review: ' + identity + '; fingerprint ' + current[identity])
-        valid = False
-        for review in matching:
-            evidence = tree.json(review['evidence'])
-            if (isinstance(evidence, dict) and all(evidence.get(key) == review[key] for key in ('feature', 'fingerprint', 'reviewer', 'verdict')) and evidence.get('findings') == []):
-                valid = True
-        require(valid, 'invalid review evidence: ' + identity)
+    missing = [{'feature': identity, 'reason': reason}
+               for identity in sorted(affected)
+               if (reason := review_status(tree, reviews, identity, current[identity]))]
+    if args.command == 'explain':
+        mode = 'index' if args.staged else 'worktree'
+        # Preserve both deployed field-name contracts while bounding hashes to affected features.
+        print(json.dumps({'schema_version': 1, 'base': oid, 'mode': mode,
+                          'affected': sorted(affected), 'resolved_base': oid, 'candidate': mode,
+                          'affected_features': sorted(affected),
+                          'fingerprints': {identity: current[identity] for identity in sorted(affected)},
+                          'missing_review_evidence': missing}, sort_keys=True))
+        return
+    require(not missing, '; '.join(item['reason'] + ': ' + item['feature']
+                                  + '; fingerprint ' + current[item['feature']] for item in missing))
     print('check passed (' + ('index' if args.staged else 'worktree') + '); affected features: ' + ', '.join(sorted(affected)))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
-    for name in ('snapshot', 'fingerprint', 'check', 'explain'):
+    for name in ('snapshot', 'fingerprint', 'check', 'explain', 'packet', 'pin-base'):
         command = commands.add_parser(name)
         command.add_argument('--root', default='.')
+        if name == 'pin-base':
+            command.add_argument('--base', required=True)
+            command.add_argument('--default-branch', required=True)
+            continue
         command.add_argument('--manifest', default='docs/flow-manifest.json')
         command.add_argument('--staged', action='store_true')
         if name != 'snapshot':
-            command.add_argument('--base', required=True)
-        if name == 'fingerprint':
+            comparison = command.add_mutually_exclusive_group(required=True)
+            comparison.add_argument('--base')
+            comparison.add_argument('--pinned-base', action='store_true',
+                                    help='use the branch-bound pin-base receipt')
+            command.add_argument('--default-branch', help='origin branch for all-zero first-push base')
+        if name in ('fingerprint', 'packet'):
             command.add_argument('--feature', required=True)
     args = parser.parse_args()
     try:
