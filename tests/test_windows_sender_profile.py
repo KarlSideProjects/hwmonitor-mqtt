@@ -173,6 +173,7 @@ def test_windows_build_esp_payload_schema_and_aggregation():
         "host",
         "memory",
         "network_io",
+        "sender_version",
         "temperatures",
         "ts",
     ]
@@ -651,3 +652,20 @@ def test_dump_sensors_keeps_stdout_pure_json(monkeypatch, capsys):
     out = capsys.readouterr()
     assert json.loads(out.out)["sensors"] == [{"SensorType": "Temperature", "Name": "CPU Package", "Value": 68.0, "Parent": "/intelcpu/0"}]
     assert "Loaded LibreHardwareMonitorLib" in out.err
+
+
+def test_sender_version_uses_installed_manifest_or_unknown(tmp_path, monkeypatch):
+    import json
+    module = _import_agent_sender_windows()
+    monkeypatch.setattr(sys, 'argv', [str(tmp_path / 'sender.exe')])
+    assert module.installed_identity() == (None, None)
+    assert module.build_full_payload(now_ts=1)['sender_version'] is None
+    assert module.build_esp_payload(now_ts=1)['sender_version'] is None
+    for invalid in ({}, {'version': 'latest', 'source': 'a' * 40}, {'version': '1.2.3', 'source': None}):
+        (tmp_path / 'manifest.json').write_text(json.dumps(invalid))
+        assert module.installed_identity() == (None, None)
+    (tmp_path / 'manifest.json').write_text(json.dumps({'version': '4.5.6', 'source': 'a' * 40}))
+    assert module.installed_identity() == ('4.5.6', 'a' * 40)
+    monkeypatch.setattr(module, 'SENDER_VERSION', module.installed_identity()[0])
+    assert module.build_full_payload(now_ts=1)['sender_version'] == '4.5.6'
+    assert module.build_esp_payload(now_ts=1)['sender_version'] == '4.5.6'

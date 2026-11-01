@@ -23,7 +23,7 @@ flowchart TD
     V["Start task and require running state for five seconds; commit source marker"]
     W["On failure restore package and prior task XML and running state where possible"]
     X["Preparation side effects can persist: PVE identity and CA, Docker, Windows driver and settings"]
-    Y["Runtime status uses service, container or task manager; Linux version is build-bound, Windows validates adjacent manifest; public update is manual"]
+    Y["Runtime status uses service, container or task manager; MQTT sender_version uses embedded Linux version or validated Windows manifest, null when unknown; public update is manual"]
     A --> B
     B -->|Linux| C
     B -->|Windows| R

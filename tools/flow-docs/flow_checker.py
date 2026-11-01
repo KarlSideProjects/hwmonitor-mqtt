@@ -290,8 +290,11 @@ def load(tree, manifest_path, verify=True):
             require(source['symbols'], 'AST source has no mappable symbols; use kind:file: ' + path)
         else:
             require(covered[path], 'unmapped source: ' + path)
-    for path in manifest.get('policy_inputs', []):
-        tree.read(path)
+    for owner in [manifest, *features.values()]:
+        inputs = owner.get('policy_inputs', [])
+        require(isinstance(inputs, list), 'policy_inputs must be a list')
+        for path in inputs:
+            tree.read(safe_path(path))
     closure(features)
     return manifest, sources, features
 
@@ -332,7 +335,10 @@ def feature_content(identity, tree, sources, features):
         if source['kind'] == 'tree-sitter':
             adapter['language'] = source['language']
         relevant.append({'mapping': mapping, 'adapter': adapter, 'source': value})
-    return {'feature': feature, 'flow_sha256': hashlib.sha256(tree.read(feature['flow'])).hexdigest(), 'inputs': relevant}
+    content = {'feature': feature, 'flow_sha256': hashlib.sha256(tree.read(feature['flow'])).hexdigest(), 'inputs': relevant}
+    if 'policy_inputs' in feature:
+        content['policy_inputs'] = {path: hashlib.sha256(tree.read(path)).hexdigest() for path in feature['policy_inputs']}
+    return content
 
 
 def fingerprints(tree, loaded, base_oid):
@@ -381,13 +387,21 @@ def run(args):
     base_tree = Tree(root, ref=oid)
     if args.manifest not in base_tree.entries:
         affected = set(current)
-        print('baseline: base has no manifest; all features require review')
+        if args.command != 'explain':
+            print('baseline: base has no manifest; all features require review')
     else:
         previous = load(base_tree, args.manifest)
         removed = previous[2].keys() - loaded[2].keys()
         require(not removed, 'removed features require explicit disposition (unsupported): ' + ', '.join(sorted(removed)))
         old = fingerprints(base_tree, previous, oid)
         affected = {identity for identity in current if current[identity] != old.get(identity)}
+    if args.command == 'explain':
+        print(json.dumps({'schema_version': 1, 'base': oid,
+                          'mode': 'index' if args.staged else 'worktree',
+                          'affected': sorted(affected),
+                          'fingerprints': {identity: current[identity] for identity in sorted(affected)}},
+                         sort_keys=True))
+        return
     reviews = loaded[0].get('reviews', [])
     require(isinstance(reviews, list), 'reviews must be a list')
     for identity in sorted(affected):
@@ -405,7 +419,7 @@ def run(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
-    for name in ('snapshot', 'fingerprint', 'check'):
+    for name in ('snapshot', 'fingerprint', 'check', 'explain'):
         command = commands.add_parser(name)
         command.add_argument('--root', default='.')
         command.add_argument('--manifest', default='docs/flow-manifest.json')

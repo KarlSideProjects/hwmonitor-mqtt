@@ -240,3 +240,35 @@ def test_recovery_uses_newer_master_when_scheduled_snapshot_is_stale(service, tm
     with pytest.raises(ValueError):
         pending_sources(api, repo, first, first, 10)
     assert pending_sources(api, repo, second, first, 10) == [first]
+
+
+def test_preflight_without_credential_preserves_source_checks(tmp_path):
+    from release_controller import preflight
+    repo, assets, evidence = (tmp_path / name for name in ('repo', 'assets', 'evidence'))
+    source = setup(repo, assets, evidence)
+    report = preflight(repo, source, source, None)
+    assert report['checks'] == 'ready'
+    assert report['build'] == 'ready'
+    assert report['publish'] == 'blocked'
+    assert report['blockers'] == ['missing SENDER_RELEASE_TOKEN in sender-release-publisher']
+    assert preflight(repo, source, source, 'secret-value')['publish'] == 'credential-present-unverified'
+    assert 'secret-value' not in json.dumps(preflight(repo, source, source, 'secret-value'))
+
+
+def test_preflight_cli_missing_secret_is_read_only_and_only_blocks_publish(tmp_path):
+    import os
+    import sys
+    from pathlib import Path
+    repo, assets, evidence = (tmp_path / name for name in ('repo', 'assets', 'evidence'))
+    source = setup(repo, assets, evidence)
+    command = [sys.executable, str(Path(__file__).resolve().parents[1] / 'scripts/release_controller.py'),
+               'preflight', '--repo', str(repo), '--master', source, '--source', source]
+    env = {k: v for k, v in os.environ.items() if k != 'SENDER_RELEASE_TOKEN'}
+    before = subprocess.check_output(['git', '-C', str(repo), 'status', '--porcelain'])
+    result = subprocess.run(command, env=env, capture_output=True, text=True)
+    assert result.returncode == 0
+    assert json.loads(result.stdout)['publish'] == 'blocked'
+    result = subprocess.run([*command, '--require-publish'], env=env, capture_output=True, text=True)
+    assert result.returncode == 1
+    assert json.loads(result.stdout)['checks'] == 'ready'
+    assert subprocess.check_output(['git', '-C', str(repo), 'status', '--porcelain']) == before

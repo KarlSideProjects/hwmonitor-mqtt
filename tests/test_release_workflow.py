@@ -8,7 +8,7 @@ def test_release_workflow_is_master_only_and_has_no_publisher_credentials():
     assert "github.ref == 'refs/heads/master'" in workflow
     assert 'fetch-depth: 0' in workflow
     assert 'persist-credentials: false' in workflow
-    assert workflow.count('secrets.SENDER_RELEASE_TOKEN') == 3
+    assert workflow.count('secrets.SENDER_RELEASE_TOKEN') == 4
     assert 'environment: sender-release-publisher' in workflow
     assert 'scripts/release_controller.py drain' in workflow
     assert 'schedule:' in workflow
@@ -68,11 +68,11 @@ def test_publisher_requires_successful_prepare_or_explicit_recovery():
 def test_publisher_trigger_cases():
     workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
     expression = workflow.split('  publisher:', 1)[1].split('if: ${{ ', 1)[1].split(' }}', 1)[0]
-    expression = expression.replace('always()', 'True').replace('&&', ' and ').replace('||', ' or ')
-    for key, replacement in {'github.ref': 'ref', 'github.event_name': 'event', 'needs.prepare.result': 'result', 'inputs.source': 'source'}.items():
+    expression = expression.replace('always()', 'True').replace('!', 'not ').replace('&&', ' and ').replace('||', ' or ')
+    for key, replacement in {'github.ref': 'ref', 'github.event_name': 'event', 'needs.prepare.result': 'result', 'inputs.source': 'source', 'inputs.build_only': 'build_only'}.items():
         expression = expression.replace(key, replacement)
-    def allowed(event, result, source='', ref='refs/heads/master'):
-        return eval(expression, {'__builtins__': {}}, {'ref': ref, 'event': event, 'result': result, 'source': source})
+    def allowed(event, result, source='', ref='refs/heads/master', build_only=False):
+        return eval(expression, {'__builtins__': {}}, {'ref': ref, 'event': event, 'result': result, 'source': source, 'build_only': build_only})
     assert allowed('push', 'success')
     assert not allowed('push', 'failure')
     assert allowed('schedule', 'skipped')
@@ -80,6 +80,8 @@ def test_publisher_trigger_cases():
     assert allowed('workflow_dispatch', 'success', 'a' * 40)
     assert not allowed('workflow_dispatch', 'failure', 'a' * 40)
     assert not allowed('schedule', 'skipped', ref='refs/heads/other')
+    assert not allowed('workflow_dispatch', 'success', 'a' * 40, build_only=True)
+    assert not allowed('workflow_dispatch', 'skipped', build_only=True)
 
 
 def test_bullseye_builder_uses_archived_security_repository():
@@ -150,3 +152,69 @@ def test_scheduled_recovery_reads_fresh_master_without_replacing_controller():
     assert 'git -C recovery-master rev-parse HEAD' in recovery
     assert 'scripts/release_controller.py recover --repo recovery-master' in recovery
     assert 'persist-credentials: false' in recovery
+
+
+def test_source_checks_have_one_pr_and_master_path_and_keep_native_windows():
+    root = Path(__file__).resolve().parents[1]
+    ci = (root / '.github/workflows/ci.yml').read_text()
+    workflow = (root / '.github/workflows/sender-release.yml').read_text()
+    triggers = ci.split('permissions:', 1)[0]
+    assert '  push:' not in triggers
+    assert '  pull_request:' in triggers
+    assert '  workflow_call:' in triggers
+    assert 'uses: ./.github/workflows/ci.yml' in workflow.split('  checks:', 1)[1].split('  linux-build:', 1)[0]
+    assert 'native-install-smoke:' in ci and 'windows-sender:' in ci
+    assert 'PWSH_EXE: powershell.exe' in ci and 'PWSH_EXE: pwsh' in ci
+    assert ci.count('ref: ${{ inputs.source || github.sha }}') == 3
+
+
+def test_missing_publisher_credential_gates_builds_but_not_checks():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    preflight = workflow.split('  preflight:', 1)[1].split('  checks:', 1)[0]
+    assert 'environment: sender-release-publisher' in preflight
+    assert 'scripts/release_controller.py preflight' in preflight
+    assert '--require-publish' in preflight
+    for name in ('linux-build', 'windows-build'):
+        job = workflow.split(f'  {name}:', 1)[1].split('\n\n', 1)[0]
+        assert 'needs: [version, preflight]' in job
+    checks = workflow.split('  checks:', 1)[1].split('  linux-build:', 1)[0]
+    assert 'needs: version' in checks
+    assert 'SENDER_RELEASE_TOKEN' not in checks
+
+
+def test_manual_build_only_skips_publisher_environment_and_public_preparation():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/sender-release.yml').read_text()
+    inputs = workflow.split('  workflow_dispatch:', 1)[1].split('  schedule:', 1)[0]
+    assert 'build_only:' in inputs and 'type: boolean' in inputs and 'default: false' in inputs
+    preflight = workflow.split('  preflight:', 1)[1].split('  checks:', 1)[0]
+    prepare = workflow.split('  prepare:', 1)[1].split('  recover:', 1)[0]
+    guard = "if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.build_only) }}"
+    assert guard in preflight and guard in prepare
+    for name in ('linux-build', 'windows-build'):
+        job = workflow.split(f'  {name}:', 1)[1].split('    uses:', 1)[0]
+        expression = job.split('if: ${{ ', 1)[1].split(' }}', 1)[0]
+        expression = expression.replace('!cancelled()', 'True').replace('&&', ' and ').replace('||', ' or ')
+        for key, value in {'needs.version.result': 'version', 'needs.preflight.result': 'preflight',
+                           'github.event_name': 'event', 'inputs.build_only': 'build_only'}.items():
+            expression = expression.replace(key, value)
+        def allowed(event, build_only, preflight, version='success'):
+            return eval(expression, {'__builtins__': {}}, dict(event=event, build_only=build_only,
+                                                             preflight=preflight, version=version))
+        assert allowed('workflow_dispatch', True, 'skipped')
+        assert allowed('push', False, 'success')
+        assert not allowed('push', False, 'failure')
+        assert not allowed('push', True, 'skipped')
+        assert not allowed('workflow_dispatch', True, 'failure')
+        assert not allowed('workflow_dispatch', True, 'skipped', version='failure')
+    version = workflow.split('  version:', 1)[1].split('  preflight:', 1)[0]
+    assert "github.ref == 'refs/heads/master'" in version
+    assert "inputs.source != ''" in version
+    assert 'scripts/release_version.py --master "$MASTER" "$SOURCE"' in version
+    assert 'needs: [version, checks, linux-build, windows-build]' in prepare
+
+
+def test_windows_build_has_manual_and_reusable_triggers_without_obsolete_branch_pushes():
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/protected-windows-package.yml').read_text()
+    triggers = workflow.split('permissions:', 1)[0]
+    assert '  push:' not in triggers
+    assert '  workflow_dispatch:' in triggers and '  workflow_call:' in triggers

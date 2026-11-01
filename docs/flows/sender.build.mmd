@@ -4,7 +4,7 @@ flowchart TD
     C["Check Linux checkout, host, Python, glibc and pinned packages; archive committed source"]
     D{"Linux ARM64"}
     E["Verify pinned startup and local CRT; prepare private GCC launcher and startup spec"]
-    F["Compile onefile sender and report with fresh build and evidence paths"]
+    F["Embed selected version in runtime sender; compile onefile and report with fresh build and evidence paths"]
     G["Classify and record backend and onefile links; verify startup, CRT, compiler and SCons evidence"]
     H["Capture live extracted payload matching distribution inventory; bind ARM final outputs"]
     I["Assemble Linux archive, notices, manifest and checksum"]
