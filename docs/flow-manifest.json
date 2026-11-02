@@ -316,7 +316,7 @@
     {
       "path": "scripts/release_controller.py",
       "kind": "file",
-      "md5": "486c6ce71d324189975614f317a2b416"
+      "md5": "af4e11814097f5a48d1b5e7e534ff8d9"
     },
     {
       "path": "scripts/check_release_assets.py",
@@ -326,7 +326,7 @@
     {
       "path": "scripts/release_backend.py",
       "kind": "file",
-      "md5": "e41a1c2c3b388c521f695e3e09122b6f"
+      "md5": "21a4b172372e320a0ac11829ba18dff5"
     },
     {
       "path": "scripts/stage_release_draft.py",
@@ -631,12 +631,12 @@
     {
       "path": "tests/test_release_backend.py",
       "kind": "file",
-      "md5": "c8f2a355309df9007d9c46f03505c3d7"
+      "md5": "bf27c4fbe0fe6044f371975fe997c999"
     },
     {
       "path": "tests/test_release_controller.py",
       "kind": "file",
-      "md5": "8b00d4a83ab2def6c4ebb025481c2c63"
+      "md5": "d691802409695b44017089dc702e95b3"
     },
     {
       "path": "tests/test_install_sh.py",
@@ -766,7 +766,7 @@
     {
       "path": "docs/release/sender-orchestration-wip.md",
       "kind": "file",
-      "md5": "c06270ec4255dbd3aa0242d5ac81f2ee"
+      "md5": "1ab6a68be8f7118c8a9f0b54f4c28e62"
     }
   ],
   "features": [
@@ -2197,18 +2197,18 @@
       "evidence": "docs/flow-evidence/reviews/sender.build/555256d537eb5a751a6bdbcafceab4f04ab80375e699a0a8101eade40065d0a7.json"
     },
     {
-      "feature": "sender.release-orchestration",
-      "fingerprint": "7add0abc596c26ce2cfe18d7d829f1328390762407c68a55ccf01d9df3981807",
-      "reviewer": "root independent author-delta review / 01a18d52-22b5-7320-93cf-129becdcc9fe",
-      "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.release-orchestration/7add0abc596c26ce2cfe18d7d829f1328390762407c68a55ccf01d9df3981807.json"
-    },
-    {
       "feature": "sender.compiled-lifecycle",
       "fingerprint": "176c2d2608e58c364a54392a5c168fd72718f69c9bcb14d1d663fd9942d6987c",
       "reviewer": "root independent author-delta review / 01a18d52-22b5-7320-93cf-129becdcc9fe",
       "verdict": "pass",
       "evidence": "docs/flow-evidence/reviews/sender.compiled-lifecycle/176c2d2608e58c364a54392a5c168fd72718f69c9bcb14d1d663fd9942d6987c.json"
+    },
+    {
+      "feature": "sender.release-orchestration",
+      "fingerprint": "98e1d98e9f355e452916aba484230cb19fa2f82fdfc9d3c6b5ce84780352fc53",
+      "reviewer": "Codex independent reviewer /root/publisher_p1_review",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.release-orchestration/98e1d98e9f355e452916aba484230cb19fa2f82fdfc9d3c6b5ce84780352fc53.json"
     }
   ],
   "policy_inputs": [

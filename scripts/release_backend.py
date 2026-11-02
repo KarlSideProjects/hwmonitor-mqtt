@@ -52,8 +52,10 @@ class GitHub:
         result = []
         for page in range(1, 10000):
             status, rows = self.request('GET', f'{path}?per_page=100&page={page}')
-            if status != 200 or not isinstance(rows, list):
-                raise ValueError('cannot enumerate ' + path)
+            if status != 200:
+                raise ValueError(f'cannot enumerate {path}: HTTP {status}')
+            if not isinstance(rows, list):
+                raise ValueError('cannot enumerate ' + path + ': expected a list')
             result.extend(rows)
             if len(rows) < 100:
                 return result

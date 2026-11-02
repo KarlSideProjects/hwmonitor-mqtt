@@ -18,12 +18,38 @@ from release_version import version
 PLATFORMS = ('linux-x64', 'linux-arm64', 'windows-x64')
 
 
-def preflight(repo, master, source, token):
+def preflight(repo, master, source, token, api=None):
     """Report prerequisites without builds, remote writes, or secret values."""
     product_version = version(Path(repo), master, source)
-    return {'source': source, 'version': product_version, 'checks': 'ready', 'build': 'ready',
-            'publish': 'credential-present-unverified' if token else 'blocked',
-            'blockers': [] if token else ['missing SENDER_RELEASE_TOKEN in sender-release-publisher']}
+    report = {'source': source, 'version': product_version, 'checks': 'ready', 'build': 'ready',
+              'publish': 'blocked', 'blockers': []}
+    if not token:
+        report['blockers'] = ['missing SENDER_RELEASE_TOKEN in sender-release-publisher']
+        return report
+    if any(char.isspace() for char in token):
+        report['blockers'] = ['publisher credential contains whitespace']
+        return report
+    api = api if api is not None else GitHub(token=token)
+    for path in ('', '/releases?per_page=1'):
+        try:
+            status, data = api.request('GET', path)
+        except (OSError, ValueError):
+            report['blockers'] = ['publisher preflight: transport failure or invalid JSON']
+            return report
+        if status != 200:
+            report['blockers'] = [f'publisher preflight GET {path or "repository"}: HTTP {status}']
+            return report
+        if path == '':
+            if (not isinstance(data, dict) or data.get('full_name') != 'KarlSideProjects/hwmonitor-mqtt-releases'
+                    or data.get('private') is not False or not isinstance(data.get('permissions'), dict)
+                    or data['permissions'].get('push') is not True):
+                report['blockers'] = ['publisher repository identity, visibility or push permission rejected']
+                return report
+        elif not isinstance(data, list):
+            report['blockers'] = ['publisher Releases response is not a list']
+            return report
+    report['publish'] = 'read-access-verified-write-unverified'
+    return report
 
 
 def inspect(args):
