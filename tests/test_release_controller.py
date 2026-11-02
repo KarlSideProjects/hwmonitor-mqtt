@@ -251,8 +251,74 @@ def test_preflight_without_credential_preserves_source_checks(tmp_path):
     assert report['build'] == 'ready'
     assert report['publish'] == 'blocked'
     assert report['blockers'] == ['missing SENDER_RELEASE_TOKEN in sender-release-publisher']
-    assert preflight(repo, source, source, 'secret-value')['publish'] == 'credential-present-unverified'
-    assert 'secret-value' not in json.dumps(preflight(repo, source, source, 'secret-value'))
+
+
+def test_preflight_checks_authenticated_repository_and_releases_without_writes(service, tmp_path):
+    from release_controller import preflight
+    api, state = service
+    api.token = 'secret-value'
+    repo, assets, evidence = (tmp_path / name for name in ('repo', 'assets', 'evidence'))
+    source = setup(repo, assets, evidence)
+    report = preflight(repo, source, source, 'secret-value', api=api)
+    assert report['publish'] == 'read-access-verified-write-unverified'
+    assert report['blockers'] == []
+    assert state['reads'] == [('', 'Bearer secret-value'), ('/releases', 'Bearer secret-value')]
+    assert not state['writes']
+    assert 'secret-value' not in json.dumps(report)
+
+
+@pytest.mark.parametrize('path', ['', '/releases'])
+@pytest.mark.parametrize('status', [401, 403, 404, 500])
+def test_preflight_blocks_http_failures_before_builds(service, tmp_path, monkeypatch, capsys, path, status):
+    import sys
+    import release_controller as controller
+    api, state = service
+    state['read_failures'][path] = status
+    repo, assets, evidence = (tmp_path / name for name in ('repo', 'assets', 'evidence'))
+    source = setup(repo, assets, evidence)
+    monkeypatch.setattr(controller, 'GitHub', lambda **kwargs: api)
+    monkeypatch.setenv('SENDER_RELEASE_TOKEN', 'secret-value')
+    monkeypatch.setattr(sys, 'argv', ['release_controller.py', 'preflight', '--repo', str(repo),
+                                   '--master', source, '--source', source, '--require-publish'])
+    assert controller.main() == 1
+    output = capsys.readouterr()
+    report = json.loads(output.out)
+    assert report['publish'] == 'blocked'
+    assert f'HTTP {status}' in report['blockers'][0]
+    assert 'secret-value' not in output.out + output.err
+    assert not state['writes']
+
+
+@pytest.mark.parametrize('metadata', [{}, {'full_name': 'other/repo', 'private': False, 'permissions': {'push': True}},
+                                      {'full_name': 'KarlSideProjects/hwmonitor-mqtt-releases', 'private': True},
+                                      {'full_name': 'KarlSideProjects/hwmonitor-mqtt-releases', 'private': False,
+                                       'permissions': {'push': False}}])
+def test_preflight_blocks_wrong_private_or_nonpush_repository(service, tmp_path, metadata):
+    from release_controller import preflight
+    api, state = service
+    state['repository'] = metadata
+    repo, assets, evidence = (tmp_path / name for name in ('repo', 'assets', 'evidence'))
+    source = setup(repo, assets, evidence)
+    report = preflight(repo, source, source, 'secret-value', api=api)
+    assert report['publish'] == 'blocked' and report['blockers']
+    assert len(state['reads']) == 1 and not state['writes']
+
+
+@pytest.mark.parametrize('failure', [TimeoutError('secret-value'), OSError('secret-value'), ValueError('secret-value')])
+def test_preflight_sanitizes_transport_and_invalid_json_failures(service, tmp_path, monkeypatch, failure):
+    from release_controller import preflight
+    import release_backend as backend
+    class BrokenOpener:
+        def open(self, *args, **kwargs):
+            raise failure
+    monkeypatch.setattr(backend, 'build_opener', lambda *args: BrokenOpener())
+    api, state = service
+    repo, assets, evidence = (tmp_path / name for name in ('repo', 'assets', 'evidence'))
+    source = setup(repo, assets, evidence)
+    report = preflight(repo, source, source, 'secret-value', api=api)
+    assert report['publish'] == 'blocked' and report['blockers']
+    assert 'secret-value' not in json.dumps(report)
+    assert not state['writes']
 
 
 def test_preflight_cli_missing_secret_is_read_only_and_only_blocks_publish(tmp_path):

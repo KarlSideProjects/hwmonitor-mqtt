@@ -1,6 +1,6 @@
 flowchart TD
     A["Select trusted first-parent source and derive version"]
-    B["Credential preflight gates reusable full source/flow checks then platform builds; explicit private build_only bypasses credentials only"]
+    B["Authenticated GET exact public repo/push eligibility and Releases; read success leaves writes unverified; fail closed before checks/builds, private build_only bypasses credentials only"]
     C["Assemble exact assets and private evidence"]
     D["Check metadata, checksums, committed installers and platform records"]
     E["Inspect all platform archives and evidence"]
@@ -13,7 +13,7 @@ flowchart TD
     L["Verify remote assets and mark draft READY with explicit intended tag"]
     M["Globally serialized drain verifies and publishes READY drafts with explicit intended tag; scheduled or manual drain can retry"]
     N["Reconcile latest to highest confirmed published ordinal; verify newly published release identity and all anonymous asset digests"]
-    O["Errors in A through N or recovery P reject; conflicts and missing evidence stop preparation or drain"]
+    O["Errors in A through N or recovery P reject; sanitized HTTP status, transport/JSON errors; conflicts and missing evidence stop preparation or drain"]
     P["Scheduled recovery lists missing sources and dispatches bounded retries when activation is configured"]
     Q["Loopback-only draft staging prototype uses test API"]
     A -->|valid| B

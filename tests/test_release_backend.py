@@ -17,7 +17,9 @@ from release_backend import GitHub, drain_ready, identity, prepare_candidate, re
 
 @pytest.fixture
 def service():
-    state = {'releases': [], 'assets': {}, 'latest': None, 'fail_upload': False, 'fail_publish': False, 'next': 1, 'writes': []}
+    state = {'releases': [], 'assets': {}, 'latest': None, 'fail_upload': False, 'fail_publish': False, 'next': 1, 'writes': [],
+             'reads': [], 'read_failures': {}, 'repository': {'full_name': 'KarlSideProjects/hwmonitor-mqtt-releases',
+                                                           'private': False, 'permissions': {'push': True}}}
     lock = threading.RLock()
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -35,6 +37,14 @@ def service():
             suffix = path.path.split('/hwmonitor-mqtt-releases', 1)[1]
             data = self.rfile.read(int(self.headers.get('Content-Length', 0)))
             with lock:
+                if self.command == 'GET':
+                    state['reads'].append((suffix, self.headers.get('Authorization')))
+                    if suffix in state['read_failures']:
+                        self.reply(state['read_failures'][suffix], {'message': 'secret-value must not be echoed'})
+                        return
+                    if suffix == '':
+                        self.reply(200, state['repository'])
+                        return
                 if self.command != 'GET':
                     state['writes'].append((self.command, suffix))
                 if suffix == '/releases':
@@ -91,6 +101,33 @@ def service():
     thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
     yield GitHub(test_api=f'http://127.0.0.1:{server.server_port}'), state
     server.shutdown(); thread.join(); server.server_close()
+
+
+@pytest.mark.parametrize('status', [401, 403, 404, 500])
+def test_pages_preserves_http_status_without_response_body(service, status):
+    api, state = service
+    state['read_failures']['/releases'] = status
+    with pytest.raises(ValueError, match=f'cannot enumerate /releases: HTTP {status}') as error:
+        api.pages('/releases')
+    assert 'secret-value' not in str(error.value)
+    assert not state['writes']
+
+
+def test_authenticated_asset_transport_failure_retains_published_pending_state(service, tmp_path, monkeypatch):
+    from release_backend import verify_public
+    api, state = service
+    receipt = make_candidate(tmp_path / 'candidate', 1)
+    release = prepare_candidate(api, receipt, tmp_path / 'candidate')
+    drain_ready(api)
+    writes = list(state['writes'])
+    original = api.request
+    def request(method, path, *args, **kwargs):
+        if path.startswith(f"/releases/{release['id']}/assets?"):
+            raise OSError('injected transport outage')
+        return original(method, path, *args, **kwargs)
+    monkeypatch.setattr(api, 'request', request)
+    assert verify_public(api, release['id'], receipt)['state'] == 'published-but-verification-pending'
+    assert state['writes'] == writes
 
 
 def make_candidate(root, n):

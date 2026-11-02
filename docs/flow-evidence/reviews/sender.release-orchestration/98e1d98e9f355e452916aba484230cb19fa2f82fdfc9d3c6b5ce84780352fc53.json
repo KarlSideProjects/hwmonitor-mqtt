@@ -1,0 +1,67 @@
+{
+  "feature": "sender.release-orchestration",
+  "fingerprint": "98e1d98e9f355e452916aba484230cb19fa2f82fdfc9d3c6b5ce84780352fc53",
+  "reviewer": "Codex independent reviewer /root/publisher_p1_review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    {
+      "base": "31bc9d69ab88a2021318ed7968c8d164953966bd",
+      "candidate": "worktree",
+      "review_attempt": "initial, spent 1; author repair reviewed within same live attempt",
+      "direct_source_ranges_read": {
+        ".github/workflows/ci.yml": "1-155",
+        ".github/workflows/sender-release.yml": "1-193",
+        "docs/flows/sender.release-orchestration.mmd": "1-40",
+        "docs/release/sender-orchestration-wip.md": "1-28",
+        "scripts/check_release_assets.py": "1-59",
+        "scripts/native_install_smoke.py": "1-210",
+        "scripts/release_backend.py": "1-301",
+        "scripts/release_controller.py": "1-230",
+        "scripts/release_version.py": "1-40",
+        "scripts/stage_release_draft.py": "1-125",
+        "tests/test_native_install_smoke.py": "1-110",
+        "tests/test_release_assets.py": "1-54",
+        "tests/test_release_backend.py": "1-365",
+        "tests/test_release_controller.py": "1-391",
+        "tests/test_release_draft.py": "1-162",
+        "tests/test_release_version.py": "1-40",
+        "tests/test_release_workflow.py": "1-318"
+      },
+      "identity": "All 17 direct candidate SHA-256s independently matched regenerated review-packet.json before result creation."
+    },
+    {
+      "contracts_read": [
+        "AGENTS.md",
+        "docs/flows/README.md",
+        "docs/flow-manifest.json: scope, sources, sender.release-orchestration mappings, sender.build and sender.release-inspection records, global policy_inputs and limits",
+        "docs/flows/contracts.md: complete",
+        "docs/flows/sender.build.mmd: complete",
+        "docs/flows/sender.release-inspection.mmd: complete"
+      ],
+      "dependencies": "Named build and inspection boundaries unchanged; examined through their flows/shared contracts and controller integration. No global policy or mapping change in the bounded diff."
+    },
+    {
+      "semantic_review": "Source/version validation precedes network reads. Preflight authenticates exact fixed public repository metadata then first Releases page using GET only, disabled redirects and 30-second request timeouts. Identity, visibility, push eligibility and response shape failures block. HTTP status is retained without response body; transport/JSON failures are sanitized. Success explicitly leaves write permission unverified. Workflow requires successful preflight before source checks and builds, with only explicit private build_only bypassing credential requirements."
+    },
+    {
+      "recovery_review": "Reviewed controller preparation, receipt construction, draft reset/reuse, intended tag preservation, serialized publication, latest reconciliation, read-only verification and bounded recovery. Final pages() preserves OSError for verify_public pending-state handling. Author-discovered interim reclassification was removed before final verdict; targeted authenticated-asset transport regression failed before repair and passed after. No unresolved finding."
+    },
+    {
+      "tests": "Author final make check: 561 passed, 17 skipped in 71.43s, confirmed by reading /tmp/hwmonitor-p1-final-check.log and author freeze confirmation. Earlier baseline 61 passed, targeted green 81 passed, initial red failures and recovery red/green logs read. Final suite supersedes earlier 560-pass metadata. git diff --check independently clean. No code/input changes reported after final suite; packet hashes independently rechecked."
+    },
+    {
+      "wizard_assessment": "Pass for private wizard change. Complete current script 1-302, old snapshot and stage diff, both compatibility wrappers 1-3, and test_wizard.py 1-104 read. Both target repositories use the shared fixed-target validator/store flow. Generated value versus Token name, Only select repositories and Contents read/write instructions are explicit. Hidden input goes through stdin validation before confirmation and gh secret set. Failure, EOF or declined confirmation does not store. Existing secrets are not read, rotated or modified by this review."
+    },
+    {
+      "wizard_verification": "Reviewer independently ran controlled test_wizard.py: 21 passed; bash -n passed; library prefix before STAGES byte comparison passed. No human wizard run or live credential operation."
+    }
+  ],
+  "limitations": [
+    "No live credential, secret-store, publish, deploy or device operation performed. Passing authenticated public reads and reported push eligibility do not prove Contents write scope or successful future publication; those behaviors are explicitly not certified.",
+    "Live GitHub token-creation UI, owner approvals, environment policies and branch protections were not exercised. Wizard instructions and fixed targets were reviewed statically; controlled tests replace network/store calls.",
+    "shellcheck is unavailable. Bash syntax and controlled validator/store checks passed.",
+    "Graph project home-karl-Workspace-Tools-hwmonitor-mqtt was indexed 2026-10-28T07:37:39Z at another checkout; coverage reported missing freshness for release paths. Current direct source was read instead. No claim of current graph verification.",
+    "Review assumes maintainer-driven wizard use and workflow concurrency/serialization defined in current source. It does not certify fresh compiled acceptance, artifact licensing, all transitive dependency implementation, or whole-repository coverage. Required direct read ranges are complete."
+  ]
+}
