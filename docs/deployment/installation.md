@@ -9,13 +9,18 @@
 
 ## 在 Linux 或 PVE 安裝 Sender
 
-Linux x64 與 ARM64 編譯版尚未公開；公開發布完成前請勿使用下列命令。發布後，在 Debian、Ubuntu 或 Proxmox VE 主機的 root shell 執行。安裝器需要 `curl`、`jq`、`tar`、`sha256sum`、`runuser`、`od` 與 `flock`。一般 Linux 使用 Docker Compose v2，PVE 使用原生 systemd；既有 `.env` 與 Docker 覆寫檔會保留。ARM64 僅支援 64 位元 Linux（包含 Raspberry Pi）；32 位元系統不支援。PVE 原生 systemd 僅支援 x64。
+在 Debian、Ubuntu 或 Proxmox VE 主機的 root shell 執行以下公開安裝步驟。安裝器需要 `curl`、`jq`、`tar`、`sha256sum`、`runuser`、`od` 與 `flock`。一般 Linux 使用 Docker Compose v2，PVE 使用原生 systemd；已辨識且受支援的既有安裝會保留 `.env` 與 Docker 覆寫檔；未知目錄或有衝突的舊 PVE Docker 容器會停止安裝。ARM64 僅支援 64 位元 Linux（包含 Raspberry Pi）；32 位元系統不支援。PVE 原生 systemd 僅支援 x64。
 
 ```bash
-u=https://github.com/KarlSideProjects/hwmonitor-mqtt-releases/releases/latest/download/bootstrap.sh; f=$(mktemp) && (wget -qO "$f" "$u" || curl -fsSL "$u" -o "$f") && bash "$f"
+release_tag=$(curl --fail --silent --show-error https://api.github.com/repos/KarlSideProjects/hwmonitor-mqtt-releases/releases/latest | jq -er '.tag_name') &&
+[[ "$release_tag" =~ ^v0\.1\.[0-9]+$ ]] &&
+release_base="https://github.com/KarlSideProjects/hwmonitor-mqtt-releases/releases/download/$release_tag" &&
+curl --fail --location "$release_base/install.sh" --output install.sh &&
+curl --fail --location "$release_base/install.sh.sha256" --output install.sh.sha256 &&
+sha256sum --check install.sh.sha256 && bash ./install.sh
 ```
 
-安裝入口確認單一公開版本，下載相同版本的校驗資料與編譯包，驗證後才更新安裝。下載或校驗失敗不會更新現有程式；啟動失敗時會嘗試回復先前的程式與服務。
+目前公開入口需要多行步驟；安裝腳本及校驗碼來自同一發布來源，無法抵禦該來源遭竄改。安裝入口確認單一公開版本，下載相同版本的校驗資料與編譯包，驗證後才更新安裝。下載或校驗失敗不會更新現有程式；啟動失敗時會嘗試回復先前的程式與服務。
 
 PVE 安裝入口會先檢查舊的 `sys-agent` Docker 容器。容器存在時會停止，請先完成下方遷移，再執行安裝。它會更新下載目錄中的程式，保留既有 `.env` 與私有 PVE 設定。
 
@@ -23,7 +28,7 @@ PVE 本機的節點名稱與 CA 由 PVE 安裝模組準備。模組將本機 `/e
 
 ### 安裝檔會做什麼
 
-下載命令執行 `bootstrap.sh`，由它辨識系統並呼叫對應平台模組。一般 Linux 缺少 Docker 時，若系統套件來源提供 Docker Engine 與 Compose v2，安裝器會使用 APT 安裝；否則先自行安裝這兩項。它會下載或更新 `/opt/hwmonitor-mqtt` 內的程式，保留 MQTT `.env`、PVE 私有設定與 Docker 自訂覆寫檔。一般 Linux 使用 Docker Compose sender；PVE 使用原生 systemd sender。Windows 編譯版入口會驗證並安裝套件、準備 LibreHardwareMonitor 與開機排程；從原始碼執行 Windows task installer 時才需 Python/uv。
+下載命令執行公開的 `install.sh`，由它辨識系統並呼叫對應平台模組。一般 Linux 缺少 Docker 時，若系統套件來源提供 Docker Engine 與 Compose v2，安裝器會使用 APT 安裝；否則先自行安裝這兩項。它會下載或更新 `/opt/hwmonitor-mqtt` 內的程式，保留 MQTT `.env`、PVE 私有設定與 Docker 自訂覆寫檔。一般 Linux 使用 Docker Compose sender；PVE 使用原生 systemd sender。Windows 編譯版入口會驗證並安裝套件、準備 LibreHardwareMonitor 與開機排程；從原始碼執行 Windows task installer 時才需 Python/uv。
 
 PVE 分支依序執行下列操作：
 
@@ -43,15 +48,13 @@ PVE 分支依序執行下列操作：
 
 ### PVE 服務啟動權限
 
-若安裝完成後沒有監控資料，且服務日誌出現 `200/CHDIR` 或 `Permission denied`，可能是舊安裝器在 `umask 077` 下建立了服務無法讀取的程式目錄或 Python 環境。新版安裝器會修正這些執行檔案的權限，保留既有 MQTT 與 PVE token 設定；公開發布後，在 PVE root shell 重跑上方下載安裝命令。
+若安裝完成後沒有監控資料，且服務日誌出現 `200/CHDIR` 或 `Permission denied`，可能是舊安裝器在 `umask 077` 下建立了服務無法讀取的程式目錄或 Python 環境。新版安裝器會修正這些執行檔案的權限，保留既有 MQTT 與 PVE token 設定；在 PVE root shell 重跑上方下載安裝步驟。
 
 ### PVE HTTPS 連線檢查
 
 HTTPS 連線必須通過設定 CA 的信任鏈與主機名稱驗證。[Python 3.13 起的預設嚴格憑證檢查](https://docs.python.org/3/library/ssl.html#ssl.create_default_context)可能拒絕缺少 key usage 擴充的既有 PVE CA。採集端只在 OpenSSL 明確回報此原因 (驗證碼 `92`) 時，針對該 PVE 連線取消嚴格格式檢查並重試一次；CA 信任、憑證有效期及主機名稱驗證仍保留，不會改動 PVE 的憑證或全域 TLS 設定。
 
-遇到此相容性問題時，在 PVE root Shell 重跑已下載的安裝入口即可更新採集端，無須重建 token：
-
-公開發布後，重新執行上方下載安裝命令。
+遇到此相容性問題時，在 PVE root shell 重新執行上方下載安裝步驟，無須重建 token。
 
 ### 從舊 Docker sender 遷移到 PVE 原生服務
 
@@ -81,10 +84,20 @@ docker rename sys-agent-before-native sys-agent && docker start sys-agent
 
 ## Windows Sender 安裝與注意事項
 
-Windows 編譯版尚未公開，公開發布完成前請勿使用下列入口。發布後在「系統管理員」PowerShell 執行；首次執行會隱藏 MQTT 密碼輸入，並建立僅 Administrators 與 SYSTEM 可讀的 `.env`，既有設定會保留。安裝器驗證編譯套件，準備 LibreHardwareMonitor 與 PawnIO，註冊開機排程並立即啟動 sender；從原始碼執行 task installer 的路徑才需 Python/uv。
+在 64 位元「系統管理員」PowerShell 執行以下公開安裝步驟；首次執行會隱藏 MQTT 密碼輸入，並建立僅 Administrators 與 SYSTEM 可讀的 `.env`，已辨識且受支援的既有設定會保留；無法辨識的目錄會停止安裝。安裝器驗證編譯套件，準備 LibreHardwareMonitor 與 PawnIO，註冊開機排程並立即啟動 sender；從原始碼執行 task installer 的路徑才需 Python/uv。
 
 ```powershell
-irm https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/refs/heads/master/bootstrap.ps1 -ErrorAction Stop | iex
+& {
+$releaseTag = (Invoke-RestMethod 'https://api.github.com/repos/KarlSideProjects/hwmonitor-mqtt-releases/releases/latest' -ErrorAction Stop).tag_name
+if ($releaseTag -cnotmatch '^v0\.1\.[0-9]+$') { throw 'Unexpected release tag' }
+$releaseBase = "https://github.com/KarlSideProjects/hwmonitor-mqtt-releases/releases/download/$releaseTag"
+Invoke-WebRequest "$releaseBase/install.ps1" -OutFile '.\install.ps1' -ErrorAction Stop
+Invoke-WebRequest "$releaseBase/install.ps1.sha256" -OutFile '.\install.ps1.sha256' -ErrorAction Stop
+$expectedHash = ((Get-Content '.\install.ps1.sha256' -Raw).Trim() -split '\s+')[0]
+if ($expectedHash -cnotmatch '^[a-f0-9]{64}$' -or (Get-FileHash '.\install.ps1' -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expectedHash) { throw 'Installer checksum mismatch' }
+Unblock-File '.\install.ps1'
+.\install.ps1
+}
 ```
 
 檢查排程狀態：
