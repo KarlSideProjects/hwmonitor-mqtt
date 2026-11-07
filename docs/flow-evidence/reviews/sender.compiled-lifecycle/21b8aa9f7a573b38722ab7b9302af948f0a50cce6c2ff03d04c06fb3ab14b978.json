@@ -1,0 +1,13 @@
+{
+  "feature": "sender.compiled-lifecycle",
+  "fingerprint": "21b8aa9f7a573b38722ab7b9302af948f0a50cce6c2ff03d04c06fb3ab14b978",
+  "reviewer": "/root/flow_review_a",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "完整讀取 Linux/Windows bootstrap、flow、契約和安裝文件；核對保存已辨識設定及未知目錄停止；focused test 14 passed"
+  ],
+  "limitations": [
+    "未在實體 Windows 或 PVE 執行；full check 由作者另行執行。"
+  ]
+}

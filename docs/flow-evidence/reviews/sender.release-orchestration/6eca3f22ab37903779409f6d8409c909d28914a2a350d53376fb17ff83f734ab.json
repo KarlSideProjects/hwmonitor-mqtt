@@ -1,0 +1,13 @@
+{
+  "feature": "sender.release-orchestration",
+  "fingerprint": "6eca3f22ab37903779409f6d8409c909d28914a2a350d53376fb17ff83f734ab",
+  "reviewer": "/root/flow_review_b",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "核對 workflow checks 依 preflight 及 build_only 例外，flow 與修正文檔一致；最新全域文件和測試不改 workflow、controller 或 backend。基準 31bc9d6 的 run 41321798674 經 CI release 發布檢查通過。"
+  ],
+  "limitations": [
+    "未重跑真實公開發布、並行或中斷恢復。"
+  ]
+}

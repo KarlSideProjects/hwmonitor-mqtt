@@ -1,0 +1,13 @@
+{
+  "feature": "sender.smart-discovery",
+  "fingerprint": "1fde123467ee23415131e266e989e67d42d528b70b0d1fd0b1bb14ef14008ecf",
+  "reviewer": "/root/flow_review_b",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "核對 smart.py:1-100、discovery flow 與測試邊界，最新全域變更不涉及 SMART；原始碼和 mapping 未改。以 /home/karl/Workspace/Tools/hwmonitor-mqtt/.venv/bin/python -m pytest tests/test_smart_collector.py -q 執行：21 passed。"
+  ],
+  "limitations": [
+    "未測實體磁碟，normalization 及 fallback 內部超出既有 flow 範圍。"
+  ]
+}

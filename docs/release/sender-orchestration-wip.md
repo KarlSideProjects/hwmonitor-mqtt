@@ -8,7 +8,7 @@ Versions remain `0.1.<ordinal>` from complete master first-parent history. Linux
 
 Run `python3 scripts/release_controller.py preflight --master <full-master-sha> --source <full-source-sha>`. This validates source/version identity and reports readiness to run checks and builds separately from the publisher credential prerequisite. It does not execute tests, compile, contact GitHub, write releases, or print secret values. `--require-publish` returns failure when `SENDER_RELEASE_TOKEN` is missing; ordinary preflight succeeds with a blocked-publication report.
 
-The release workflow runs this prerequisite in `sender-release-publisher` before either expensive platform build. Source checks depend only on source identity and still run without that credential. A present credential is reported as `credential-present-unverified`: presence cannot prove repository scope, expiry, Contents write permission, environment policy, or successful publication. Preparation and drain retain their existing remote validation and failure handling. Tests and build jobs receive no publisher credential.
+The release workflow runs this prerequisite in `sender-release-publisher` before either expensive platform build. The release workflow gates source checks on this prerequisite too; an explicit manual `build_only` run skips the credential preflight. A present credential is reported as `credential-present-unverified`: presence cannot prove repository scope, expiry, Contents write permission, environment policy, or successful publication. Preparation and drain retain their existing remote validation and failure handling. Tests and build jobs receive no publisher credential.
 
 ## Remaining publisher setup
 

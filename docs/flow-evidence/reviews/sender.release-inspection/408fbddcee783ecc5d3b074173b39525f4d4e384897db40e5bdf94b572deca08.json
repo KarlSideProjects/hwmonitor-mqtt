@@ -1,0 +1,13 @@
+{
+  "feature": "sender.release-inspection",
+  "fingerprint": "408fbddcee783ecc5d3b074173b39525f4d4e384897db40e5bdf94b572deca08",
+  "reviewer": "/root/flow_review_b",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "檢視 candidate 檢查文件、inspection flow、shared contracts、檢查器邊界與公開 v0.1.32 平台資產；最新全域文件與測試變更未改該功能。"
+  ],
+  "limitations": [
+    "未重新執行真實候選封裝或第三方授權審查。"
+  ]
+}
