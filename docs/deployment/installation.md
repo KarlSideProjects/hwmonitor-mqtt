@@ -12,12 +12,17 @@
 在 Debian、Ubuntu 或 Proxmox VE 主機的 root shell 執行以下公開安裝步驟。安裝器需要 `curl`、`jq`、`tar`、`sha256sum`、`runuser`、`od` 與 `flock`。一般 Linux 使用 Docker Compose v2，PVE 使用原生 systemd；已辨識且受支援的既有安裝會保留 `.env` 與 Docker 覆寫檔；未知目錄或有衝突的舊 PVE Docker 容器會停止安裝。ARM64 僅支援 64 位元 Linux（包含 Raspberry Pi）；32 位元系統不支援。PVE 原生 systemd 僅支援 x64。
 
 ```bash
+(
+scratch=$(mktemp -d) || exit 1
+trap 'rm -rf "$scratch"' EXIT
+cd "$scratch" || exit 1
 release_tag=$(curl --fail --silent --show-error https://api.github.com/repos/KarlSideProjects/hwmonitor-mqtt-releases/releases/latest | jq -er '.tag_name') &&
 [[ "$release_tag" =~ ^v0\.1\.[0-9]+$ ]] &&
 release_base="https://github.com/KarlSideProjects/hwmonitor-mqtt-releases/releases/download/$release_tag" &&
 curl --fail --location "$release_base/install.sh" --output install.sh &&
 curl --fail --location "$release_base/install.sh.sha256" --output install.sh.sha256 &&
 sha256sum --check install.sh.sha256 && bash ./install.sh
+)
 ```
 
 目前公開入口需要多行步驟；安裝腳本及校驗碼來自同一發布來源，無法抵禦該來源遭竄改。安裝入口確認單一公開版本，下載相同版本的校驗資料與編譯包，驗證後才更新安裝。下載或校驗失敗不會更新現有程式；啟動失敗時會嘗試回復先前的程式與服務。
@@ -91,12 +96,18 @@ docker rename sys-agent-before-native sys-agent && docker start sys-agent
 $releaseTag = (Invoke-RestMethod 'https://api.github.com/repos/KarlSideProjects/hwmonitor-mqtt-releases/releases/latest' -ErrorAction Stop).tag_name
 if ($releaseTag -cnotmatch '^v0\.1\.[0-9]+$') { throw 'Unexpected release tag' }
 $releaseBase = "https://github.com/KarlSideProjects/hwmonitor-mqtt-releases/releases/download/$releaseTag"
-Invoke-WebRequest "$releaseBase/install.ps1" -OutFile '.\install.ps1' -ErrorAction Stop
-Invoke-WebRequest "$releaseBase/install.ps1.sha256" -OutFile '.\install.ps1.sha256' -ErrorAction Stop
-$expectedHash = ((Get-Content '.\install.ps1.sha256' -Raw).Trim() -split '\s+')[0]
-if ($expectedHash -cnotmatch '^[a-f0-9]{64}$' -or (Get-FileHash '.\install.ps1' -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expectedHash) { throw 'Installer checksum mismatch' }
-Unblock-File '.\install.ps1'
-.\install.ps1
+$client = [Net.WebClient]::new()
+try {
+    $installer = $client.DownloadData("$releaseBase/install.ps1")
+    $checksum = $client.DownloadData("$releaseBase/install.ps1.sha256")
+} finally { $client.Dispose() }
+$utf8 = [Text.UTF8Encoding]::new($false, $true)
+$expectedHash = (($utf8.GetString($checksum)).Trim() -split '\s+')[0]
+$sha256 = [Security.Cryptography.SHA256]::Create()
+try { $actualHash = ([BitConverter]::ToString($sha256.ComputeHash($installer))).Replace('-', '').ToLowerInvariant() }
+finally { $sha256.Dispose() }
+if ($expectedHash -cnotmatch '^[a-f0-9]{64}$' -or $actualHash -ne $expectedHash) { throw 'Installer checksum mismatch' }
+& ([ScriptBlock]::Create($utf8.GetString($installer)))
 }
 ```
 

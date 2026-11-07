@@ -1,0 +1,13 @@
+{
+  "feature": "sender.license",
+  "fingerprint": "8b4d4beafc1135644f04702b009fa66b7f964554905c0c08368c68dfd167ee11",
+  "reviewer": "/root/flow_review_a",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "讀取 packet、license flow 和 shared contracts、安裝文件及完整 diff；未更改授權內容或授權聲明"
+  ],
+  "limitations": [
+    "未審核個別發行包第三方授權。"
+  ]
+}
