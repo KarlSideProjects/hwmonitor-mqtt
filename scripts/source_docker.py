@@ -2,7 +2,7 @@
 
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import shutil
 import socket
 import subprocess
@@ -58,6 +58,30 @@ class DockerActivation:
         args += ['--profile', 'agent'] + operation
         return self._run(args, env=env)
 
+    def _validate_source_compose(self, files):
+        result = self._compose(files, ['config', '--format', 'json'])
+        try:
+            if result.returncode:
+                raise ValueError
+            service = json.loads(result.stdout)['services']['sys_agent']
+            build = service['build']
+            context = Path(build['context']).resolve()
+            dockerfile = Path(build['dockerfile'])
+            if not dockerfile.is_absolute():
+                dockerfile = context / dockerfile
+            app = PurePosixPath('/app')
+            mounts = [PurePosixPath(volume['target']) for volume in service.get('volumes', [])]
+            environment = service.get('environment') or {}
+            if (context != self.root or dockerfile.resolve() != self.root / 'Dockerfile.source'
+                    or service.get('command') is not None or service.get('entrypoint') is not None
+                    or service.get('pull_policy') not in (None, 'build')
+                    or service.get('working_dir') not in (None, '/app')
+                    or any(target == app or target in app.parents or app in target.parents for target in mounts)
+                    or 'PYTHONPATH' in environment or 'PYTHONHOME' in environment):
+                raise ValueError
+        except (KeyError, TypeError, ValueError, OSError) as error:
+            raise RuntimeError('compose configuration does not run the source sender') from error
+
     def prepare(self):
         if self.which('systemctl'):
             status = self._run(['systemctl', 'show', '--property=LoadState', '--property=ActiveState',
@@ -102,6 +126,7 @@ class DockerActivation:
             raise RuntimeError('untrusted compose override')
         if override.is_file():
             files.append(str(override))
+        self._validate_source_compose(files)
         self.started = True
         if self._compose(files, ['up', '--build', '-d']).returncode:
             raise RuntimeError('sender startup failed')

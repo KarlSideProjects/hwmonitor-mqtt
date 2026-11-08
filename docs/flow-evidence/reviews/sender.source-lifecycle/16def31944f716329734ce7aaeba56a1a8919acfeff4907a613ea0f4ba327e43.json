@@ -1,0 +1,17 @@
+{
+  "feature": "sender.source-lifecycle",
+  "fingerprint": "16def31944f716329734ce7aaeba56a1a8919acfeff4907a613ea0f4ba327e43",
+  "reviewer": "/root/source_review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "候選為工作樹，HEAD bcf88a499a6b8c739a57b1c3d5c6a182230db2f7；比較基準 3bf96916d5e5b40d585b1e073cbbec4bed60627e。",
+    "已讀 reviewer-prompt、對應 packet、docs/flows/contracts.md 與各自流程圖；寫出前以 flow_checker explain 核對 fingerprint。",
+    "已讀修訂後 docs/flows/sender.source-lifecycle.mmd 全文及 manifest 的節點映射，逐一核對 Windows 既有或新安裝鎖定、Linux Docker pin、PVE runtime 備份、設定、啟動與回復順序。",
+    "先前完整讀取 bootstrap-source.sh、bootstrap-source.ps1、scripts/source_archive.py、source_config.py、source_deploy.py、source_docker.py、source_linux_install.py、source_pve.py、scripts/windows/activate_source.ps1、validate_source_archive.ps1 及對應測試；本輪重新核對變更的流程與上述來源。",
+    "本機來源安裝與 remote bootstrap 相關測試共 101 passed；PVE、Docker 測試 24 passed，另以實際 docker compose config 驗證標準設定可通過、舊 Dockerfile override 被拒絕。"
+  ],
+  "limitations": [
+    "測試包含模擬 systemctl、Docker 與 PowerShell；本次正式流程審查未在 PVE 或 Windows 目標主機重跑實機安裝。"
+  ]
+}

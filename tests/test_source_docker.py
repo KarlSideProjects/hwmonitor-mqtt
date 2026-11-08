@@ -22,10 +22,17 @@ def inspect(root, *, container_id='container-id', running=True):
     })
 
 
+def source_config(root):
+    return json.dumps({'services': {'sys_agent': {'build': {
+        'context': str(root), 'dockerfile': 'Dockerfile.source'}}}})
+
+
 def test_fresh_install_builds_source_and_requires_stable_sender(tmp_path):
     calls = []
     def run(args, **kwargs):
         calls.append(args)
+        if args[:2] == ['docker', 'compose'] and 'config' in args:
+            return subprocess.CompletedProcess(args, 0, source_config(tmp_path), '')
         if args[:3] == ['docker', 'inspect', 'sys-agent']:
             count = sum(c[:3] == args[:3] for c in calls)
             if count <= 2:
@@ -58,6 +65,8 @@ def test_fresh_failed_start_removes_only_recognized_sender(tmp_path):
     calls = []
     def run(args, **kwargs):
         calls.append(args)
+        if args[:2] == ['docker', 'compose'] and 'config' in args:
+            return subprocess.CompletedProcess(args, 0, source_config(tmp_path), '')
         if args[:3] == ['docker', 'inspect', 'sys-agent']:
             count = sum(c[:3] == args[:3] for c in calls)
             if count <= 2:
@@ -78,6 +87,8 @@ def test_upgrade_failure_restores_pinned_image_and_previous_compose(tmp_path):
     calls = []
     def run(args, **kwargs):
         calls.append(args)
+        if args[:2] == ['docker', 'compose'] and 'config' in args:
+            return subprocess.CompletedProcess(args, 0, source_config(tmp_path), '')
         if args[:3] == ['docker', 'inspect', 'sys-agent']:
             return subprocess.CompletedProcess(args, 0, inspect(tmp_path), '')
         if args[:3] == ['docker', 'image', 'inspect']:
@@ -129,6 +140,8 @@ def test_failed_upgrade_restores_source_before_restarting_old_container(tmp_path
     (root / 'docker-compose.linux.yml').write_text('old')
     (root / '.env').write_text('private')
     def run(args, **kwargs):
+        if args[:2] == ['docker', 'compose'] and 'config' in args:
+            return subprocess.CompletedProcess(args, 0, source_config(root), '')
         if args[:3] == ['docker', 'inspect', 'sys-agent']:
             return subprocess.CompletedProcess(args, 0, inspect(root), '')
         if args[:3] == ['docker', 'image', 'inspect']:
@@ -160,3 +173,29 @@ def test_active_native_pve_sender_blocks_docker_before_it_changes_anything(tmp_p
     with pytest.raises(RuntimeError, match='native'):
         activation.prepare()
     assert not any(args[0] == 'docker' for args in calls)
+
+
+@pytest.mark.parametrize('change', ['dockerfile', 'context', 'command', 'entrypoint', 'pull_policy', 'volume', 'working_dir', 'pythonpath'])
+def test_override_cannot_change_source_build_or_start_command(tmp_path, change):
+    calls = []
+    def run(args, **kwargs):
+        calls.append(args)
+        if args[:3] == ['docker', 'inspect', 'sys-agent']:
+            return subprocess.CompletedProcess(args, 1, '', 'No such object: sys-agent')
+        if args[:2] == ['docker', 'compose'] and 'config' in args:
+            service = {'build': {'context': str(tmp_path), 'dockerfile': 'Dockerfile.source'}}
+            if change == 'dockerfile': service['build']['dockerfile'] = 'Dockerfile'
+            if change == 'context': service['build']['context'] = str(tmp_path / 'elsewhere')
+            if change == 'command': service['command'] = ['old-sender']
+            if change == 'entrypoint': service['entrypoint'] = ['old-sender']
+            if change == 'pull_policy': service['pull_policy'] = 'always'
+            if change == 'volume': service['volumes'] = [{'target': '/app/hwmonitor_mqtt'}]
+            if change == 'working_dir': service['working_dir'] = '/old'
+            if change == 'pythonpath': service['environment'] = {'PYTHONPATH': '/old'}
+            return subprocess.CompletedProcess(args, 0, json.dumps({'services': {'sys_agent': service}}), '')
+        return subprocess.CompletedProcess(args, 0, '', '')
+    activation = DockerActivation(tmp_path, run=run, sleep=lambda _: None, which=lambda _: None)
+    activation.prepare()
+    with pytest.raises(RuntimeError, match='source'):
+        activation.activate()
+    assert not any('up' in call for call in calls)

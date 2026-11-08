@@ -20,7 +20,7 @@ flowchart TD
     S["Check task remains running; commit marker; on failure restore package and task, retain recovery data if rollback fails"]
     T["Compose builds and starts Docker image; image copies compiled sender into pinned Debian image with hardware utilities"]
     U["Private development install.sh Docker path requires compiled sender at repository root; Windows task scripts remain available"]
-    V["Public release page resolves one latest public tag and verifies bootstrap checksums before complete compiled installation"]
+    V["Public documentation points to source installers in the main repository; separate release repository is retired"]
     W["Checksums and metadata are release inputs, not independent signatures"]
     X["Stop on failed checks or preparation; earlier side effects can remain"]
     Y["Detect target; create or verify recognized root and acquire installation lock"]

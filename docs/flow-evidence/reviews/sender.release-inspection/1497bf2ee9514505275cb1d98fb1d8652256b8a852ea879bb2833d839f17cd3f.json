@@ -1,0 +1,16 @@
+{
+  "feature": "sender.release-inspection",
+  "fingerprint": "1497bf2ee9514505275cb1d98fb1d8652256b8a852ea879bb2833d839f17cd3f",
+  "reviewer": "/root/source_review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "候選為工作樹，HEAD bcf88a499a6b8c739a57b1c3d5c6a182230db2f7；比較基準 3bf96916d5e5b40d585b1e073cbbec4bed60627e。",
+    "已讀 reviewer-prompt、對應 packet、docs/flows/contracts.md 與各自流程圖；寫出前以 flow_checker explain 核對 fingerprint。",
+    "已讀 scripts/inspect_sender_candidate.py:1–748、scripts/sender_build_inputs.py:1–190、tests/test_release_candidate.py 全文，核對 archive、輸入收據、runtime、image、notice 與錯誤分支。",
+    "本機執行 tests/test_release_candidate.py、tests/test_release_backend.py、tests/test_release_controller.py：116 passed。"
+  ],
+  "limitations": [
+    "以 fixture 及邊界測試核對流程；本次未以新建的真實發行成品做完整檢查，通過不代表發行或授權核准。"
+  ]
+}

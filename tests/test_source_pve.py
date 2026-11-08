@@ -153,3 +153,63 @@ def test_unconfirmed_previous_stop_does_not_claim_recovery(existing_install):
     with pytest.raises(RuntimeError, match='unconfirmed'):
         activation.recover()
     assert (runtime / 'app' / 'sender').read_text() == 'old binary'
+
+
+def test_first_install_failure_before_unit_creation_is_recoverable(tmp_path):
+    root, runtime, units = tmp_path / 'root', tmp_path / 'runtime', tmp_path / 'units'
+    root.mkdir()
+    units.mkdir()
+    calls = []
+    def run(args, **kwargs):
+        calls.append(args)
+        if args[:2] in (['systemctl', 'is-active'], ['systemctl', 'is-enabled']):
+            return subprocess.CompletedProcess(args, 4, '', '')
+        if args[:2] in (['systemctl', 'stop'], ['systemctl', 'disable']):
+            return subprocess.CompletedProcess(args, 5, '', 'unit not found')
+        if '-m' in args and 'hwmonitor_mqtt.platforms.installers.pve' in args:
+            (runtime / 'app').mkdir(parents=True)
+            (runtime / 'venv').mkdir()
+            return subprocess.CompletedProcess(args, 1, '', 'venv setup failed')
+        return subprocess.CompletedProcess(args, 0, '', '')
+    activation = PveActivation(root, '/tmp/pve.env', runtime=runtime, units=units, run=run, sleep=lambda _: None)
+    activation.prepare()
+    with pytest.raises(RuntimeError, match='startup') as failure:
+        activation.activate()
+    activation.recover()
+    assert not (runtime / 'app').exists()
+    assert not (runtime / 'venv').exists()
+    assert not list(runtime.glob('.source-pve-rollback-*'))
+    logs = list(runtime.glob('.source-pve-failure-*.log'))
+    assert len(logs) == 1
+    assert logs[0].stat().st_mode & 0o777 == 0o600
+    assert 'venv setup failed' in logs[0].read_text()
+    assert str(logs[0]) in str(failure.value)
+    PveActivation(root, '/tmp/pve.env', runtime=runtime, units=units, run=run).prepare()
+
+
+def test_first_install_failure_after_unit_creation_disables_before_removal(tmp_path):
+    root, runtime, units = tmp_path / 'root', tmp_path / 'runtime', tmp_path / 'units'
+    root.mkdir()
+    units.mkdir()
+    unit = units / 'hwmonitor-mqtt-pve.service'
+    calls = []
+    def run(args, **kwargs):
+        calls.append(args)
+        if args[:2] in (['systemctl', 'is-active'], ['systemctl', 'is-enabled']):
+            return subprocess.CompletedProcess(args, 4, '', '')
+        if args[:2] in (['systemctl', 'stop'], ['systemctl', 'disable']):
+            return subprocess.CompletedProcess(args, 0 if unit.exists() else 5, '', '')
+        if '-m' in args and 'hwmonitor_mqtt.platforms.installers.pve' in args:
+            (runtime / 'app').mkdir(parents=True)
+            (runtime / 'venv').mkdir()
+            unit.write_text('new unit')
+            return subprocess.CompletedProcess(args, 1, '', 'startup failed')
+        return subprocess.CompletedProcess(args, 0, '', '')
+    activation = PveActivation(root, '/tmp/pve.env', runtime=runtime, units=units, run=run, sleep=lambda _: None)
+    activation.prepare()
+    with pytest.raises(RuntimeError, match='startup'):
+        activation.activate()
+    activation.recover()
+    assert not unit.exists()
+    assert sum(args[:2] == ['systemctl', 'disable'] for args in calls) == 1
+    assert sum(args[:2] == ['systemctl', 'stop'] for args in calls) == 1

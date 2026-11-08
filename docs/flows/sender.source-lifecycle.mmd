@@ -1,0 +1,55 @@
+flowchart TD
+    A["User starts the platform one-line source installer"]
+    B{"Windows or Linux/PVE"}
+    C["Check privileged platform, trusted paths and prior installation"]
+    D["Resolve master to one full commit; download source and validator for that commit"]
+    E["Reject unsafe archive paths, links, duplicate entries and excessive sizes"]
+    W{"Windows installation already exists?"}
+    X["Acquire existing installation lock before download"]
+    Y["Create protected installation directory and acquire lock"]
+    F["Linux/PVE: identify target, create trusted root and acquire lock; prepare prerequisites"]
+    H{"Linux Docker or native PVE"}
+    K["Check Docker conflicts and prepare PVE API configuration"]
+    R["Check previous service or container; pin recognized previous Docker image when present"]
+    G["Preserve protected MQTT settings or prompt and create private settings"]
+    I["Stage source inputs and preserve previous inputs"]
+    J["Reject conflicting Compose overrides; build and start Python Docker sender"]
+    L["Preserve PVE service and runtime; install Python sender; require expected command and stable PID"]
+    M["Preserve recognized Windows task, source and runtime; install Python and hardware dependencies"]
+    N["Start scheduled task and require it remains running"]
+    O["Commit source marker after stable activation; remove recovery data where possible"]
+    P["On failure restore prior inputs and service or task; retain private backup if recovery fails; retain private PVE installer error log"]
+    Q["Unknown installation, unsafe path, invalid archive or unavailable prerequisite stops the operation"]
+    A --> B
+    B -->|Windows| C
+    B -->|Linux/PVE| C
+    C -->|Windows| W
+    W -->|Existing| X
+    X --> D
+    W -->|New| D
+    C -->|Linux/PVE| D
+    D --> E
+    E -->|Windows new| Y
+    E -->|Windows existing| G
+    Y --> G
+    E -->|Linux/PVE| F
+    F --> H
+    H -->|Linux| R
+    H -->|PVE| K
+    K --> R
+    R --> G
+    G -->|Linux/PVE| I
+    G -->|Windows| M
+    I -->|Linux| J
+    I -->|PVE| L
+    J --> O
+    L --> O
+    M --> N
+    N --> O
+    J -->|failure| P
+    L -->|failure| P
+    M -->|failure| P
+    N -->|failure| P
+    C -->|failure| Q
+    E -->|failure| Q
+    F -->|failure| Q

@@ -237,6 +237,8 @@ root = Path(os.environ['HWMONITOR_BOOTSTRAP_ROOT'])
 state = Path(os.environ['DOCKER_STATE'])
 if args[:2] == ['compose', 'version']:
     sys.exit(0)
+if args[0] == 'compose' and 'config' in args:
+    print(json.dumps({'services': {'sys_agent': {'build': {'context': str(root), 'dockerfile': 'Dockerfile.source'}}}})); sys.exit(0)
 if args[:2] == ['inspect', 'sys-agent']:
     if not state.exists():
         print('No such object: sys-agent', file=sys.stderr); sys.exit(1)
