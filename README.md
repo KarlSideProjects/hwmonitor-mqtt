@@ -14,7 +14,9 @@
 | Linux／PVE 電腦 | [bootstrap.sh](bootstrap.sh) | [root Shell 命令](docs/deployment/installation.md#在-linux-或-pve-安裝-sender) |
 | R36／TrimUI 掌機 | [掌機安裝入口](https://github.com/KarlSideProjects/mqtt-handheld-hardware-monitor#安裝入口) | [掌機安裝步驟](https://github.com/KarlSideProjects/mqtt-handheld-hardware-monitor/blob/main/docs/installation.md#快速安裝) |
 
-首次安裝會詢問 MQTT 設定，既有設定會保留。PVE 使用原生 systemd 服務；Windows 使用開機排程。PVE 原生安裝與 Windows 排程安裝尚未在實體目標主機驗證，完整限制見 [安裝與維護](docs/deployment/installation.md)。
+首次安裝會詢問 MQTT 設定，既有設定會保留。PVE 使用原生 systemd 服務；Windows 使用開機排程。完整限制見 [安裝與維護](docs/deployment/installation.md)。
+
+Windows 公開編譯版 v0.1.33 曾在 Windows 11 被 Microsoft Defender 封鎖，原因尚待確認。相同來源的 Python 版已在該主機啟動並連上 MQTT broker；公開的 Python 版一行安裝器尚未提供。
 
 ## 詳細文件
 

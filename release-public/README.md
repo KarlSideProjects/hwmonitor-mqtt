@@ -19,6 +19,8 @@ The bootstrap prompts for local MQTT settings, preserves recognized existing set
 
 ## Windows
 
+The compiled Windows v0.1.33 sender was blocked by Microsoft Defender on a Windows 11 test host. The cause remains unconfirmed. A Python-based sender from the same source started and established a broker connection on that host; a public one-line Python installer is not yet available.
+
 Run in 64-bit PowerShell as Administrator when a Sender restart is acceptable.
 
 ```powershell

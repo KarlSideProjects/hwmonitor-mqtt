@@ -1,0 +1,5 @@
+*
+!hwmonitor_mqtt/
+!hwmonitor_mqtt/**
+**/__pycache__
+**/*.pyc
