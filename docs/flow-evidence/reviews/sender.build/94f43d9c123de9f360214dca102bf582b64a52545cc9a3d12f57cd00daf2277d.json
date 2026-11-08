@@ -1,0 +1,23 @@
+{
+  "feature": "sender.build",
+  "fingerprint": "94f43d9c123de9f360214dca102bf582b64a52545cc9a3d12f57cd00daf2277d",
+  "reviewer": "/root/source_review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "本次候選為 commit a75fbbe5208aff35dbf39fc8b60efbb8ac80e631 加尚未提交的三張流程圖與 manifest snapshot；base 3bf96916d5e5b40d585b1e073cbbec4bed60627e。",
+    "重新讀取 reviewer-prompt、8 份更新 packet、git diff HEAD^ HEAD、後續三張流程圖修正與 manifest 映射；以 flow_checker explain 確認 fingerprint 等於 packet。",
+    "已完整讀取 scripts/windows/install_windows_sender_task.ps1 及 tests/test_windows_compiled_start.py：預設 LHM/PawnIO API 固定 asset ID、octet-stream 與 User-Agent，驗證 SHA-256 後才解壓／執行；已安裝 PawnIO 2.0+ 可沿用，source 模式可沿用既有 LHM；custom LHM URL 沿用舊行為且不驗證 SHA-256，compiled 模式拒絕自訂路徑與 URL。",
+    "本輪本機執行 .venv/bin/python -m pytest -q tests/test_windows_compiled_start.py tests/test_windows_source_activation.py tests/test_windows_package_activation.py：38 passed。",
+    "上一次由同一 reviewer 實際完成的完整審查：",
+    "候選為工作樹，HEAD bcf88a499a6b8c739a57b1c3d5c6a182230db2f7；比較基準 3bf96916d5e5b40d585b1e073cbbec4bed60627e。",
+    "已讀 reviewer-prompt、對應 packet、docs/flows/contracts.md 與各自流程圖；寫出前以 flow_checker explain 核對 fingerprint。",
+    "已讀 .github/workflows/sender-linux-build.yml:1–136、protected-windows-package.yml:1–279、sender-release.yml:1–193、ci.yml:1–155。",
+    "已讀 scripts/build_sender_package.py:1–153、capture_sender_build.py:1–188、create_sender_build_record.py:1–180、sender_build_inputs.py:1–190、windows/package_sender.py:1–80、windows/collect_notices.py:1–165、linux_arm64/gcc.py:1–362，核對建置與驗證交接。",
+    "本機執行 test_build_sender_package.py、test_sender_build_record.py、test_windows_package_build.py、test_compiled_bootstrap.py、test_sender_archive.py、test_install_sh.py、test_windows_package_activation.py：66 passed。"
+  ],
+  "limitations": [
+    "未在本次審查執行完整 Linux x64/ARM64 或 Windows 編譯及產物驗收；本 verdict 只認定所審流程文件與來源一致。",
+    "主代理提供資訊：make check 638 passed、17 skipped；Windows 11 真機安裝與 MQTT、PowerShell 5.1 asset API 和 SHA-256 均已成功。該實機及完整測試結果由主代理轉述，本 reviewer 未獨立執行。"
+  ]
+}

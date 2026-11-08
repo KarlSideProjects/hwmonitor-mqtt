@@ -16,7 +16,7 @@ flowchart TD
     O["Resolve public release; verify helper scripts and ZIP against release SHA-256 records"]
     P["Validate ZIP paths, sizes, manifest, executable hash and PE architecture; match release identity"]
     Q["Check runtime prerequisites; preserve or create protected MQTT settings"]
-    R["Replace recognized package and scheduled task; download pinned LHM and PawnIO via GitHub asset API with SHA-256 checks; reuse PawnIO 2.0 or newer; start SYSTEM task"]
+    R["Replace recognized package and scheduled task; download pinned LHM via GitHub asset API and verify SHA-256; reuse PawnIO 2.0 or newer or download and verify pinned version; start SYSTEM task"]
     S["Check task remains running; commit marker; on failure restore package and task, retain recovery data if rollback fails"]
     T["Compose builds and starts Docker image; image copies compiled sender into pinned Debian image with hardware utilities"]
     U["Private development install.sh Docker path requires compiled sender at repository root; Windows task scripts remain available"]

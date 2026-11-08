@@ -15,7 +15,7 @@ flowchart TD
     I["Stage source inputs and preserve previous inputs"]
     J["Reject conflicting Compose overrides; build and start Python Docker sender"]
     L["Preserve PVE service and runtime; install Python sender; require expected command and stable PID"]
-    M["Preserve recognized Windows task, source and runtime; install Python and SHA-256-verified hardware dependencies via GitHub asset API"]
+    M["Preserve recognized Windows task, source and runtime; install Python, reuse existing hardware dependencies or download pinned defaults via GitHub asset API and verify SHA-256"]
     N["Start scheduled task and require it remains running"]
     O["Commit source marker after stable activation; remove recovery data where possible"]
     P["On failure restore prior inputs and service or task; retain private backup if recovery fails; retain private PVE installer error log"]
