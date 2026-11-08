@@ -50,11 +50,12 @@ try { & $env:INSTALL_SCRIPT -ProjectRoot $env:PROJECT_ROOT -SenderExe $env:SENDE
     assert old_lhm.read_bytes() == b"unverified"
 
 
-@pytest.mark.parametrize(('function', 'url_variable', 'asset_id'), [
-    ('Ensure-LhmExecutable', 'LhmDefaultUrl', '355828308'),
-    ('Ensure-PawnIo', 'PawnIoUrl', '374375077'),
+@pytest.mark.parametrize(('function', 'url_variable', 'asset_id', 'asset_name'), [
+    ('Ensure-LhmExecutable', 'LhmDefaultUrl', '355828308', 'LibreHardwareMonitor.zip'),
+    ('Ensure-PawnIo', 'PawnIoUrl', '374375077', 'PawnIO_setup.exe'),
 ])
-def test_windows_hardware_download_uses_github_asset_api(tmp_path, function, url_variable, asset_id):
+@pytest.mark.parametrize('api_limited', [False, True])
+def test_windows_hardware_download_uses_github_asset_api(tmp_path, function, url_variable, asset_id, asset_name, api_limited):
     script = Path(__file__).resolve().parents[1] / 'scripts/windows/install_windows_sender_task.ps1'
     shell = r'''
 $text = Get-Content -Raw $env:INSTALL_SCRIPT
@@ -66,9 +67,15 @@ $assignment = $ast.Find({ param($n) $n -is [System.Management.Automation.Languag
 Invoke-Expression $assignment.Extent.Text
 function Resolve-LhmExePath { return $null }
 function Get-PawnIoVersion { return $null }
+$global:apiCalled = $false
 function Invoke-WebRequest { param([switch]$UseBasicParsing, $Uri, $OutFile, $Headers)
-    if ($Uri -notmatch ('/releases/assets/' + $env:ASSET_ID + '$') -or $Headers.Accept -ne 'application/octet-stream') { throw 'wrong asset request' }
-    throw 'expected asset request'
+    if ($Uri -match ('/releases/assets/' + $env:ASSET_ID + '$') -and $Headers.Accept -eq 'application/octet-stream') {
+        $global:apiCalled = $true
+        if ($env:API_LIMITED -eq '1') { throw 'HTTP 403' }
+        throw 'expected asset request'
+    }
+    if ($global:apiCalled -and $Uri.EndsWith('/' + $env:ASSET_NAME)) { throw 'expected asset request' }
+    throw 'wrong asset request'
 }
 try {
     if ($env:FUNCTION -eq 'Ensure-LhmExecutable') { Ensure-LhmExecutable -Candidate '' -InstallDir $env:INSTALL_DIR -RootPath $env:INSTALL_DIR -InstallIfMissing $true -DownloadUrl '' }
@@ -77,7 +84,7 @@ try {
 exit 1
 '''
     result = run_pwsh(shell, env={'INSTALL_SCRIPT': str(script), 'FUNCTION': function,
-                                 'URL_VARIABLE': url_variable, 'ASSET_ID': asset_id,
+                                 'URL_VARIABLE': url_variable, 'ASSET_ID': asset_id, 'ASSET_NAME': asset_name, 'API_LIMITED': str(int(api_limited)),
                                  'INSTALL_DIR': str(tmp_path / 'lhm'), 'TEMP': str(tmp_path)})
     assert result.returncode == 0, result.stdout + result.stderr
 

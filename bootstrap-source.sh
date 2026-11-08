@@ -117,10 +117,38 @@ fi
 
 tmp=$(mktemp -d)
 trap 'rm -rf -- "$tmp"' EXIT
-curl --fail --location --silent --show-error \
+if curl --fail --location --silent --show-error \
     https://api.github.com/repos/KarlSideProjects/hwmonitor-mqtt/commits/master \
-    --output "$tmp/commit.json"
-commit=$(python3 -c 'import json,re,sys; s=json.load(open(sys.argv[1])).get("sha", ""); sys.exit("Invalid source commit") if not isinstance(s, str) or not re.fullmatch("[0-9a-f]{40}", s) else print(s)' "$tmp/commit.json")
+    --output "$tmp/commit.json"; then
+    commit=$(python3 -c 'import json,re,sys; s=json.load(open(sys.argv[1])).get("sha", ""); sys.exit("Invalid source commit") if not isinstance(s, str) or not re.fullmatch("[0-9a-f]{40}", s) else print(s)' "$tmp/commit.json")
+else
+    curl --fail --location --silent --show-error --max-filesize 10485760 \
+        'https://github.com/KarlSideProjects/hwmonitor-mqtt.git/info/refs?service=git-upload-pack' \
+        --output "$tmp/refs"
+    commit=$(python3 - "$tmp/refs" <<'PY'
+import pathlib, re, sys
+b = pathlib.Path(sys.argv[1]).read_bytes()
+packets, pos = [], 0
+while pos < len(b):
+    header = b[pos:pos + 4]
+    if not re.fullmatch(rb'[0-9a-f]{4}', header): sys.exit('Invalid source commit')
+    size = int(header, 16)
+    pos += 4
+    if size == 0:
+        packets.append(None)
+    elif size < 4 or pos + size - 4 > len(b):
+        sys.exit('Invalid source commit')
+    else:
+        packets.append(b[pos:pos + size - 4])
+        pos += size - 4
+if len(packets) < 4 or packets[0] != b'# service=git-upload-pack\n' or packets[1] is not None or packets[-1] is not None or None in packets[2:-1]:
+    sys.exit('Invalid source commit')
+matches = [m.group(1).decode() for p in packets[2:-1] if (m := re.fullmatch(rb'([0-9a-f]{40}) refs/heads/master(?:\x00[^\n]*)?\n', p))]
+if len(matches) != 1: sys.exit('Invalid source commit')
+print(matches[0])
+PY
+    )
+fi
 curl --fail --location --silent --show-error \
     "https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/$commit/scripts/source_archive.py" \
     --output "$tmp/source_archive.py"

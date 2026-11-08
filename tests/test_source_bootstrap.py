@@ -109,9 +109,47 @@ printf '{"sha":"../bad"}' > "$2"
     assert not (tmp_path / 'root').exists()
 
 
+@pytest.mark.parametrize('refs', ['', '0000' + 'a' * 40 + ' refs/heads/master\n',
+                                  ('003f' + 'a' * 40 + ' refs/heads/master\n') * 2,
+                                  '001e# service=git-upload-pack\n0000' + ('003f' + 'a' * 40 + ' refs/heads/master\n') * 2 + '0000',
+                                  'not-a-git-advertisement\n003f' + 'a' * 40 + ' refs/heads/master\n',
+                                  '001e# service=git-upload-pack\n0000003f' + 'a' * 40 + ' refs/heads/master\n0008xx'])
+def test_invalid_fallback_refs_stop_before_source_download(tmp_path, refs):
+    bindir = tmp_path / 'bin'
+    bindir.mkdir()
+    for name, body in {
+        'id': '#!/bin/sh\necho 0\n',
+        'uname': '#!/bin/sh\necho x86_64\n',
+        'stat': '#!/bin/sh\nif [ "$2" = "%u" ]; then echo 0; else exec /usr/bin/stat "$@"; fi\n',
+        'curl': '''#!/bin/sh
+url=
+while [ "$#" -gt 0 ]; do
+  case "$1" in https://*) url=$1 ;; --output) shift; out=$1 ;; esac
+  shift
+done
+case "$url" in
+  */commits/master) exit 22 ;;
+  *info/refs*) printf '%s' "$REFS" > "$out" ;;
+  *) touch "$UNEXPECTED"; exit 1 ;;
+esac
+''',
+    }.items():
+        tool = bindir / name
+        tool.write_text(body)
+        tool.chmod(0o755)
+    result = subprocess.run(['bash', str(BOOTSTRAP)], text=True, capture_output=True,
+        env={**os.environ, 'PATH': f'{bindir}:{os.environ["PATH"]}',
+             'HWMONITOR_BOOTSTRAP_ROOT': str(tmp_path / 'root'), 'REFS': refs,
+             'UNEXPECTED': str(tmp_path / 'unexpected')})
+    assert result.returncode != 0
+    assert 'Invalid source commit' in result.stderr
+    assert not (tmp_path / 'unexpected').exists()
+
+
 @pytest.mark.parametrize('existing', [False, True])
 @pytest.mark.parametrize('target', ['linux', 'pve'])
-def test_linux_bootstrap_passes_verified_source_to_installer(tmp_path, existing, target):
+@pytest.mark.parametrize('api_limited', [False, True])
+def test_linux_bootstrap_passes_verified_source_to_installer(tmp_path, existing, target, api_limited):
     commit = 'a' * 40
     root = tmp_path / 'root'
     if existing:
@@ -155,7 +193,8 @@ while [ "$#" -gt 0 ]; do
 done
 printf '%s\\n' "$url" >> "$CALLS"
 case "$url" in
-  */commits/master) printf '{"sha":"%s"}' "$COMMIT" > "$out" ;;
+  */commits/master) if [ "$API_LIMITED" = 1 ]; then exit 22; fi; printf '{"sha":"%s"}' "$COMMIT" > "$out" ;;
+  *info/refs*) printf '001e# service=git-upload-pack\n0000003f%s refs/heads/master\n0000' "$COMMIT" > "$out" ;;
   */scripts/source_archive.py) cp "$HELPER" "$out" ;;
   *.tar.gz) cp "$ARCHIVE" "$out" ;;
   *) exit 1 ;;
@@ -170,7 +209,7 @@ esac
         ['bash', str(BOOTSTRAP)], text=True, capture_output=True,
         env={**os.environ, 'PATH': f'{bindir}:{os.environ["PATH"]}',
              'HWMONITOR_BOOTSTRAP_ROOT': str(root), 'CALLS': str(calls),
-             'COMMIT': commit, 'HELPER': str(BOOTSTRAP.parent / 'scripts/source_archive.py'),
+             'COMMIT': commit, 'API_LIMITED': str(int(api_limited)), 'HELPER': str(BOOTSTRAP.parent / 'scripts/source_archive.py'),
              'ARCHIVE': str(archive), 'PVE_PREPARED': str(tmp_path / 'pve-prepared')},
     )
     assert result.returncode == 0, result.stderr
@@ -180,8 +219,8 @@ esac
         assert (root / '.env').read_text() == 'private settings'
     assert not (root / '.hwmonitor-mqtt-bootstrap-pending').exists()
     requests = calls.read_text().splitlines()
-    assert len(requests) == 3
-    assert all(commit in url for url in requests[1:])
+    assert len(requests) == (4 if api_limited else 3)
+    assert all(commit in url for url in requests[-2:])
 
 
 def test_linux_bootstrap_activates_source_and_preserves_existing_settings(tmp_path):

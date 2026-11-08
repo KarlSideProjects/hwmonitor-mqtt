@@ -27,7 +27,8 @@ def source_config(root):
         'context': str(root), 'dockerfile': 'Dockerfile.source'}}}})
 
 
-def test_fresh_install_builds_source_and_requires_stable_sender(tmp_path):
+@pytest.mark.parametrize('missing_error', ['No such object: sys-agent', 'error: no such object: sys-agent'])
+def test_fresh_install_builds_source_and_requires_stable_sender(tmp_path, missing_error):
     calls = []
     def run(args, **kwargs):
         calls.append(args)
@@ -36,7 +37,7 @@ def test_fresh_install_builds_source_and_requires_stable_sender(tmp_path):
         if args[:3] == ['docker', 'inspect', 'sys-agent']:
             count = sum(c[:3] == args[:3] for c in calls)
             if count <= 2:
-                return subprocess.CompletedProcess(args, 1, '', 'No such object: sys-agent')
+                return subprocess.CompletedProcess(args, 1, '', missing_error)
             return subprocess.CompletedProcess(args, 0, inspect(tmp_path), '')
         return subprocess.CompletedProcess(args, 0, '', '')
     activation = DockerActivation(tmp_path, run=run, sleep=lambda _: None, which=lambda _: None)
@@ -107,6 +108,23 @@ def test_upgrade_failure_restores_pinned_image_and_previous_compose(tmp_path):
     assert any('up' in call and '--no-build' in call for call in calls)
     activation.finish()
     assert any(call[:3] == ['docker', 'image', 'rm'] for call in calls)
+
+
+def test_finish_removes_rollback_tag_even_if_old_image_is_running(tmp_path):
+    calls = []
+    def run(args, **kwargs):
+        calls.append(args)
+        if args[:3] == ['docker', 'image', 'inspect']:
+            return subprocess.CompletedProcess(args, 0, 'sha256:oldimage\n', '')
+        if args[:3] == ['docker', 'image', 'rm'] and '--force' not in args:
+            return subprocess.CompletedProcess(args, 1, '', 'container is using its referenced image')
+        return subprocess.CompletedProcess(args, 0, '', '')
+    activation = DockerActivation(tmp_path, run=run)
+    activation.previous = {'Image': 'sha256:oldimage'}
+    activation.pin = 'hwmonitor-mqtt-rollback:test'
+    activation.finish()
+    assert activation.pin is None
+    assert any(call[:3] == ['docker', 'image', 'rm'] and '--force' in call for call in calls)
 
 
 def test_upgrade_refuses_a_sender_replaced_after_preparation(tmp_path):

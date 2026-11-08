@@ -3,7 +3,35 @@ $root = Join-Path $env:ProgramData 'hwmonitor-mqtt'
 $temp = Join-Path $env:ProgramData ('hwmonitor-mqtt-stage-' + [guid]::NewGuid().ToString('N'))
 # Begin source download
 function Get-VerifiedSource([string]$WorkDirectory) {
-    $commit = [string](Invoke-RestMethod -Uri 'https://api.github.com/repos/KarlSideProjects/hwmonitor-mqtt/commits/master' -Headers @{ 'User-Agent' = 'hwmonitor-mqtt-bootstrap' }).sha
+    try {
+        $commit = [string](Invoke-RestMethod -Uri 'https://api.github.com/repos/KarlSideProjects/hwmonitor-mqtt/commits/master' -Headers @{ 'User-Agent' = 'hwmonitor-mqtt-bootstrap' }).sha
+    } catch {
+        $refs = Join-Path $WorkDirectory 'source-refs'
+        Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/KarlSideProjects/hwmonitor-mqtt.git/info/refs?service=git-upload-pack' -OutFile $refs
+        if ((Get-Item -LiteralPath $refs).Length -gt 10485760) { throw 'Invalid source references.' }
+        $data = [IO.File]::ReadAllText($refs, [Text.Encoding]::ASCII)
+        $packets = [Collections.Generic.List[object]]::new()
+        $offset = 0
+        while ($offset -lt $data.Length) {
+            if ($offset + 4 -gt $data.Length) { throw 'Invalid source commit.' }
+            $header = $data.Substring($offset, 4)
+            if ($header -cnotmatch '^[0-9a-f]{4}$') { throw 'Invalid source commit.' }
+            $size = [Convert]::ToInt32($header, 16)
+            $offset += 4
+            if ($size -eq 0) { $packets.Add($null); continue }
+            if ($size -lt 4 -or $offset + $size - 4 -gt $data.Length) { throw 'Invalid source commit.' }
+            $packets.Add($data.Substring($offset, $size - 4))
+            $offset += $size - 4
+        }
+        if ($packets.Count -lt 4 -or $packets[0] -cne "# service=git-upload-pack`n" -or $null -ne $packets[1] -or $null -ne $packets[$packets.Count - 1]) { throw 'Invalid source commit.' }
+        $found = [Collections.Generic.List[string]]::new()
+        foreach ($packet in $packets[2..($packets.Count - 2)]) {
+            if ($null -eq $packet) { throw 'Invalid source commit.' }
+            if ($packet -cmatch '^([0-9a-f]{40}) refs/heads/master(?:\x00[^\n]*)?\n$') { $found.Add($Matches[1]) }
+        }
+        if ($found.Count -ne 1) { throw 'Invalid source commit.' }
+        $commit = $found[0]
+    }
     if ($commit -cnotmatch '^[a-f0-9]{40}$') { throw 'Invalid source commit.' }
     $validator = Join-Path $WorkDirectory 'validate_source_archive.ps1'
     $archive = Join-Path $WorkDirectory 'source.zip'

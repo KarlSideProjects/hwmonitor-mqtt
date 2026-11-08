@@ -252,7 +252,7 @@
     {
       "path": "scripts/windows/install_windows_sender_task.ps1",
       "kind": "file",
-      "md5": "65fc1f65baf9d344aab7d740bc3abd0c"
+      "md5": "3b6586738ebd5f2851a29433ee3ec7db"
     },
     {
       "path": ".github/workflows/sender-linux-build.yml",
@@ -622,7 +622,7 @@
     {
       "path": "tests/test_windows_compiled_start.py",
       "kind": "file",
-      "md5": "e07e60465b2da1c390c0a10806ec0348"
+      "md5": "ad4974c39f58e98452c1da34d140f201"
     },
     {
       "path": "tests/test_windows_package_activation.py",
@@ -797,12 +797,12 @@
     {
       "path": "bootstrap-source.sh",
       "kind": "file",
-      "md5": "e7c580ad320862229a1d77fa67b0b1f8"
+      "md5": "4d9fdaf6041f57354c4c6606dbcc1281"
     },
     {
       "path": "bootstrap-source.ps1",
       "kind": "file",
-      "md5": "29fcbc2d9301900e4d1f946444a97177"
+      "md5": "1e8aa3b0b14ba0eb3a1e0071413013ba"
     },
     {
       "path": "Dockerfile.source",
@@ -837,7 +837,7 @@
     {
       "path": "scripts/source_docker.py",
       "kind": "file",
-      "md5": "efa9b103baa5e97f5483d6b62495120b"
+      "md5": "08bba571b8d9d4af83873fb61dfe2b6b"
     },
     {
       "path": "scripts/source_linux_install.py",
@@ -867,7 +867,7 @@
     {
       "path": "tests/test_source_bootstrap.py",
       "kind": "file",
-      "md5": "312c4a85136666e32b4c752f3ea291e1"
+      "md5": "6c29fb6cdfc4c50299523f69bf022224"
     },
     {
       "path": "tests/test_source_config.py",
@@ -882,7 +882,7 @@
     {
       "path": "tests/test_source_docker.py",
       "kind": "file",
-      "md5": "73cbb2b1501e512cc510b2bb92d2d6fc"
+      "md5": "f82eb8951763bba5dc66355d690049f5"
     },
     {
       "path": "tests/test_source_install.py",
@@ -917,7 +917,7 @@
     {
       "path": "tests/test_windows_source_bootstrap.py",
       "kind": "file",
-      "md5": "f71c860a1d9abe4a9bd895d97b56e368"
+      "md5": "aa9f208e66947172df8a3023ea721961"
     },
     {
       "path": "tests/test_windows_source_trust.py",
@@ -2567,59 +2567,59 @@
   "reviews": [
     {
       "feature": "sender.build",
-      "fingerprint": "94f43d9c123de9f360214dca102bf582b64a52545cc9a3d12f57cd00daf2277d",
+      "fingerprint": "fa6085fe50f204a0b454cdf821428a5ee4fe51e341f04235ae2f66dec88c333f",
       "reviewer": "/root/source_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.build/94f43d9c123de9f360214dca102bf582b64a52545cc9a3d12f57cd00daf2277d.json"
+      "evidence": "docs/flow-evidence/reviews/sender.build/fa6085fe50f204a0b454cdf821428a5ee4fe51e341f04235ae2f66dec88c333f.json"
     },
     {
       "feature": "sender.compiled-lifecycle",
-      "fingerprint": "97d270bfef91735e3603459e8908b3c23783563b14de7721061cc90957951772",
+      "fingerprint": "7aa02ba93cabbaae5bddebf163b3f58b155589b8a99006120a4678e25dae0609",
       "reviewer": "/root/source_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.compiled-lifecycle/97d270bfef91735e3603459e8908b3c23783563b14de7721061cc90957951772.json"
+      "evidence": "docs/flow-evidence/reviews/sender.compiled-lifecycle/7aa02ba93cabbaae5bddebf163b3f58b155589b8a99006120a4678e25dae0609.json"
     },
     {
       "feature": "sender.distribution",
-      "fingerprint": "54647763272c7f6977009dcd7daef4287609ed631fa19cbbd1f009929ca95889",
+      "fingerprint": "03b12d25d813b2078e75a46524136325b0a206b48066078e6dab30459fed28c6",
       "reviewer": "/root/source_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.distribution/54647763272c7f6977009dcd7daef4287609ed631fa19cbbd1f009929ca95889.json"
+      "evidence": "docs/flow-evidence/reviews/sender.distribution/03b12d25d813b2078e75a46524136325b0a206b48066078e6dab30459fed28c6.json"
     },
     {
       "feature": "sender.license",
-      "fingerprint": "7705f55557bda176bb17cdc93d1018ec3fc407731ff564eec4a06374938e3848",
+      "fingerprint": "95ae0a572facf6dd989790a12255c53f02d0c93f5b2aad4b50774accaf106dc4",
       "reviewer": "/root/source_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.license/7705f55557bda176bb17cdc93d1018ec3fc407731ff564eec4a06374938e3848.json"
+      "evidence": "docs/flow-evidence/reviews/sender.license/95ae0a572facf6dd989790a12255c53f02d0c93f5b2aad4b50774accaf106dc4.json"
     },
     {
       "feature": "sender.release-inspection",
-      "fingerprint": "78d73d9084866b19c33a5aaa0b1204b17f448d9a530bc8c24fe0121f2aad4365",
+      "fingerprint": "aa499e204e0ff243ff05ce7977d72c3b14632d2d5fee3d82297d10e5b7f4661c",
       "reviewer": "/root/source_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.release-inspection/78d73d9084866b19c33a5aaa0b1204b17f448d9a530bc8c24fe0121f2aad4365.json"
+      "evidence": "docs/flow-evidence/reviews/sender.release-inspection/aa499e204e0ff243ff05ce7977d72c3b14632d2d5fee3d82297d10e5b7f4661c.json"
     },
     {
       "feature": "sender.release-orchestration",
-      "fingerprint": "3d81fe0624982d549f7d181e1cde845f602982457902190db2842a4baf9c87d1",
+      "fingerprint": "6c6a4a06ba7044dc9ddd029dcd720906c65f98f3dfbd4d8bf6a3a221416d0ffb",
       "reviewer": "/root/source_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.release-orchestration/3d81fe0624982d549f7d181e1cde845f602982457902190db2842a4baf9c87d1.json"
+      "evidence": "docs/flow-evidence/reviews/sender.release-orchestration/6c6a4a06ba7044dc9ddd029dcd720906c65f98f3dfbd4d8bf6a3a221416d0ffb.json"
     },
     {
       "feature": "sender.smart-discovery",
-      "fingerprint": "7d26e178af49e78c79d4f189d58e9a7d3b42dcaedc264024fa38f3ce4a84c96a",
+      "fingerprint": "a148d1f42c3791cc916025ab65e322fa6746e22c73d3b78f1dfd18d449cc36d7",
       "reviewer": "/root/source_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.smart-discovery/7d26e178af49e78c79d4f189d58e9a7d3b42dcaedc264024fa38f3ce4a84c96a.json"
+      "evidence": "docs/flow-evidence/reviews/sender.smart-discovery/a148d1f42c3791cc916025ab65e322fa6746e22c73d3b78f1dfd18d449cc36d7.json"
     },
     {
       "feature": "sender.source-lifecycle",
-      "fingerprint": "138676d3d358588420ec278046e76f9e744d217e99fe53e86181b8af2ae8049b",
+      "fingerprint": "60bbc43168bedb2f89c3ef09fe6e21eeba50dfa199f9e109f64a1f7ac3613b2a",
       "reviewer": "/root/source_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.source-lifecycle/138676d3d358588420ec278046e76f9e744d217e99fe53e86181b8af2ae8049b.json"
+      "evidence": "docs/flow-evidence/reviews/sender.source-lifecycle/60bbc43168bedb2f89c3ef09fe6e21eeba50dfa199f9e109f64a1f7ac3613b2a.json"
     }
   ],
   "policy_inputs": [
