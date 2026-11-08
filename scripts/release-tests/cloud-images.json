@@ -1,0 +1,14 @@
+{
+  "linux-x64": {
+    "url": "https://cloud.debian.org/images/cloud/trixie/20261103-2651/debian-13-genericcloud-amd64-20261103-2651.qcow2",
+    "sha512": "d25999de0770d4cde1be72c299ba3ad94eac7ea8fd4d18f8cc86c69df69337e2e8a91d64465a9bfd8f2a78c566fcbcb0842eacc91c09efdef72d719d9f13b535"
+  },
+  "linux-arm64": {
+    "url": "https://cloud.debian.org/images/cloud/trixie/20261103-2651/debian-13-genericcloud-arm64-20261103-2651.qcow2",
+    "sha512": "5d3ecec46fd29605db4084388a1e2eb82fd19a80202898f962840ea73793261de721e505e3877c829ae86c37fdd2f6c205b0b3b1337a89d0d4b98d9081adc0c2"
+  },
+  "pve": {
+    "url": "https://cloud.debian.org/images/cloud/trixie/20261103-2651/debian-13-generic-amd64-20261103-2651.qcow2",
+    "sha512": "1207e6e3efaff8ee77ab7a32c156a3eea6a9e53f94cfc48efbd1f49ba554ca36ac62ab27395aa813a1775a8c0a393b1a1ce5377d9e5670f6113e3110c57fee4b"
+  }
+}

@@ -1,0 +1,87 @@
+name: Source VM acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Exact committed source SHA (empty uses this workflow commit)
+        type: string
+        required: false
+  schedule:
+    - cron: '23 3 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  source-vm:
+    name: Source VM (${{ matrix.platform }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [linux-x64, linux-arm64, pve]
+    env:
+      SOURCE: ${{ inputs.source || github.sha }}
+      PLATFORM: ${{ matrix.platform }}
+      ACCEPTANCE_OUTPUT: ${{ github.workspace }}/source-acceptance-output
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate immutable inputs
+        shell: bash
+        run: |
+          [[ "$SOURCE" =~ ^[a-f0-9]{40}$ ]]
+          git cat-file -e "$SOURCE^{commit}"
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          image = json.loads(Path('scripts/release-tests/cloud-images.json').read_text())[os.environ['PLATFORM']]
+          url, digest = image['url'], image['sha512']
+          if not isinstance(url, str) or not re.fullmatch(r'https://cloud\.debian\.org/images/cloud/trixie/[0-9]{8}-[0-9]+/debian-13-(?:generic|genericcloud)-(?:amd64|arm64)-[0-9]{8}-[0-9]+\.qcow2', url):
+              raise ValueError('cloud image must be a fixed official HTTPS URL without whitespace')
+          if not isinstance(digest, str) or not re.fullmatch(r'[a-f0-9]{128}', digest):
+              raise ValueError('cloud image must have a fixed SHA512')
+          with Path(os.environ['GITHUB_ENV']).open('a') as env:
+              env.write(f'CLOUD_IMAGE_URL={url}\nCLOUD_IMAGE_SHA512={digest}\n')
+          PY
+      - name: Install full VM prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes qemu-system-x86 qemu-system-arm qemu-utils qemu-efi-aarch64 cloud-image-utils openssh-client
+      - name: Download checksum-bound cloud image
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 --proto '=https' --proto-redir '=https' "$CLOUD_IMAGE_URL" --output "$RUNNER_TEMP/cloud.qcow2"
+          printf '%s  %s\n' "$CLOUD_IMAGE_SHA512" "$RUNNER_TEMP/cloud.qcow2" | sha512sum --check -
+      - name: First install, reinstall, preservation and real MQTT
+        run: |
+          python3 scripts/release-tests/source_acceptance.py --source "$SOURCE" --platform "$PLATFORM" \
+            --cloud-image "$RUNNER_TEMP/cloud.qcow2" --cloud-image-sha512 "$CLOUD_IMAGE_SHA512" --output "$ACCEPTANCE_OUTPUT"
+      - name: Ensure failed preflight has a receipt
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          out = Path(os.environ['ACCEPTANCE_OUTPUT'])
+          out.mkdir(mode=0o700, exist_ok=True)
+          receipt = out / 'receipt.json'
+          if not receipt.exists():
+              receipt.write_text(json.dumps({'status': 'failed', 'source': os.environ['SOURCE'], 'platform': os.environ['PLATFORM'], 'error': 'acceptance did not produce a receipt; inspect failed workflow step'}) + '\n')
+          PY
+          rm -f "$RUNNER_TEMP/cloud.qcow2"
+      - name: Retain small sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: source-acceptance-${{ matrix.platform }}
+          path: |
+            ${{ env.ACCEPTANCE_OUTPUT }}/receipt.json
+            ${{ env.ACCEPTANCE_OUTPUT }}/run.log
+          if-no-files-found: error
+          retention-days: 7

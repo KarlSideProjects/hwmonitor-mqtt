@@ -79,6 +79,22 @@ jobs:
       - name: Run sender checks
         run: make check
 
+  source-bootstrap:
+    needs: flow-docs
+    name: Source bootstrap integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.source || github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@22695119d769bdb6f7032ad67b9bca0ef8c4a174 # v5.4.0
+      - name: Install locked dependencies
+        run: uv sync --locked
+      - name: Execute source bootstrap integration fixtures
+        run: uv run --locked pytest -q tests/test_source_bootstrap.py tests/test_source_acceptance.py
+
   native-install-smoke:
     needs: flow-docs
     name: Native systemd and MQTT smoke
@@ -131,11 +147,23 @@ jobs:
       - name: PowerShell tests under Windows PowerShell 5.1
         env:
           PWSH_EXE: powershell.exe
-        run: uv run --locked pytest -q tests/test_powershell_syntax.py tests/test_remote_bootstrap.py -k powershell
+        shell: pwsh
+        run: |
+          uv run --locked pytest -q tests/test_powershell_syntax.py tests/test_remote_bootstrap.py -k powershell
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $sourceTests = @(Get-ChildItem tests/test_windows_source_*.py | ForEach-Object { $_.FullName })
+          uv run --locked pytest -q @sourceTests tests/test_windows_compiled_start.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: PowerShell tests under PowerShell 7
         env:
           PWSH_EXE: pwsh
-        run: uv run --locked pytest -q tests/test_powershell_syntax.py tests/test_remote_bootstrap.py -k powershell
+        shell: pwsh
+        run: |
+          uv run --locked pytest -q tests/test_powershell_syntax.py tests/test_remote_bootstrap.py -k powershell
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $sourceTests = @(Get-ChildItem tests/test_windows_source_*.py | ForEach-Object { $_.FullName })
+          uv run --locked pytest -q @sourceTests tests/test_windows_compiled_start.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Windows sender unit tests
         run: uv run --locked pytest -q tests/test_windows_sender_profile.py
       # The real installer path: pinned LHM hash, PawnIO silent install, SYSTEM task registration.

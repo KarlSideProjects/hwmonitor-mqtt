@@ -1,0 +1,101 @@
+{
+  "feature": "development.delivery",
+  "fingerprint": "6afa27ac81086ec2cb7437de3e4798c5782ee148b3b01df7584f4c7633b92b27",
+  "reviewer": "independent Codex subagent /root/retro_review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    {
+      "kind": "candidate",
+      "base": "7d7a08e35dc0fecb505c52305925d02063d8766b",
+      "candidate_head": "d6f6bb3883a53d0cda01e425bcb418db118b165e",
+      "reviewed_worktree_changes": [
+        ".github/workflows/source-acceptance.yml",
+        "docs/flow-manifest.json",
+        "docs/flows/README.md",
+        "docs/superpowers/plans/2026-11-08-installer-workflow-retro.md",
+        "tests/test_flow_policy_scope.py",
+        "tests/test_source_acceptance.py"
+      ],
+      "packet_fingerprint_verified": "6afa27ac81086ec2cb7437de3e4798c5782ee148b3b01df7584f4c7633b92b27"
+    },
+    {
+      "kind": "範圍",
+      "details": "完整閱讀本PR直接變更、所屬流程與shared contracts；核對移除global inputs的實際消費者、local inputs和具名依賴邊界。未改的傳遞實作沒有僅因指紋失效而重審。"
+    },
+    {
+      "kind": "source_versions",
+      "files": {
+        "AGENTS.md": {
+          "sha256": "9d2a2b2f00f0918cc6d2564579b1f374870a872d04e196d82324707090e3fb3a",
+          "covered_lines": "1-37"
+        },
+        "docs/agents/delivery.md": {
+          "sha256": "2f58535f6d562679f7f4621e4575475e93d7493cd18603493be53581b7f123a8",
+          "covered_lines": "1-59"
+        },
+        "docs/flows/README.md": {
+          "sha256": "ff4a6556ee00027419412b712d3f200e822782dab5ac5eff52112da42c99080b",
+          "covered_lines": "1-25"
+        },
+        "docs/flows/contracts.md": {
+          "sha256": "8a2aac697b59a30cce6a13615ab0b51b7431310758e49c4b2fd3c7afb6993551",
+          "covered_lines": "1-15"
+        },
+        "tests/test_flow_policy_scope.py": {
+          "sha256": "b1b7628b769c4e5d214d5a067148b4c947bf8c658236ee302263105d61e899c3",
+          "covered_lines": "1-87"
+        },
+        ".github/workflows/ci.yml": {
+          "sha256": "c46452d3619c716da735772bccba757a556a19bf208160e12577b6f8c8502dbd",
+          "covered_lines": "1-183"
+        },
+        "Makefile": {
+          "sha256": "f103f6b49026e34ff8f3d4c037f3ddb0e0627274038ba6201bb20eedce5d88c8",
+          "covered_lines": "1-8"
+        },
+        "scripts/watch_checks.py": {
+          "sha256": "15c89e086f98df2c4e5dc2bb4266f710e6347af0cc746480fcce8e65a1957260",
+          "covered_lines": "1-216"
+        },
+        "tests/test_watch_checks.py": {
+          "sha256": "2cfad097e7118f9e92f47a53662884aef133e4956a9febf796ab9cbfe2d5425c",
+          "covered_lines": "1-226"
+        },
+        "scripts/github-required-checks.json": {
+          "sha256": "5e4f2c9dc81891e79a95af0325a18b27dde99fdb42af74a9e9d8bab3b0893c68",
+          "covered_lines": "1-20"
+        },
+        "tests/test_required_checks.py": {
+          "sha256": "7b3d64a0e9bf9f491b76eb3ceb1d4bf4598482276fca49df3990a655844798c4",
+          "covered_lines": "1-36"
+        },
+        "docs/flows/development.delivery.mmd": {
+          "sha256": "0c097a7d7e2eb2dcce2eaca183cd6b86db543d0b91af18efe385d31f0cfc14bb",
+          "covered_lines": "1-11"
+        },
+        "docs/flows/development.delivery-baseline.md": {
+          "sha256": "bda4dd949374432d0df2942a87784546275fe21be9437ba099016b2308bb07dc",
+          "covered_lines": "1-16"
+        }
+      }
+    },
+    {
+      "kind": "tests",
+      "details": "審查者獨立執行focused pytest：106 passed in 10.60s；修正後scope及required-checks覆核：25 passed in 2.24s。；最終workflow修正後獨立覆核42 passed in 1.43s；actionlint v1.7.12對兩張改動workflow實際解析exit 0。"
+    },
+    {
+      "kind": "resolved_finding",
+      "details": "初審證實PVE template移除global後漏失source-lifecycle consumer；現已映射K、列local input並通過對應mutation regression。development.delivery flow index也已補齊。"
+    },
+    {
+      "kind": "github_protection",
+      "details": "審查者獨立GET master protection成功，六checks名稱與CI相符且全app_id=15368；strict/enforce_admins/conversation_resolution=true，allow_force_pushes/allow_deletions=false。watcher檢查終態、API錯誤/逾時保留handle、私有0600日誌與state、pagination與去重。"
+    }
+  ],
+  "limitations": [
+    "此次判定僅涵蓋本PR變更與政策遷移，不代表重審整個歷史建置、授權或未改的傳遞實作。",
+    "目前worktree無codebase-memory索引，已改以直接來源讀取與rg補證，沒有依賴未驗證圖譜結論。",
+    "完整make check由作者執行（回報723 passed/17 skipped，workflow修正前）；審查者自行跑focused tests與最終actionlint，未把作者全套結果冒充獨立執行。"
+  ]
+}

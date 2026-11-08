@@ -1,0 +1,151 @@
+{
+  "feature": "sender.source-lifecycle",
+  "fingerprint": "cd4a18d3065f644cfc943d689998878e2af3d8ed8dde25803f9245d8307ece5b",
+  "reviewer": "independent Codex subagent /root/retro_review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    {
+      "kind": "candidate",
+      "base": "7d7a08e35dc0fecb505c52305925d02063d8766b",
+      "candidate_head": "d6f6bb3883a53d0cda01e425bcb418db118b165e",
+      "reviewed_worktree_changes": [
+        ".github/workflows/source-acceptance.yml",
+        "docs/flow-manifest.json",
+        "docs/flows/README.md",
+        "docs/superpowers/plans/2026-11-08-installer-workflow-retro.md",
+        "tests/test_flow_policy_scope.py",
+        "tests/test_source_acceptance.py"
+      ],
+      "packet_fingerprint_verified": "cd4a18d3065f644cfc943d689998878e2af3d8ed8dde25803f9245d8307ece5b"
+    },
+    {
+      "kind": "範圍",
+      "details": "完整閱讀本PR直接變更、所屬流程與shared contracts；核對移除global inputs的實際消費者、local inputs和具名依賴邊界。未改的傳遞實作沒有僅因指紋失效而重審。"
+    },
+    {
+      "kind": "source_versions",
+      "files": {
+        "AGENTS.md": {
+          "sha256": "9d2a2b2f00f0918cc6d2564579b1f374870a872d04e196d82324707090e3fb3a",
+          "covered_lines": "1-37"
+        },
+        "docs/agents/delivery.md": {
+          "sha256": "2f58535f6d562679f7f4621e4575475e93d7493cd18603493be53581b7f123a8",
+          "covered_lines": "1-59"
+        },
+        "docs/flows/README.md": {
+          "sha256": "ff4a6556ee00027419412b712d3f200e822782dab5ac5eff52112da42c99080b",
+          "covered_lines": "1-25"
+        },
+        "docs/flows/contracts.md": {
+          "sha256": "8a2aac697b59a30cce6a13615ab0b51b7431310758e49c4b2fd3c7afb6993551",
+          "covered_lines": "1-15"
+        },
+        "tests/test_flow_policy_scope.py": {
+          "sha256": "b1b7628b769c4e5d214d5a067148b4c947bf8c658236ee302263105d61e899c3",
+          "covered_lines": "1-87"
+        },
+        "bootstrap-source.sh": {
+          "sha256": "6ab3cc13a26e112d5a60de627d7691d56403ff644beb21a99cfbecb7fc26d05f",
+          "covered_lines": "1-193"
+        },
+        "README.md": {
+          "sha256": "07ca018467c8b6448c59b3fc96181a277a86e89ce891d75cc6d55fbd65b4d881",
+          "covered_lines": "1-40"
+        },
+        "scripts/source_config.py": {
+          "sha256": "c4ef8dc7e641df6d70fd558bf7a18b0997afd8b60c9a56b0484ae844954a867c",
+          "covered_lines": "1-48"
+        },
+        "scripts/source_deploy.py": {
+          "sha256": "b0ed1581e59b868622a5086bebf595ff65322b69783c3c7378796ac189a90181",
+          "covered_lines": "1-73"
+        },
+        "scripts/source_linux_install.py": {
+          "sha256": "c176aa923548c01a27f7303322389f10c773191632d8e3c11e68aab535a6c10d",
+          "covered_lines": "1-61"
+        },
+        "scripts/source_pve.py": {
+          "sha256": "40ded59893ca7c50dc75e1b5eb7d4cd000bf27f0dc16a04438d46c165831bf48",
+          "covered_lines": "1-167"
+        },
+        "docs/configuration/pve.env.example": {
+          "sha256": "4ea9eaaa155af0dc0dc469fbe86c345311551807e66850842d0228d861d32b23",
+          "covered_lines": "1-11"
+        },
+        "hwmonitor_mqtt/transport/mqtt.py": {
+          "sha256": "e4cabcba9a8c861df493826e357951fdf23aa7e443896571e9fb38cdca2db137",
+          "covered_lines": "1-61"
+        },
+        "tests/test_source_bootstrap.py": {
+          "sha256": "62155f703d0394df653797f7c3264b5ca75ce7f4b46b8521c60ccfa9b31cc062",
+          "covered_lines": "1-311"
+        },
+        "tests/_pwsh.py": {
+          "sha256": "f0a33a84cc03d42a2a0a62adaafe48eb30d23ecdf8199e93cf26140e1fdabfea",
+          "covered_lines": "1-26"
+        },
+        "tests/test_windows_source_activation.py": {
+          "sha256": "39084dd652460b5fd0dc8a59f6fab44cb3329acbe7b3b912c15e774ef400195e",
+          "covered_lines": "1-100（未修改的PowerShell測試接線與主要成功/失敗fixture）"
+        },
+        "tests/test_windows_source_bootstrap.py": {
+          "sha256": "90b4d430e4f2566094d39fbb3435a94a091b71f607233321e17b0f7d0d53801b",
+          "covered_lines": "1-75"
+        },
+        "tests/test_windows_source_trust.py": {
+          "sha256": "366f3b512bb7775b023944a95c52e9d61043279954058d3e11216c5700315a08",
+          "covered_lines": "1-35"
+        },
+        "tests/test_windows_compiled_start.py": {
+          "sha256": "d40d848c6162ef00c69dd4e9af4d9d776fd42c22ac6d22e1a6875e6177b02117",
+          "covered_lines": "1-174"
+        },
+        "scripts/release-tests/source_acceptance.py": {
+          "sha256": "eaefb5106db4adcfc90b2ff28e2ca841f7cf632b9d7e803cdd4b9bb6358746d7",
+          "covered_lines": "1-191"
+        },
+        "scripts/release-tests/source_fixture.py": {
+          "sha256": "238e1e6324df45de66b50b39411c7407de91d25092d163460d683c108f42109d",
+          "covered_lines": "1-100"
+        },
+        "scripts/release-tests/source_guest.sh": {
+          "sha256": "1bd519bb49fbadf06c3ce779d7351d14fd9634e8dc868f64d806aff1d6df9422",
+          "covered_lines": "1-71"
+        },
+        "tests/test_source_acceptance.py": {
+          "sha256": "63e255798c28549dcf228f54fb80f0ee8bf66cdeb46b18b3433d5d360c055e07",
+          "covered_lines": "1-203"
+        },
+        "docs/flows/sender.source-lifecycle.mmd": {
+          "sha256": "0057c2db7f9f83b4a1c312908fcbdec4b76da1b52a21df3b3354aff6aa25c93c",
+          "covered_lines": "1-57"
+        }
+      }
+    },
+    {
+      "kind": "tests",
+      "details": "審查者獨立執行focused pytest：106 passed in 10.60s；修正後scope及required-checks覆核：25 passed in 2.24s。；最終workflow修正後獨立覆核42 passed in 1.43s；actionlint v1.7.12對兩張改動workflow實際解析exit 0。"
+    },
+    {
+      "kind": "resolved_finding",
+      "details": "初審證實PVE template移除global後漏失source-lifecycle consumer；現已映射K、列local input並通過對應mutation regression。development.delivery flow index也已補齊。"
+    },
+    {
+      "kind": "linux_x64_full_vm",
+      "path": "/tmp/hwm-retro-evidence-EpowjDgY/receipt.json",
+      "details": "已讀取d6f6bb3完整VM通過收據，first_install/reinstall/configuration_preserved/mqtt_first/mqtt_reinstalled皆true、private_resources_retained=false；五個harness SHA256逐一與最終來源相符。MQTT實作retain=False。檢查source pinning、README one-liner/PTTY stdin、失敗清理、sanitization與只上傳小型檔案。"
+    },
+    {
+      "kind": "workflow_correction",
+      "details": "作者實際GitHub觀察發現job-level runner.temp context非法；同live審查核對改github.workspace固定output、upload共用env路徑與新增regression。審查者重跑actionlint兩張workflow通過、相關42 tests通過；harness未修改。"
+    }
+  ],
+  "limitations": [
+    "此次判定僅涵蓋本PR變更與政策遷移，不代表重審整個歷史建置、授權或未改的傳遞實作。",
+    "目前worktree無codebase-memory索引，已改以直接來源讀取與rg補證，沒有依賴未驗證圖譜結論。",
+    "未獨立執行Windows 5.1/7、ARM64或PVE完整VM；已審查CI雙版本測試與排程/manual完整VM接線。Linux x64 runtime證據沿用具體receipt與相符harness hashes。",
+    "完整make check由作者執行（回報723 passed/17 skipped，workflow修正前）；審查者自行跑focused tests與最終actionlint，未把作者全套結果冒充獨立執行。"
+  ]
+}

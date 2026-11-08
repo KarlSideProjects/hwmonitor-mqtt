@@ -1,0 +1,20 @@
+{
+  "required_status_checks": {
+    "strict": true,
+    "checks": [
+      {"context": "flow-docs", "app_id": 15368},
+      {"context": "Tests (Python 3.11)", "app_id": 15368},
+      {"context": "Tests (Python 3.13)", "app_id": 15368},
+      {"context": "Native systemd and MQTT smoke", "app_id": 15368},
+      {"context": "Windows sender (PowerShell 5.1 and 7, LHM load)", "app_id": 15368},
+      {"context": "Source bootstrap integration", "app_id": 15368}
+    ]
+  },
+  "enforce_admins": true,
+  "required_pull_request_reviews": null,
+  "restrictions": null,
+  "required_linear_history": false,
+  "allow_force_pushes": false,
+  "allow_deletions": false,
+  "required_conversation_resolution": true
+}

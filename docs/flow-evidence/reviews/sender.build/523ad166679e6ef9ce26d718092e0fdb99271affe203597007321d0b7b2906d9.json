@@ -1,0 +1,123 @@
+{
+  "feature": "sender.build",
+  "fingerprint": "523ad166679e6ef9ce26d718092e0fdb99271affe203597007321d0b7b2906d9",
+  "reviewer": "independent Codex subagent /root/retro_review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    {
+      "kind": "candidate",
+      "base": "7d7a08e35dc0fecb505c52305925d02063d8766b",
+      "candidate_head": "d6f6bb3883a53d0cda01e425bcb418db118b165e",
+      "reviewed_worktree_changes": [
+        ".github/workflows/source-acceptance.yml",
+        "docs/flow-manifest.json",
+        "docs/flows/README.md",
+        "docs/superpowers/plans/2026-11-08-installer-workflow-retro.md",
+        "tests/test_flow_policy_scope.py",
+        "tests/test_source_acceptance.py"
+      ],
+      "packet_fingerprint_verified": "523ad166679e6ef9ce26d718092e0fdb99271affe203597007321d0b7b2906d9"
+    },
+    {
+      "kind": "範圍",
+      "details": "完整閱讀本PR直接變更、所屬流程與shared contracts；核對移除global inputs的實際消費者、local inputs和具名依賴邊界。未改的傳遞實作沒有僅因指紋失效而重審。"
+    },
+    {
+      "kind": "source_versions",
+      "files": {
+        "AGENTS.md": {
+          "sha256": "9d2a2b2f00f0918cc6d2564579b1f374870a872d04e196d82324707090e3fb3a",
+          "covered_lines": "1-37"
+        },
+        "docs/agents/delivery.md": {
+          "sha256": "2f58535f6d562679f7f4621e4575475e93d7493cd18603493be53581b7f123a8",
+          "covered_lines": "1-59"
+        },
+        "docs/flows/README.md": {
+          "sha256": "ff4a6556ee00027419412b712d3f200e822782dab5ac5eff52112da42c99080b",
+          "covered_lines": "1-25"
+        },
+        "docs/flows/contracts.md": {
+          "sha256": "8a2aac697b59a30cce6a13615ab0b51b7431310758e49c4b2fd3c7afb6993551",
+          "covered_lines": "1-15"
+        },
+        "tests/test_flow_policy_scope.py": {
+          "sha256": "b1b7628b769c4e5d214d5a067148b4c947bf8c658236ee302263105d61e899c3",
+          "covered_lines": "1-87"
+        },
+        ".github/workflows/ci.yml": {
+          "sha256": "c46452d3619c716da735772bccba757a556a19bf208160e12577b6f8c8502dbd",
+          "covered_lines": "1-183"
+        },
+        ".github/workflows/source-acceptance.yml": {
+          "sha256": "e7414877ace76549ab2304451eb96fb0f6fe113ef993a723a7adab8a4e749a92",
+          "covered_lines": "1-87"
+        },
+        "scripts/release-tests/source_acceptance.py": {
+          "sha256": "eaefb5106db4adcfc90b2ff28e2ca841f7cf632b9d7e803cdd4b9bb6358746d7",
+          "covered_lines": "1-191"
+        },
+        "scripts/release-tests/source_fixture.py": {
+          "sha256": "238e1e6324df45de66b50b39411c7407de91d25092d163460d683c108f42109d",
+          "covered_lines": "1-100"
+        },
+        "scripts/release-tests/source_guest.sh": {
+          "sha256": "1bd519bb49fbadf06c3ce779d7351d14fd9634e8dc868f64d806aff1d6df9422",
+          "covered_lines": "1-71"
+        },
+        "scripts/release-tests/pve_acceptance.py": {
+          "sha256": "21d87fa8e1a87389df3c6682a1473b433e96a5502dba8005d6d58d7ba189ec8e",
+          "covered_lines": "1-216"
+        },
+        "scripts/release-tests/pve_provision.sh": {
+          "sha256": "71f9256f3f4ad5fb91dbeab1927de56b32bdb76e7f3fc6c303870604d352aeae",
+          "covered_lines": "1-39"
+        },
+        "scripts/release-tests/cloud-images.json": {
+          "sha256": "6cef09c9b542656036d715889d962b3930c35687a71bc21cfe1858c1a75fbc74",
+          "covered_lines": "1-14"
+        },
+        "scripts/release-tests/README.md": {
+          "sha256": "267be688844189bd07526f258f13e24d818ae451ecd0878aaf78983ad16a2a6d",
+          "covered_lines": "1-71"
+        },
+        "tests/test_source_acceptance.py": {
+          "sha256": "63e255798c28549dcf228f54fb80f0ee8bf66cdeb46b18b3433d5d360c055e07",
+          "covered_lines": "1-203"
+        },
+        "tests/test_release_workflow.py": {
+          "sha256": "e2d1b5363135724f0ca1d875e9f65604cb8749315a910bea7e19645178ed636c",
+          "covered_lines": "1-318"
+        },
+        "docs/flows/sender.build.mmd": {
+          "sha256": "1cabb5b086126a06a00cac88b63e165b690f1d28c7ca7d8da04cd71f2fdd1e0c",
+          "covered_lines": "1-40"
+        }
+      }
+    },
+    {
+      "kind": "tests",
+      "details": "審查者獨立執行focused pytest：106 passed in 10.60s；修正後scope及required-checks覆核：25 passed in 2.24s。；最終workflow修正後獨立覆核42 passed in 1.43s；actionlint v1.7.12對兩張改動workflow實際解析exit 0。"
+    },
+    {
+      "kind": "resolved_finding",
+      "details": "初審證實PVE template移除global後漏失source-lifecycle consumer；現已映射K、列local input並通過對應mutation regression。development.delivery flow index也已補齊。"
+    },
+    {
+      "kind": "linux_x64_full_vm",
+      "path": "/tmp/hwm-retro-evidence-EpowjDgY/receipt.json",
+      "details": "已讀取d6f6bb3完整VM通過收據，first_install/reinstall/configuration_preserved/mqtt_first/mqtt_reinstalled皆true、private_resources_retained=false；五個harness SHA256逐一與最終來源相符。MQTT實作retain=False。檢查source pinning、README one-liner/PTTY stdin、失敗清理、sanitization與只上傳小型檔案。"
+    },
+    {
+      "kind": "workflow_correction",
+      "details": "作者實際GitHub觀察發現job-level runner.temp context非法；同live審查核對改github.workspace固定output、upload共用env路徑與新增regression。審查者重跑actionlint兩張workflow通過、相關42 tests通過；harness未修改。"
+    }
+  ],
+  "limitations": [
+    "此次判定僅涵蓋本PR變更與政策遷移，不代表重審整個歷史建置、授權或未改的傳遞實作。",
+    "目前worktree無codebase-memory索引，已改以直接來源讀取與rg補證，沒有依賴未驗證圖譜結論。",
+    "未獨立執行Windows 5.1/7、ARM64或PVE完整VM；已審查CI雙版本測試與排程/manual完整VM接線。Linux x64 runtime證據沿用具體receipt與相符harness hashes。",
+    "完整make check由作者執行（回報723 passed/17 skipped，workflow修正前）；審查者自行跑focused tests與最終actionlint，未把作者全套結果冒充獨立執行。"
+  ]
+}

@@ -154,7 +154,20 @@
       "tests/test_windows_source_activation.py",
       "tests/test_windows_source_archive.py",
       "tests/test_windows_source_bootstrap.py",
-      "tests/test_windows_source_trust.py"
+      "tests/test_windows_source_trust.py",
+      "scripts/watch_checks.py",
+      "tests/test_watch_checks.py",
+      "scripts/github-required-checks.json",
+      "tests/test_required_checks.py",
+      "docs/agents/delivery.md",
+      "docs/flows/development.delivery-baseline.md",
+      "scripts/release-tests/source_acceptance.py",
+      "scripts/release-tests/source_guest.sh",
+      "scripts/release-tests/source_fixture.py",
+      "tests/test_source_acceptance.py",
+      ".github/workflows/source-acceptance.yml",
+      "scripts/release-tests/cloud-images.json",
+      "scripts/release-tests/README.md"
     ],
     "exclude": {}
   },
@@ -472,7 +485,7 @@
     {
       "path": "tests/test_release_workflow.py",
       "kind": "file",
-      "md5": "ec9300d630cfaea7555cbb5a59655038"
+      "md5": "57b390c9152d60b5579bd99c76b69160"
     },
     {
       "path": "tests/test_compiled_bootstrap_integration.py",
@@ -787,7 +800,7 @@
     {
       "path": ".github/workflows/ci.yml",
       "kind": "file",
-      "md5": "174752b548eca0c063ddb39b0cc82ad8"
+      "md5": "6b9beb2fa8e4b16d062d8053576613d1"
     },
     {
       "path": "docs/release/sender-orchestration-wip.md",
@@ -923,6 +936,71 @@
       "path": "tests/test_windows_source_trust.py",
       "kind": "file",
       "md5": "10fc42d6d632fd429790c91b9084e57f"
+    },
+    {
+      "path": "scripts/watch_checks.py",
+      "kind": "file",
+      "md5": "0e3dbfeaded2f5529622486a4597815c"
+    },
+    {
+      "path": "tests/test_watch_checks.py",
+      "kind": "file",
+      "md5": "4679df23c8fa25128925d3843dfb4983"
+    },
+    {
+      "path": "scripts/github-required-checks.json",
+      "kind": "file",
+      "md5": "b9b9f552898b2b16cd558947e463ad93"
+    },
+    {
+      "path": "tests/test_required_checks.py",
+      "kind": "file",
+      "md5": "87472fe39d1f6ccdf09c426c21020299"
+    },
+    {
+      "path": "docs/agents/delivery.md",
+      "kind": "file",
+      "md5": "e1847b9dc921d349aa6a2ebbde69e847"
+    },
+    {
+      "path": "docs/flows/development.delivery-baseline.md",
+      "kind": "file",
+      "md5": "11fe43d5dafb5c742f5e8901eb246b46"
+    },
+    {
+      "path": "scripts/release-tests/source_acceptance.py",
+      "kind": "file",
+      "md5": "1b5e9e2ac90878826b8794f97974c397"
+    },
+    {
+      "path": "scripts/release-tests/source_guest.sh",
+      "kind": "file",
+      "md5": "f627f5d88f33fc1da5250048cd137bbb"
+    },
+    {
+      "path": "scripts/release-tests/source_fixture.py",
+      "kind": "file",
+      "md5": "bc8dbada9ca331cabab37f96b7a94c1a"
+    },
+    {
+      "path": "tests/test_source_acceptance.py",
+      "kind": "file",
+      "md5": "6b01490e0a9479f7fb391465818547f8"
+    },
+    {
+      "path": ".github/workflows/source-acceptance.yml",
+      "kind": "file",
+      "md5": "927c655055557811b46db183fa55c48d"
+    },
+    {
+      "path": "scripts/release-tests/cloud-images.json",
+      "kind": "file",
+      "md5": "9541137c5049744b44e463fae483ac63"
+    },
+    {
+      "path": "scripts/release-tests/README.md",
+      "kind": "file",
+      "md5": "0196a6a7102f0d115443d8877babc5ab"
     }
   ],
   "features": [
@@ -1139,7 +1217,24 @@
           "path": "tests/test_sender_archive.py"
         }
       ],
-      "depends_on": []
+      "depends_on": [],
+      "policy_inputs": [
+        "docker-compose.linux.yml",
+        "docs/deployment/installation.md",
+        "hwmonitor_mqtt/clients/pve.py",
+        "hwmonitor_mqtt/platforms/detect.py",
+        "hwmonitor_mqtt/platforms/install.py",
+        "hwmonitor_mqtt/platforms/pve_bootstrap.py",
+        "hwmonitor_mqtt/platforms/pve_token.py",
+        "install.sh",
+        "scripts/windows/install_windows_sender_task.ps1",
+        "scripts/windows/start_windows_sender.ps1",
+        "scripts/windows/uninstall_windows_sender_task.ps1",
+        "tests/_pwsh.py",
+        "tests/test_install_sh.py",
+        "tests/test_powershell_syntax.py",
+        "tests/test_remote_bootstrap.py"
+      ]
     },
     {
       "id": "sender.license",
@@ -1333,7 +1428,16 @@
           "path": "release-notices/windows-x64-cpython-3.13.17/runtime-bundle.txt"
         }
       ],
-      "depends_on": []
+      "depends_on": [],
+      "policy_inputs": [
+        "docs/configuration/pve.env.example",
+        "tests/fixtures/release-notices/paho-mqtt.txt",
+        "tests/fixtures/release-notices/psutil.txt",
+        "tests/fixtures/release-notices/python-dotenv.txt",
+        "tests/fixtures/release-notices/python.txt",
+        "tests/fixtures/release-notices/pythonnet.txt",
+        "tests/fixtures/release-notices/wmi.txt"
+      ]
     },
     {
       "id": "sender.smart-discovery",
@@ -1392,7 +1496,10 @@
           "path": "hwmonitor_mqtt/collectors/smart.py"
         }
       ],
-      "depends_on": []
+      "depends_on": [],
+      "policy_inputs": [
+        "hwmonitor_mqtt/clients/pve.py"
+      ]
     },
     {
       "id": "sender.build",
@@ -1861,9 +1968,68 @@
         {
           "node": "F",
           "path": "tests/test_build_sender_package.py"
+        },
+        {
+          "node": "U",
+          "path": "scripts/release-tests/source_acceptance.py"
+        },
+        {
+          "node": "U",
+          "path": "scripts/release-tests/source_guest.sh"
+        },
+        {
+          "node": "U",
+          "path": "scripts/release-tests/source_fixture.py"
+        },
+        {
+          "node": "U",
+          "path": "tests/test_source_acceptance.py"
+        },
+        {
+          "node": "U",
+          "path": ".github/workflows/source-acceptance.yml"
+        },
+        {
+          "node": "U",
+          "path": "scripts/release-tests/cloud-images.json"
+        },
+        {
+          "node": "U",
+          "path": "scripts/release-tests/README.md"
         }
       ],
-      "depends_on": []
+      "depends_on": [],
+      "policy_inputs": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/source-acceptance.yml",
+        "Makefile",
+        "docker-compose.linux.yml",
+        "docs/configuration/pve.env.example",
+        "hwmonitor_mqtt/clients/pve.py",
+        "hwmonitor_mqtt/platforms/detect.py",
+        "hwmonitor_mqtt/platforms/install.py",
+        "hwmonitor_mqtt/platforms/pve_bootstrap.py",
+        "hwmonitor_mqtt/platforms/pve_token.py",
+        "scripts/release-tests/pve_acceptance.py",
+        "scripts/release-tests/pve_provision.sh",
+        "scripts/release-tests/source_acceptance.py",
+        "scripts/release-tests/source_fixture.py",
+        "scripts/release-tests/source_guest.sh",
+        "scripts/windows/install_windows_sender_task.ps1",
+        "scripts/windows/start_windows_sender.ps1",
+        "tests/_pwsh.py",
+        "tests/fixtures/release-notices/paho-mqtt.txt",
+        "tests/fixtures/release-notices/psutil.txt",
+        "tests/fixtures/release-notices/python-dotenv.txt",
+        "tests/fixtures/release-notices/python.txt",
+        "tests/fixtures/release-notices/pythonnet.txt",
+        "tests/fixtures/release-notices/wmi.txt",
+        "tests/test_powershell_syntax.py",
+        "tests/test_source_acceptance.py",
+        "uv.lock",
+        "scripts/release-tests/cloud-images.json",
+        "scripts/release-tests/README.md"
+      ]
     },
     {
       "id": "sender.release-orchestration",
@@ -2013,6 +2179,12 @@
       "depends_on": [
         "sender.build",
         "sender.release-inspection"
+      ],
+      "policy_inputs": [
+        ".github/workflows/ci.yml",
+        "Makefile",
+        "tests/_pwsh.py",
+        "tests/test_powershell_syntax.py"
       ]
     },
     {
@@ -2309,9 +2481,21 @@
         "sender.build"
       ],
       "policy_inputs": [
+        "docker-compose.linux.yml",
+        "docs/configuration/pve.env.example",
+        "docs/deployment/installation.md",
         "hwmonitor_mqtt/agents/agent_sender_async.py",
         "hwmonitor_mqtt/agents/agent_sender_windows.py",
+        "hwmonitor_mqtt/clients/pve.py",
+        "hwmonitor_mqtt/platforms/detect.py",
+        "hwmonitor_mqtt/platforms/install.py",
+        "hwmonitor_mqtt/platforms/pve_bootstrap.py",
+        "hwmonitor_mqtt/platforms/pve_token.py",
+        "scripts/windows/install_windows_sender_task.ps1",
+        "scripts/windows/start_windows_sender.ps1",
+        "tests/_pwsh.py",
         "tests/test_esp_sender_profile.py",
+        "tests/test_powershell_syntax.py",
         "tests/test_windows_sender_profile.py"
       ]
     },
@@ -2542,12 +2726,64 @@
         {
           "node": "M",
           "path": "tests/test_windows_compiled_start.py"
+        },
+        {
+          "node": "AA",
+          "path": "scripts/release-tests/source_acceptance.py"
+        },
+        {
+          "node": "AA",
+          "path": "scripts/release-tests/source_guest.sh"
+        },
+        {
+          "node": "AA",
+          "path": "scripts/release-tests/source_fixture.py"
+        },
+        {
+          "node": "AA",
+          "path": "tests/test_source_acceptance.py"
+        },
+        {
+          "node": "AA",
+          "path": ".github/workflows/source-acceptance.yml"
+        },
+        {
+          "node": "AA",
+          "path": "scripts/release-tests/cloud-images.json"
+        },
+        {
+          "node": "AA",
+          "path": "scripts/release-tests/README.md"
+        },
+        {
+          "node": "K",
+          "path": "docs/configuration/pve.env.example"
         }
       ],
       "depends_on": [
         "sender.distribution"
       ],
       "policy_inputs": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/source-acceptance.yml",
+        "docs/deployment/installation.md",
+        "hwmonitor_mqtt/clients/pve.py",
+        "hwmonitor_mqtt/platforms/detect.py",
+        "hwmonitor_mqtt/platforms/install.py",
+        "hwmonitor_mqtt/platforms/pve_bootstrap.py",
+        "hwmonitor_mqtt/platforms/pve_token.py",
+        "install.sh",
+        "pyproject.toml",
+        "scripts/release-tests/pve_acceptance.py",
+        "scripts/release-tests/pve_provision.sh",
+        "scripts/release-tests/source_acceptance.py",
+        "scripts/release-tests/source_fixture.py",
+        "scripts/release-tests/source_guest.sh",
+        "scripts/windows/install_windows_sender_task.ps1",
+        "scripts/windows/start_windows_sender.ps1",
+        "tests/_pwsh.py",
+        "tests/test_powershell_syntax.py",
+        "tests/test_source_acceptance.py",
         "tests/test_source_archive.py",
         "tests/test_source_bootstrap.py",
         "tests/test_source_config.py",
@@ -2560,66 +2796,141 @@
         "tests/test_windows_source_activation.py",
         "tests/test_windows_source_archive.py",
         "tests/test_windows_source_bootstrap.py",
-        "tests/test_windows_source_trust.py"
+        "tests/test_windows_source_trust.py",
+        "uv.lock",
+        "scripts/release-tests/cloud-images.json",
+        "scripts/release-tests/README.md",
+        "docs/configuration/pve.env.example"
+      ]
+    },
+    {
+      "id": "development.delivery",
+      "flow": "docs/flows/development.delivery.mmd",
+      "mappings": [
+        {
+          "node": "A",
+          "path": "scripts/watch_checks.py"
+        },
+        {
+          "node": "A",
+          "path": "tests/test_watch_checks.py"
+        },
+        {
+          "node": "B",
+          "path": "scripts/watch_checks.py"
+        },
+        {
+          "node": "B",
+          "path": "tests/test_watch_checks.py"
+        },
+        {
+          "node": "C",
+          "path": "scripts/watch_checks.py"
+        },
+        {
+          "node": "C",
+          "path": "tests/test_watch_checks.py"
+        },
+        {
+          "node": "D",
+          "path": "scripts/watch_checks.py"
+        },
+        {
+          "node": "D",
+          "path": "tests/test_watch_checks.py"
+        },
+        {
+          "node": "E",
+          "path": "scripts/github-required-checks.json"
+        },
+        {
+          "node": "E",
+          "path": "tests/test_required_checks.py"
+        },
+        {
+          "node": "E",
+          "path": "docs/agents/delivery.md"
+        },
+        {
+          "node": "E",
+          "path": "docs/flows/development.delivery-baseline.md"
+        }
+      ],
+      "depends_on": [],
+      "policy_inputs": [
+        ".github/workflows/ci.yml",
+        "Makefile",
+        "tests/test_watch_checks.py",
+        "scripts/github-required-checks.json",
+        "tests/test_required_checks.py",
+        "docs/agents/delivery.md",
+        "docs/flows/development.delivery-baseline.md"
       ]
     }
   ],
   "reviews": [
     {
-      "feature": "sender.build",
-      "fingerprint": "fa6085fe50f204a0b454cdf821428a5ee4fe51e341f04235ae2f66dec88c333f",
-      "reviewer": "/root/source_review",
-      "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.build/fa6085fe50f204a0b454cdf821428a5ee4fe51e341f04235ae2f66dec88c333f.json"
-    },
-    {
-      "feature": "sender.compiled-lifecycle",
-      "fingerprint": "7aa02ba93cabbaae5bddebf163b3f58b155589b8a99006120a4678e25dae0609",
-      "reviewer": "/root/source_review",
-      "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.compiled-lifecycle/7aa02ba93cabbaae5bddebf163b3f58b155589b8a99006120a4678e25dae0609.json"
-    },
-    {
       "feature": "sender.distribution",
-      "fingerprint": "03b12d25d813b2078e75a46524136325b0a206b48066078e6dab30459fed28c6",
-      "reviewer": "/root/source_review",
+      "fingerprint": "152365cf2d2b1411b230bc9a243a8022b784ece6c2d0533eb17a13912ed54f32",
+      "reviewer": "independent Codex subagent /root/retro_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.distribution/03b12d25d813b2078e75a46524136325b0a206b48066078e6dab30459fed28c6.json"
+      "evidence": "docs/flow-evidence/reviews/sender.distribution/152365cf2d2b1411b230bc9a243a8022b784ece6c2d0533eb17a13912ed54f32.json"
     },
     {
       "feature": "sender.license",
-      "fingerprint": "95ae0a572facf6dd989790a12255c53f02d0c93f5b2aad4b50774accaf106dc4",
-      "reviewer": "/root/source_review",
+      "fingerprint": "3517b628e1dc13c4868c513601da96db232aa34476d07d130a1a049cda2d9a14",
+      "reviewer": "independent Codex subagent /root/retro_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.license/95ae0a572facf6dd989790a12255c53f02d0c93f5b2aad4b50774accaf106dc4.json"
+      "evidence": "docs/flow-evidence/reviews/sender.license/3517b628e1dc13c4868c513601da96db232aa34476d07d130a1a049cda2d9a14.json"
     },
     {
       "feature": "sender.release-inspection",
-      "fingerprint": "aa499e204e0ff243ff05ce7977d72c3b14632d2d5fee3d82297d10e5b7f4661c",
-      "reviewer": "/root/source_review",
+      "fingerprint": "f3c4c57b635801f2050701622cfb0e534a0693c47f0edd1ca8c18874b6da720a",
+      "reviewer": "independent Codex subagent /root/retro_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.release-inspection/aa499e204e0ff243ff05ce7977d72c3b14632d2d5fee3d82297d10e5b7f4661c.json"
-    },
-    {
-      "feature": "sender.release-orchestration",
-      "fingerprint": "6c6a4a06ba7044dc9ddd029dcd720906c65f98f3dfbd4d8bf6a3a221416d0ffb",
-      "reviewer": "/root/source_review",
-      "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.release-orchestration/6c6a4a06ba7044dc9ddd029dcd720906c65f98f3dfbd4d8bf6a3a221416d0ffb.json"
+      "evidence": "docs/flow-evidence/reviews/sender.release-inspection/f3c4c57b635801f2050701622cfb0e534a0693c47f0edd1ca8c18874b6da720a.json"
     },
     {
       "feature": "sender.smart-discovery",
-      "fingerprint": "a148d1f42c3791cc916025ab65e322fa6746e22c73d3b78f1dfd18d449cc36d7",
-      "reviewer": "/root/source_review",
+      "fingerprint": "2f58b728fcedd0565abe2ec25d94c94791bf89f21c44fdbfa4883afcb31b93ee",
+      "reviewer": "independent Codex subagent /root/retro_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.smart-discovery/a148d1f42c3791cc916025ab65e322fa6746e22c73d3b78f1dfd18d449cc36d7.json"
+      "evidence": "docs/flow-evidence/reviews/sender.smart-discovery/2f58b728fcedd0565abe2ec25d94c94791bf89f21c44fdbfa4883afcb31b93ee.json"
+    },
+    {
+      "feature": "sender.build",
+      "fingerprint": "523ad166679e6ef9ce26d718092e0fdb99271affe203597007321d0b7b2906d9",
+      "reviewer": "independent Codex subagent /root/retro_review",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.build/523ad166679e6ef9ce26d718092e0fdb99271affe203597007321d0b7b2906d9.json"
+    },
+    {
+      "feature": "sender.release-orchestration",
+      "fingerprint": "39931ed404f01cb14176fc37fcb1f19728ddb04ebacac5136ef84ce6d2e1b506",
+      "reviewer": "independent Codex subagent /root/retro_review",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.release-orchestration/39931ed404f01cb14176fc37fcb1f19728ddb04ebacac5136ef84ce6d2e1b506.json"
+    },
+    {
+      "feature": "sender.compiled-lifecycle",
+      "fingerprint": "0750a7dec8ca81f5a2cb11ca49502570435d72c6ec044aaad69af8dfdeb3d327",
+      "reviewer": "independent Codex subagent /root/retro_review",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.compiled-lifecycle/0750a7dec8ca81f5a2cb11ca49502570435d72c6ec044aaad69af8dfdeb3d327.json"
     },
     {
       "feature": "sender.source-lifecycle",
-      "fingerprint": "60bbc43168bedb2f89c3ef09fe6e21eeba50dfa199f9e109f64a1f7ac3613b2a",
-      "reviewer": "/root/source_review",
+      "fingerprint": "cd4a18d3065f644cfc943d689998878e2af3d8ed8dde25803f9245d8307ece5b",
+      "reviewer": "independent Codex subagent /root/retro_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.source-lifecycle/60bbc43168bedb2f89c3ef09fe6e21eeba50dfa199f9e109f64a1f7ac3613b2a.json"
+      "evidence": "docs/flow-evidence/reviews/sender.source-lifecycle/cd4a18d3065f644cfc943d689998878e2af3d8ed8dde25803f9245d8307ece5b.json"
+    },
+    {
+      "feature": "development.delivery",
+      "fingerprint": "6afa27ac81086ec2cb7437de3e4798c5782ee148b3b01df7584f4c7633b92b27",
+      "reviewer": "independent Codex subagent /root/retro_review",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/development.delivery/6afa27ac81086ec2cb7437de3e4798c5782ee148b3b01df7584f4c7633b92b27.json"
     }
   ],
   "policy_inputs": [
@@ -2628,32 +2939,8 @@
     "tools/flow-docs/flow_parsers.py",
     "tools/flow-docs/requirements-ast.txt",
     "docs/flows/contracts.md",
-    "install.sh",
-    "scripts/windows/install_windows_sender_task.ps1",
-    "scripts/windows/start_windows_sender.ps1",
-    "hwmonitor_mqtt/platforms/install.py",
-    "hwmonitor_mqtt/platforms/pve_bootstrap.py",
-    "hwmonitor_mqtt/platforms/pve_token.py",
-    "tests/test_remote_bootstrap.py",
-    "tests/test_install_sh.py",
-    "tests/_pwsh.py",
-    "tests/test_powershell_syntax.py",
-    "Makefile",
-    ".github/workflows/ci.yml",
-    "uv.lock",
-    "hwmonitor_mqtt/platforms/detect.py",
-    "hwmonitor_mqtt/clients/pve.py",
-    "docs/configuration/pve.env.example",
-    "docs/deployment/installation.md",
-    "docker-compose.linux.yml",
-    "scripts/windows/uninstall_windows_sender_task.ps1",
-    "tests/fixtures/release-notices/paho-mqtt.txt",
-    "tests/fixtures/release-notices/psutil.txt",
-    "tests/fixtures/release-notices/python-dotenv.txt",
-    "tests/fixtures/release-notices/python.txt",
-    "tests/fixtures/release-notices/pythonnet.txt",
-    "tests/fixtures/release-notices/wmi.txt",
-    "tests/test_flow_explain.py"
+    "tests/test_flow_explain.py",
+    "tests/test_flow_policy_scope.py"
   ],
   "limits": {
     "nodes": 25,

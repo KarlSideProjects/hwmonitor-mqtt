@@ -4,7 +4,7 @@
 
 ## Windows 溫度路徑
 
-`bootstrap.ps1` → `scripts/windows/install_windows_sender_task.ps1`（固定版本與 SHA-256 的 LibreHardwareMonitor 與 PawnIO）→ 排程以 `-LhmPath <LibreHardwareMonitor.exe>` 執行 `start_windows_sender.ps1` → `hwmonitor_mqtt/agents/agent_sender_windows.py` 從 exe 同資料夾載入 `LibreHardwareMonitorLib.dll`。
+公開入口為 `bootstrap-source.ps1` → `scripts/windows/activate_source.ps1` → `scripts/windows/install_windows_sender_task.ps1`（固定版本與 SHA-256 的 LibreHardwareMonitor 與 PawnIO）→ 開機排程。感測器由 `hwmonitor_mqtt/agents/agent_sender_windows.py` 載入 `LibreHardwareMonitorLib.dll`；`bootstrap.ps1` 為舊編譯版入口。
 
 改感測器解析前，先在實機執行 `python -m hwmonitor_mqtt.agents.agent_sender_windows --dump-sensors`，把輸出存成 `tests/fixtures/lhm-<機型>.json` 再寫測試。
 
@@ -24,10 +24,14 @@ Uses the default five canonical triage labels (`needs-triage`, `needs-info`, `re
 
 Single-context layout (`GLOSSARY.md` at the repo root and `docs/adr/`). See `docs/agents/domain.md`.
 
+### Delivery and acceptance
+
+開始 PR、等待 CI、執行來源安裝驗收或安排獨立審查時，讀取 `docs/agents/delivery.md`。該文件定義本專案的每 PR 審查額度與驗收證據，優先於通用技能的預設額度。
+
 ## [MANDATORY] Flow Documentation Sync Gate
 
 1. Before changing code or behavior-bearing inputs, read `docs/flows/README.md`, `docs/flow-manifest.json`, and the affected flows and contracts. Report affected feature IDs before the first edit. Verify missing or untrusted baselines against source; unreadable required documents block dependent edits.
 2. The delivery boundary is a non-draft pull request. WIP retains pending impact. Before delivery, synchronize affected documents and fingerprints, obtain independent review, and validate the actual candidate against a trusted comparison base. Revalidate later candidates and preserve human approvals. Missing checks or coverage prevent completion claims.
 3. Each executing agent reads its own affected documents and rechecks the read set on scope changes or handoff.
 
-The bounded scope and gaps are in `docs/flows/README.md`; the manifest is `docs/flow-manifest.json` and the shared contract is `docs/flows/contracts.md`. Run `python3 tools/flow-docs/flow_checker.py check --root . --base <trusted-base-sha>` after `snapshot`; do not compare a committed candidate to itself. No local hook, generation automation, or required candidate CI is configured by this adoption. Existing CI and protections remain unchanged.
+The bounded scope and gaps are in `docs/flows/README.md`; the manifest is `docs/flow-manifest.json` and the shared contract is `docs/flows/contracts.md`. Run `python3 tools/flow-docs/flow_checker.py check --root . --base <trusted-base-sha>` after `snapshot`; do not compare a committed candidate to itself. GitHub Actions validates candidates; the required-check configuration and actual protection verification are described in `docs/agents/delivery.md`. No local hook or automated review generator is configured.
