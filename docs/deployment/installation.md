@@ -4,28 +4,18 @@
 
 本文件說明 Windows／Linux／PVE 採集端的安裝、權限變更與維護。採集端透過 MQTT 傳送資料，掌機顯示端需使用同一個 broker 與相符的主題設定。
 
-- [Linux／PVE 安裝](#在-linux-或-pve-安裝-sender)，script：[bootstrap.sh](../../bootstrap.sh)。
-- [Windows 安裝](#windows-sender-安裝與注意事項)，script：[bootstrap.ps1](../../bootstrap.ps1)。
+- [Linux／PVE 安裝](#在-linux-或-pve-安裝-sender)，script：[bootstrap-source.sh](../../bootstrap-source.sh)。
+- [Windows 安裝](#windows-sender-安裝與注意事項)，script：[bootstrap-source.ps1](../../bootstrap-source.ps1)。
 
 ## 在 Linux 或 PVE 安裝 Sender
 
-在 Debian、Ubuntu 或 Proxmox VE 主機的 root shell 執行以下公開安裝步驟。安裝器需要 `curl`、`jq`、`tar`、`sha256sum`、`runuser`、`od` 與 `flock`。一般 Linux 使用 Docker Compose v2，PVE 使用原生 systemd；已辨識且受支援的既有安裝會保留 `.env` 與 Docker 覆寫檔；未知目錄或有衝突的舊 PVE Docker 容器會停止安裝。ARM64 僅支援 64 位元 Linux（包含 Raspberry Pi）；32 位元系統不支援。PVE 原生 systemd 僅支援 x64。
+在 Debian、Ubuntu、Raspberry Pi OS 或 Proxmox VE 的 Shell 執行下列命令；需要 `curl`，非 root 使用者需要 `sudo`。安裝器需要 Python 3.11 以上與 `flock`。一般 Linux 使用 Docker Compose v2，PVE 使用原生 systemd；已辨識的既有安裝會保留 `.env` 與 Docker 覆寫檔。未知目錄或有衝突的舊 PVE Docker 容器會停止安裝。一般 Linux 支援 x64 與 64 位元 ARM64，PVE 原生安裝支援 x64。
 
 ```bash
-(
-scratch=$(mktemp -d) || exit 1
-trap 'rm -rf "$scratch"' EXIT
-cd "$scratch" || exit 1
-release_tag=$(curl --fail --silent --show-error https://api.github.com/repos/KarlSideProjects/hwmonitor-mqtt-releases/releases/latest | jq -er '.tag_name') &&
-[[ "$release_tag" =~ ^v0\.1\.[0-9]+$ ]] &&
-release_base="https://github.com/KarlSideProjects/hwmonitor-mqtt-releases/releases/download/$release_tag" &&
-curl --fail --location "$release_base/install.sh" --output install.sh &&
-curl --fail --location "$release_base/install.sh.sha256" --output install.sh.sha256 &&
-sha256sum --check install.sh.sha256 && bash ./install.sh
-)
+(f=$(mktemp) && trap 'rm -f "$f"' EXIT && curl -fsSL 'https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/master/bootstrap-source.sh' -o "$f" && if [ "$(id -u)" = 0 ]; then bash "$f"; else sudo bash "$f"; fi)
 ```
 
-目前公開入口需要多行步驟；安裝腳本及校驗碼來自同一發布來源，無法抵禦該來源遭竄改。安裝入口確認單一公開版本，下載相同版本的校驗資料與編譯包，驗證後才更新安裝。下載或校驗失敗不會更新現有程式；啟動失敗時會嘗試回復先前的程式與服務。
+安裝器從公開主分支解析單一 commit，下載該 commit 的來源並檢查封存檔路徑。來源及安裝器都依賴 GitHub 與 HTTPS，沒有獨立簽章。下載或檢查失敗不會更新現有程式；啟動失敗時會嘗試回復先前的程式與服務。失敗時保留的備份可能包含私有資料，請勿公開。
 
 PVE 安裝入口會先檢查舊的 `sys-agent` Docker 容器。容器存在時會停止，請先完成下方遷移，再執行安裝。它會更新下載目錄中的程式，保留既有 `.env` 與私有 PVE 設定。
 
@@ -33,7 +23,7 @@ PVE 本機的節點名稱與 CA 由 PVE 安裝模組準備。模組將本機 `/e
 
 ### 安裝檔會做什麼
 
-下載命令執行公開的 `install.sh`，由它辨識系統並呼叫對應平台模組。一般 Linux 缺少 Docker 時，若系統套件來源提供 Docker Engine 與 Compose v2，安裝器會使用 APT 安裝；否則先自行安裝這兩項。它會下載或更新 `/opt/hwmonitor-mqtt` 內的程式，保留 MQTT `.env`、PVE 私有設定與 Docker 自訂覆寫檔。一般 Linux 使用 Docker Compose sender；PVE 使用原生 systemd sender。Windows 編譯版入口會驗證並安裝套件、準備 LibreHardwareMonitor 與開機排程；從原始碼執行 Windows task installer 時才需 Python/uv。
+下載命令執行來源安裝器，由它辨識系統並呼叫對應平台模組。一般 Linux 缺少 Docker 時，安裝器先使用系統套件來源；必要時會設定 Docker 官方套件來源。它會更新 `/opt/hwmonitor-mqtt` 內的程式，保留 MQTT `.env`、PVE 私有設定與 Docker 自訂覆寫檔。一般 Linux 使用 Python Docker sender；PVE 使用原生 systemd sender。Windows 安裝器準備 Python、uv、LibreHardwareMonitor 與開機排程。
 
 PVE 分支依序執行下列操作：
 
@@ -43,7 +33,7 @@ PVE 分支依序執行下列操作：
 4. 將 token ID 與密鑰直接寫入 `/etc/hwmonitor-mqtt/pve.env`，權限為 `0600`，不在終端顯示密鑰。
 5. 為新帳號與 token 在 `/` 設定可繼承的 `PVEAuditor` 唯讀角色。token 使用分離權限 (`privsep=1`)，不授予 VM／CT 的啟停或修改權限。
 6. 驗證 CA、HTTPS API 與 token scope，再詢問缺少的 MQTT 設定。
-7. 將編譯版 sender 安裝至 `/opt/hwmonitor-mqtt-pve`，修正執行檔與目錄的讀取、執行權限，啟用並重啟 `hwmonitor-mqtt-pve.service`，再檢查服務是否為 active。採集服務以非 root 的動態身分執行；MQTT 與 PVE 密鑰檔維持私有權限。
+7. 將 Python sender 安裝至 `/opt/hwmonitor-mqtt-pve`，修正程式與目錄的讀取、執行權限，啟用並重啟 `hwmonitor-mqtt-pve.service`，再檢查服務是否為 active。採集服務以非 root 的動態身分執行；MQTT 與 PVE 密鑰檔維持私有權限。
 
 建立帳號、token 與 ACL 是 PVE 設定變更。安裝器為新安裝產生專用名稱，避免擴充其他帳號權限；不刪除或重設既有 token。既有自訂 token ID 缺少密鑰，或密鑰驗證失敗時會停止，不自動替換。只含安裝進度與專用識別碼的 `/etc/hwmonitor-mqtt/pve-token-state.json` 用於失敗重跑；實際密鑰只存在私有 `pve.env`。重裝沿用已保存的密鑰，接續未完成的權限設定。
 
@@ -85,30 +75,14 @@ systemctl disable --now hwmonitor-mqtt-pve
 docker rename sys-agent-before-native sys-agent && docker start sys-agent
 ```
 
-此候選版支援 Linux x64 與 64 位元 ARM64，ARM64 安裝仍待驗證。PVE 原生安裝與 Windows 排程安裝尚未在實體目標主機驗證。Windows 請使用 [Windows sender 安裝方式](#windows-sender-安裝與注意事項)。
+ARM64 與 PVE 來源安裝仍需各自實機驗證。Windows 請使用 [Windows sender 安裝方式](#windows-sender-安裝與注意事項)。
 
 ## Windows Sender 安裝與注意事項
 
-在 64 位元「系統管理員」PowerShell 執行以下公開安裝步驟；首次執行會隱藏 MQTT 密碼輸入，並建立僅 Administrators 與 SYSTEM 可讀的 `.env`，已辨識且受支援的既有設定會保留；無法辨識的目錄會停止安裝。安裝器驗證編譯套件，準備 LibreHardwareMonitor 與 PawnIO，註冊開機排程並立即啟動 sender；從原始碼執行 task installer 的路徑才需 Python/uv。
+在 64 位元「系統管理員」PowerShell 執行以下命令。首次執行會隱藏 MQTT 密碼輸入，並建立僅 Administrators 與 SYSTEM 可讀的 `.env`；已辨識的既有設定會保留。安裝器下載固定 commit 的 Python 來源，準備 Python、uv、LibreHardwareMonitor 與 PawnIO，註冊開機排程並啟動 sender。未知目錄會停止安裝。
 
 ```powershell
-& {
-$releaseTag = (Invoke-RestMethod 'https://api.github.com/repos/KarlSideProjects/hwmonitor-mqtt-releases/releases/latest' -ErrorAction Stop).tag_name
-if ($releaseTag -cnotmatch '^v0\.1\.[0-9]+$') { throw 'Unexpected release tag' }
-$releaseBase = "https://github.com/KarlSideProjects/hwmonitor-mqtt-releases/releases/download/$releaseTag"
-$client = [Net.WebClient]::new()
-try {
-    $installer = $client.DownloadData("$releaseBase/install.ps1")
-    $checksum = $client.DownloadData("$releaseBase/install.ps1.sha256")
-} finally { $client.Dispose() }
-$utf8 = [Text.UTF8Encoding]::new($false, $true)
-$expectedHash = (($utf8.GetString($checksum)).Trim() -split '\s+')[0]
-$sha256 = [Security.Cryptography.SHA256]::Create()
-try { $actualHash = ([BitConverter]::ToString($sha256.ComputeHash($installer))).Replace('-', '').ToLowerInvariant() }
-finally { $sha256.Dispose() }
-if ($expectedHash -cnotmatch '^[a-f0-9]{64}$' -or $actualHash -ne $expectedHash) { throw 'Installer checksum mismatch' }
-& ([ScriptBlock]::Create($utf8.GetString($installer)))
-}
+& ([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/master/bootstrap-source.ps1' -ErrorAction Stop).Content))
 ```
 
 檢查排程狀態：
