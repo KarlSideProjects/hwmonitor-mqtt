@@ -1,0 +1,93 @@
+{
+  "feature": "sender.release-orchestration",
+  "fingerprint": "39931ed404f01cb14176fc37fcb1f19728ddb04ebacac5136ef84ce6d2e1b506",
+  "reviewer": "independent Codex subagent /root/retro_review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    {
+      "kind": "candidate",
+      "base": "7d7a08e35dc0fecb505c52305925d02063d8766b",
+      "candidate_head": "d6f6bb3883a53d0cda01e425bcb418db118b165e",
+      "reviewed_worktree_changes": [
+        ".github/workflows/source-acceptance.yml",
+        "docs/flow-manifest.json",
+        "docs/flows/README.md",
+        "docs/superpowers/plans/2026-11-08-installer-workflow-retro.md",
+        "tests/test_flow_policy_scope.py",
+        "tests/test_source_acceptance.py"
+      ],
+      "packet_fingerprint_verified": "39931ed404f01cb14176fc37fcb1f19728ddb04ebacac5136ef84ce6d2e1b506"
+    },
+    {
+      "kind": "範圍",
+      "details": "完整閱讀本PR直接變更、所屬流程與shared contracts；核對移除global inputs的實際消費者、local inputs和具名依賴邊界。未改的傳遞實作沒有僅因指紋失效而重審。"
+    },
+    {
+      "kind": "source_versions",
+      "files": {
+        "AGENTS.md": {
+          "sha256": "9d2a2b2f00f0918cc6d2564579b1f374870a872d04e196d82324707090e3fb3a",
+          "covered_lines": "1-37"
+        },
+        "docs/agents/delivery.md": {
+          "sha256": "2f58535f6d562679f7f4621e4575475e93d7493cd18603493be53581b7f123a8",
+          "covered_lines": "1-59"
+        },
+        "docs/flows/README.md": {
+          "sha256": "ff4a6556ee00027419412b712d3f200e822782dab5ac5eff52112da42c99080b",
+          "covered_lines": "1-25"
+        },
+        "docs/flows/contracts.md": {
+          "sha256": "8a2aac697b59a30cce6a13615ab0b51b7431310758e49c4b2fd3c7afb6993551",
+          "covered_lines": "1-15"
+        },
+        "tests/test_flow_policy_scope.py": {
+          "sha256": "b1b7628b769c4e5d214d5a067148b4c947bf8c658236ee302263105d61e899c3",
+          "covered_lines": "1-87"
+        },
+        "docs/flows/sender.release-orchestration.mmd": {
+          "sha256": "91284ae4288483ec1fcc40097d2b6246fa96318f2bb6285b217ae588ff59ffd0",
+          "covered_lines": "1-40"
+        },
+        ".github/workflows/ci.yml": {
+          "sha256": "c46452d3619c716da735772bccba757a556a19bf208160e12577b6f8c8502dbd",
+          "covered_lines": "1-183"
+        },
+        ".github/workflows/sender-release.yml": {
+          "sha256": "07b5b75ce94868b83a62ff09858c874909e86b4013eb9bae8a353400d594c79e",
+          "covered_lines": "130-205及ci.yml使用端的既有測試斷言"
+        },
+        "tests/test_release_workflow.py": {
+          "sha256": "e2d1b5363135724f0ca1d875e9f65604cb8749315a910bea7e19645178ed636c",
+          "covered_lines": "1-318"
+        },
+        "docs/flows/sender.build.mmd": {
+          "sha256": "1cabb5b086126a06a00cac88b63e165b690f1d28c7ca7d8da04cd71f2fdd1e0c",
+          "covered_lines": "1-40"
+        },
+        "docs/flows/sender.release-inspection.mmd": {
+          "sha256": "18fce4da6d9c0cbc4fed0cf227f17bec28a049f252a9254bcd9e856048ce9ffc",
+          "covered_lines": "1-32"
+        }
+      }
+    },
+    {
+      "kind": "tests",
+      "details": "審查者獨立執行focused pytest：106 passed in 10.60s；修正後scope及required-checks覆核：25 passed in 2.24s。；最終workflow修正後獨立覆核42 passed in 1.43s；actionlint v1.7.12對兩張改動workflow實際解析exit 0。"
+    },
+    {
+      "kind": "resolved_finding",
+      "details": "初審證實PVE template移除global後漏失source-lifecycle consumer；現已映射K、列local input並通過對應mutation regression。development.delivery flow index也已補齊。"
+    },
+    {
+      "kind": "workflow_correction",
+      "details": "作者實際GitHub觀察發現job-level runner.temp context非法；同live審查核對改github.workspace固定output、upload共用env路徑與新增regression。審查者重跑actionlint兩張workflow通過、相關42 tests通過；harness未修改。"
+    }
+  ],
+  "limitations": [
+    "此次判定僅涵蓋本PR變更與政策遷移，不代表重審整個歷史建置、授權或未改的傳遞實作。",
+    "目前worktree無codebase-memory索引，已改以直接來源讀取與rg補證，沒有依賴未驗證圖譜結論。",
+    "完整make check由作者執行（回報723 passed/17 skipped，workflow修正前）；審查者自行跑focused tests與最終actionlint，未把作者全套結果冒充獨立執行。"
+  ]
+}

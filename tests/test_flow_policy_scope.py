@@ -49,6 +49,10 @@ INSTALLER_FEATURES = {
     ('docs/deployment/installation.md', {
         'sender.distribution', 'sender.compiled-lifecycle', 'sender.source-lifecycle',
     }),
+    ('docs/configuration/pve.env.example', {
+        'sender.build', 'sender.release-inspection', 'sender.compiled-lifecycle',
+        'sender.release-orchestration', 'sender.source-lifecycle',
+    }),
     ('uv.lock', {
         'sender.build', 'sender.compiled-lifecycle', 'sender.source-lifecycle',
         'sender.release-orchestration',

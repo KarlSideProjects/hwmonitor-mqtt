@@ -25,7 +25,7 @@ jobs:
     env:
       SOURCE: ${{ inputs.source || github.sha }}
       PLATFORM: ${{ matrix.platform }}
-      ACCEPTANCE_OUTPUT: ${{ runner.temp }}/source-acceptance
+      ACCEPTANCE_OUTPUT: ${{ github.workspace }}/source-acceptance-output
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -81,7 +81,7 @@ jobs:
         with:
           name: source-acceptance-${{ matrix.platform }}
           path: |
-            ${{ runner.temp }}/source-acceptance/receipt.json
-            ${{ runner.temp }}/source-acceptance/run.log
+            ${{ env.ACCEPTANCE_OUTPUT }}/receipt.json
+            ${{ env.ACCEPTANCE_OUTPUT }}/run.log
           if-no-files-found: error
           retention-days: 7

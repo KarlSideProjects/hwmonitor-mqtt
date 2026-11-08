@@ -24,11 +24,11 @@ of changing an unrelated global skill installation.
 
 ## Tasks
 
-- [ ] Scope manifest policy inputs and test unrelated fingerprint stability.
-- [ ] Execute source Windows tests under both supported PowerShell versions.
-- [ ] Reuse VM provisioning for source install, reinstall, settings and MQTT acceptance.
-- [ ] Schedule heavy acceptance, upload sanitized receipts and clean owned resources.
-- [ ] Add bounded Actions observations with deterministic tests and private diagnostics.
-- [ ] Update AGENTS navigation and adopt one per-PR review allowance.
-- [ ] Commit required-check configuration, enable GitHub protection and verify it.
+- [x] Scope manifest policy inputs and test unrelated fingerprint stability.
+- [x] Execute source Windows tests under both supported PowerShell versions.
+- [x] Reuse VM provisioning for source install, reinstall, settings and MQTT acceptance.
+- [x] Schedule heavy acceptance, upload sanitized receipts and clean owned resources.
+- [x] Add bounded Actions observations with deterministic tests and private diagnostics.
+- [x] Update AGENTS navigation and adopt one per-PR review allowance.
+- [x] Commit required-check configuration, enable GitHub protection and verify it.
 - [ ] Synchronize flows, review exact candidate, run checks, open one PR and merge.

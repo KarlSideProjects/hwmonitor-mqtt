@@ -131,6 +131,11 @@ def test_heavy_workflow_uses_hosted_full_vm_and_only_small_always_artifacts():
     assert 'pull_request:' not in workflow and 'self-hosted' not in workflow
     assert 'contents: read' in workflow and 'persist-credentials: false' in workflow
     assert '[linux-x64, linux-arm64, pve]' in workflow
+    job_env = workflow.split('    env:\n', 1)[1].split('    steps:', 1)[0]
+    assert '${{ runner.' not in job_env
+    assert 'ACCEPTANCE_OUTPUT: ${{ github.workspace }}/source-acceptance-output' in job_env
+    assert '${{ env.ACCEPTANCE_OUTPUT }}/receipt.json' in workflow
+    assert '${{ env.ACCEPTANCE_OUTPUT }}/run.log' in workflow
     assert 'if: always()' in workflow
     assert '/receipt.json' in workflow and '/run.log' in workflow
     import re
