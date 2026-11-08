@@ -128,7 +128,33 @@
       "hwmonitor_mqtt/agents/agent_sender_async.py",
       "tests/test_esp_sender_profile.py",
       ".github/workflows/ci.yml",
-      "docs/release/sender-orchestration-wip.md"
+      "docs/release/sender-orchestration-wip.md",
+      "bootstrap-source.sh",
+      "bootstrap-source.ps1",
+      "Dockerfile.source",
+      "Dockerfile.source.dockerignore",
+      "docker-compose.source.yml",
+      "scripts/source_archive.py",
+      "scripts/source_config.py",
+      "scripts/source_deploy.py",
+      "scripts/source_docker.py",
+      "scripts/source_linux_install.py",
+      "scripts/source_pve.py",
+      "scripts/windows/activate_source.ps1",
+      "scripts/windows/validate_source_archive.ps1",
+      "tests/test_source_archive.py",
+      "tests/test_source_bootstrap.py",
+      "tests/test_source_config.py",
+      "tests/test_source_deploy.py",
+      "tests/test_source_docker.py",
+      "tests/test_source_install.py",
+      "tests/test_source_linux_install.py",
+      "tests/test_source_prerequisites.py",
+      "tests/test_source_pve.py",
+      "tests/test_windows_source_activation.py",
+      "tests/test_windows_source_archive.py",
+      "tests/test_windows_source_bootstrap.py",
+      "tests/test_windows_source_trust.py"
     ],
     "exclude": {}
   },
@@ -151,7 +177,7 @@
     {
       "path": "README.md",
       "kind": "file",
-      "md5": "72be271ff511f43a9321dd90158f22e8"
+      "md5": "cd9c596b697765d79c7220fc029a165f"
     },
     {
       "path": "LICENSE",
@@ -166,7 +192,7 @@
     {
       "path": "release-public/README.md",
       "kind": "file",
-      "md5": "40ee5290403de4718aad719018b2f098"
+      "md5": "216d67b437b0e92da4bc0b4b8ca68c7b"
     },
     {
       "path": "release-public/LICENSE-NOTICE.md",
@@ -226,7 +252,7 @@
     {
       "path": "scripts/windows/install_windows_sender_task.ps1",
       "kind": "file",
-      "md5": "2639c0169423f190b19011168cd43da8"
+      "md5": "65fc1f65baf9d344aab7d740bc3abd0c"
     },
     {
       "path": ".github/workflows/sender-linux-build.yml",
@@ -596,7 +622,7 @@
     {
       "path": "tests/test_windows_compiled_start.py",
       "kind": "file",
-      "md5": "9c9af1a68b6d4e75095d281ffe5e9137"
+      "md5": "e07e60465b2da1c390c0a10806ec0348"
     },
     {
       "path": "tests/test_windows_package_activation.py",
@@ -646,7 +672,7 @@
     {
       "path": "tests/test_remote_bootstrap.py",
       "kind": "file",
-      "md5": "205338d4c35e7226603ec9c2e9a7a337"
+      "md5": "933cacaf54c8e21ce3f759faa3df4707"
     },
     {
       "path": "tests/test_windows_sender_profile.py",
@@ -767,6 +793,136 @@
       "path": "docs/release/sender-orchestration-wip.md",
       "kind": "file",
       "md5": "6c7eea727067fa60028b8389fb0c3283"
+    },
+    {
+      "path": "bootstrap-source.sh",
+      "kind": "file",
+      "md5": "e7c580ad320862229a1d77fa67b0b1f8"
+    },
+    {
+      "path": "bootstrap-source.ps1",
+      "kind": "file",
+      "md5": "29fcbc2d9301900e4d1f946444a97177"
+    },
+    {
+      "path": "Dockerfile.source",
+      "kind": "file",
+      "md5": "58286c13f8fec3d0736f30af60be0952"
+    },
+    {
+      "path": "Dockerfile.source.dockerignore",
+      "kind": "file",
+      "md5": "6f36a2399eb09742b9c6040a05e0998d"
+    },
+    {
+      "path": "docker-compose.source.yml",
+      "kind": "file",
+      "md5": "6a7501d569587b9e72f7b73cbf8503c8"
+    },
+    {
+      "path": "scripts/source_archive.py",
+      "kind": "file",
+      "md5": "c7b149e793ed0f89ab7592ac738cd017"
+    },
+    {
+      "path": "scripts/source_config.py",
+      "kind": "file",
+      "md5": "b81fdf1393f4b49c9219a461ebca2404"
+    },
+    {
+      "path": "scripts/source_deploy.py",
+      "kind": "file",
+      "md5": "064a85e178cd9ba0000cb9bb32d95bb0"
+    },
+    {
+      "path": "scripts/source_docker.py",
+      "kind": "file",
+      "md5": "efa9b103baa5e97f5483d6b62495120b"
+    },
+    {
+      "path": "scripts/source_linux_install.py",
+      "kind": "file",
+      "md5": "b8bd7e7ea27534ddae43164dc5039e0b"
+    },
+    {
+      "path": "scripts/source_pve.py",
+      "kind": "file",
+      "md5": "9b593e16577777ae2151e30bb3445313"
+    },
+    {
+      "path": "scripts/windows/activate_source.ps1",
+      "kind": "file",
+      "md5": "7dae98890f5fe246840b77badfbdd632"
+    },
+    {
+      "path": "scripts/windows/validate_source_archive.ps1",
+      "kind": "file",
+      "md5": "b0d319b1f351fa5b9e26d91b00ec8ae7"
+    },
+    {
+      "path": "tests/test_source_archive.py",
+      "kind": "file",
+      "md5": "cbc2dbaa8d11c83db95affa9b1613edb"
+    },
+    {
+      "path": "tests/test_source_bootstrap.py",
+      "kind": "file",
+      "md5": "312c4a85136666e32b4c752f3ea291e1"
+    },
+    {
+      "path": "tests/test_source_config.py",
+      "kind": "file",
+      "md5": "cc0d3b5207cef370f64eb5e5cdcb1fa2"
+    },
+    {
+      "path": "tests/test_source_deploy.py",
+      "kind": "file",
+      "md5": "db9c730f301403c7e9246c97b01e33cc"
+    },
+    {
+      "path": "tests/test_source_docker.py",
+      "kind": "file",
+      "md5": "73cbb2b1501e512cc510b2bb92d2d6fc"
+    },
+    {
+      "path": "tests/test_source_install.py",
+      "kind": "file",
+      "md5": "b11206c2a1ac16dc1689b9a576b3c27b"
+    },
+    {
+      "path": "tests/test_source_linux_install.py",
+      "kind": "file",
+      "md5": "9bb5ce21846eccd75db28bd56f055076"
+    },
+    {
+      "path": "tests/test_source_prerequisites.py",
+      "kind": "file",
+      "md5": "82ed73e7728fe002ef3b01a75547383a"
+    },
+    {
+      "path": "tests/test_source_pve.py",
+      "kind": "file",
+      "md5": "7055244283943475cb9e38bb7f2b153b"
+    },
+    {
+      "path": "tests/test_windows_source_activation.py",
+      "kind": "file",
+      "md5": "30d1f17b2722585f274c65989b1571c4"
+    },
+    {
+      "path": "tests/test_windows_source_archive.py",
+      "kind": "file",
+      "md5": "550a2cd595f8b48b6f6792c7be68e9d1"
+    },
+    {
+      "path": "tests/test_windows_source_bootstrap.py",
+      "kind": "file",
+      "md5": "f71c860a1d9abe4a9bd895d97b56e368"
+    },
+    {
+      "path": "tests/test_windows_source_trust.py",
+      "kind": "file",
+      "md5": "10fc42d6d632fd429790c91b9084e57f"
     }
   ],
   "features": [
@@ -2158,57 +2314,312 @@
         "tests/test_esp_sender_profile.py",
         "tests/test_windows_sender_profile.py"
       ]
+    },
+    {
+      "id": "sender.source-lifecycle",
+      "flow": "docs/flows/sender.source-lifecycle.mmd",
+      "mappings": [
+        {
+          "node": "A",
+          "path": "README.md"
+        },
+        {
+          "node": "A",
+          "path": "release-public/README.md"
+        },
+        {
+          "node": "B",
+          "path": "bootstrap-source.sh"
+        },
+        {
+          "node": "B",
+          "path": "bootstrap-source.ps1"
+        },
+        {
+          "node": "C",
+          "path": "bootstrap-source.sh"
+        },
+        {
+          "node": "C",
+          "path": "bootstrap-source.ps1"
+        },
+        {
+          "node": "D",
+          "path": "bootstrap-source.sh"
+        },
+        {
+          "node": "D",
+          "path": "bootstrap-source.ps1"
+        },
+        {
+          "node": "E",
+          "path": "scripts/source_archive.py"
+        },
+        {
+          "node": "E",
+          "path": "scripts/windows/validate_source_archive.ps1"
+        },
+        {
+          "node": "F",
+          "path": "bootstrap-source.sh"
+        },
+        {
+          "node": "F",
+          "path": "bootstrap-source.ps1"
+        },
+        {
+          "node": "G",
+          "path": "scripts/source_config.py"
+        },
+        {
+          "node": "H",
+          "path": "bootstrap-source.sh"
+        },
+        {
+          "node": "I",
+          "path": "scripts/source_deploy.py"
+        },
+        {
+          "node": "J",
+          "path": "scripts/source_docker.py"
+        },
+        {
+          "node": "J",
+          "path": "Dockerfile.source"
+        },
+        {
+          "node": "J",
+          "path": "Dockerfile.source.dockerignore"
+        },
+        {
+          "node": "J",
+          "path": "docker-compose.source.yml"
+        },
+        {
+          "node": "K",
+          "path": "bootstrap-source.sh"
+        },
+        {
+          "node": "K",
+          "path": "scripts/source_pve.py"
+        },
+        {
+          "node": "L",
+          "path": "scripts/source_pve.py"
+        },
+        {
+          "node": "M",
+          "path": "scripts/windows/activate_source.ps1"
+        },
+        {
+          "node": "N",
+          "path": "scripts/windows/activate_source.ps1"
+        },
+        {
+          "node": "O",
+          "path": "scripts/source_linux_install.py"
+        },
+        {
+          "node": "O",
+          "path": "scripts/windows/activate_source.ps1"
+        },
+        {
+          "node": "P",
+          "path": "scripts/source_deploy.py"
+        },
+        {
+          "node": "P",
+          "path": "scripts/source_docker.py"
+        },
+        {
+          "node": "P",
+          "path": "scripts/source_pve.py"
+        },
+        {
+          "node": "P",
+          "path": "scripts/windows/activate_source.ps1"
+        },
+        {
+          "node": "Q",
+          "path": "bootstrap-source.sh"
+        },
+        {
+          "node": "Q",
+          "path": "bootstrap-source.ps1"
+        },
+        {
+          "node": "Q",
+          "path": "scripts/source_archive.py"
+        },
+        {
+          "node": "Q",
+          "path": "scripts/windows/validate_source_archive.ps1"
+        },
+        {
+          "node": "W",
+          "path": "bootstrap-source.ps1"
+        },
+        {
+          "node": "E",
+          "path": "tests/test_source_archive.py"
+        },
+        {
+          "node": "B",
+          "path": "tests/test_source_bootstrap.py"
+        },
+        {
+          "node": "G",
+          "path": "tests/test_source_config.py"
+        },
+        {
+          "node": "I",
+          "path": "tests/test_source_deploy.py"
+        },
+        {
+          "node": "J",
+          "path": "tests/test_source_docker.py"
+        },
+        {
+          "node": "J",
+          "path": "tests/test_source_install.py"
+        },
+        {
+          "node": "O",
+          "path": "tests/test_source_linux_install.py"
+        },
+        {
+          "node": "F",
+          "path": "tests/test_source_prerequisites.py"
+        },
+        {
+          "node": "L",
+          "path": "tests/test_source_pve.py"
+        },
+        {
+          "node": "M",
+          "path": "tests/test_windows_source_activation.py"
+        },
+        {
+          "node": "E",
+          "path": "tests/test_windows_source_archive.py"
+        },
+        {
+          "node": "D",
+          "path": "tests/test_windows_source_bootstrap.py"
+        },
+        {
+          "node": "C",
+          "path": "tests/test_windows_source_trust.py"
+        },
+        {
+          "node": "R",
+          "path": "scripts/source_docker.py"
+        },
+        {
+          "node": "R",
+          "path": "scripts/source_pve.py"
+        },
+        {
+          "node": "R",
+          "path": "scripts/source_linux_install.py"
+        },
+        {
+          "node": "X",
+          "path": "bootstrap-source.ps1"
+        },
+        {
+          "node": "Y",
+          "path": "bootstrap-source.ps1"
+        },
+        {
+          "node": "G",
+          "path": "bootstrap-source.ps1"
+        },
+        {
+          "node": "M",
+          "path": "scripts/windows/install_windows_sender_task.ps1"
+        },
+        {
+          "node": "M",
+          "path": "tests/test_windows_compiled_start.py"
+        }
+      ],
+      "depends_on": [
+        "sender.distribution"
+      ],
+      "policy_inputs": [
+        "tests/test_source_archive.py",
+        "tests/test_source_bootstrap.py",
+        "tests/test_source_config.py",
+        "tests/test_source_deploy.py",
+        "tests/test_source_docker.py",
+        "tests/test_source_install.py",
+        "tests/test_source_linux_install.py",
+        "tests/test_source_prerequisites.py",
+        "tests/test_source_pve.py",
+        "tests/test_windows_source_activation.py",
+        "tests/test_windows_source_archive.py",
+        "tests/test_windows_source_bootstrap.py",
+        "tests/test_windows_source_trust.py"
+      ]
     }
   ],
   "reviews": [
     {
       "feature": "sender.build",
-      "fingerprint": "bd7aa082d0193200048d2155e46ee29e9404749da64c87a57e61d0ee75b37f39",
-      "reviewer": "/root/flow_review_a",
+      "fingerprint": "94f43d9c123de9f360214dca102bf582b64a52545cc9a3d12f57cd00daf2277d",
+      "reviewer": "/root/source_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.build/bd7aa082d0193200048d2155e46ee29e9404749da64c87a57e61d0ee75b37f39.json"
+      "evidence": "docs/flow-evidence/reviews/sender.build/94f43d9c123de9f360214dca102bf582b64a52545cc9a3d12f57cd00daf2277d.json"
     },
     {
       "feature": "sender.compiled-lifecycle",
-      "fingerprint": "21b8aa9f7a573b38722ab7b9302af948f0a50cce6c2ff03d04c06fb3ab14b978",
-      "reviewer": "/root/flow_review_a",
+      "fingerprint": "97d270bfef91735e3603459e8908b3c23783563b14de7721061cc90957951772",
+      "reviewer": "/root/source_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.compiled-lifecycle/21b8aa9f7a573b38722ab7b9302af948f0a50cce6c2ff03d04c06fb3ab14b978.json"
+      "evidence": "docs/flow-evidence/reviews/sender.compiled-lifecycle/97d270bfef91735e3603459e8908b3c23783563b14de7721061cc90957951772.json"
     },
     {
       "feature": "sender.distribution",
-      "fingerprint": "d24b26daec66c18a03b70fdd847f7314861143c4f4f62112fcea5cf7c525d2c3",
-      "reviewer": "/root/flow_review_a",
+      "fingerprint": "54647763272c7f6977009dcd7daef4287609ed631fa19cbbd1f009929ca95889",
+      "reviewer": "/root/source_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.distribution/d24b26daec66c18a03b70fdd847f7314861143c4f4f62112fcea5cf7c525d2c3.json"
+      "evidence": "docs/flow-evidence/reviews/sender.distribution/54647763272c7f6977009dcd7daef4287609ed631fa19cbbd1f009929ca95889.json"
     },
     {
       "feature": "sender.license",
-      "fingerprint": "8b4d4beafc1135644f04702b009fa66b7f964554905c0c08368c68dfd167ee11",
-      "reviewer": "/root/flow_review_a",
+      "fingerprint": "7705f55557bda176bb17cdc93d1018ec3fc407731ff564eec4a06374938e3848",
+      "reviewer": "/root/source_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.license/8b4d4beafc1135644f04702b009fa66b7f964554905c0c08368c68dfd167ee11.json"
+      "evidence": "docs/flow-evidence/reviews/sender.license/7705f55557bda176bb17cdc93d1018ec3fc407731ff564eec4a06374938e3848.json"
     },
     {
       "feature": "sender.release-inspection",
-      "fingerprint": "408fbddcee783ecc5d3b074173b39525f4d4e384897db40e5bdf94b572deca08",
-      "reviewer": "/root/flow_review_b",
+      "fingerprint": "78d73d9084866b19c33a5aaa0b1204b17f448d9a530bc8c24fe0121f2aad4365",
+      "reviewer": "/root/source_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.release-inspection/408fbddcee783ecc5d3b074173b39525f4d4e384897db40e5bdf94b572deca08.json"
+      "evidence": "docs/flow-evidence/reviews/sender.release-inspection/78d73d9084866b19c33a5aaa0b1204b17f448d9a530bc8c24fe0121f2aad4365.json"
     },
     {
       "feature": "sender.release-orchestration",
-      "fingerprint": "6eca3f22ab37903779409f6d8409c909d28914a2a350d53376fb17ff83f734ab",
-      "reviewer": "/root/flow_review_b",
+      "fingerprint": "3d81fe0624982d549f7d181e1cde845f602982457902190db2842a4baf9c87d1",
+      "reviewer": "/root/source_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.release-orchestration/6eca3f22ab37903779409f6d8409c909d28914a2a350d53376fb17ff83f734ab.json"
+      "evidence": "docs/flow-evidence/reviews/sender.release-orchestration/3d81fe0624982d549f7d181e1cde845f602982457902190db2842a4baf9c87d1.json"
     },
     {
       "feature": "sender.smart-discovery",
-      "fingerprint": "1fde123467ee23415131e266e989e67d42d528b70b0d1fd0b1bb14ef14008ecf",
-      "reviewer": "/root/flow_review_b",
+      "fingerprint": "7d26e178af49e78c79d4f189d58e9a7d3b42dcaedc264024fa38f3ce4a84c96a",
+      "reviewer": "/root/source_review",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.smart-discovery/1fde123467ee23415131e266e989e67d42d528b70b0d1fd0b1bb14ef14008ecf.json"
+      "evidence": "docs/flow-evidence/reviews/sender.smart-discovery/7d26e178af49e78c79d4f189d58e9a7d3b42dcaedc264024fa38f3ce4a84c96a.json"
+    },
+    {
+      "feature": "sender.source-lifecycle",
+      "fingerprint": "138676d3d358588420ec278046e76f9e744d217e99fe53e86181b8af2ae8049b",
+      "reviewer": "/root/source_review",
+      "verdict": "pass",
+      "evidence": "docs/flow-evidence/reviews/sender.source-lifecycle/138676d3d358588420ec278046e76f9e744d217e99fe53e86181b8af2ae8049b.json"
     }
   ],
   "policy_inputs": [

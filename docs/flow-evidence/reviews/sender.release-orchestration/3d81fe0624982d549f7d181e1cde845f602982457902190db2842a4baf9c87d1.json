@@ -1,0 +1,23 @@
+{
+  "feature": "sender.release-orchestration",
+  "fingerprint": "3d81fe0624982d549f7d181e1cde845f602982457902190db2842a4baf9c87d1",
+  "reviewer": "/root/source_review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "本次候選為 commit a75fbbe5208aff35dbf39fc8b60efbb8ac80e631 加尚未提交的三張流程圖與 manifest snapshot；base 3bf96916d5e5b40d585b1e073cbbec4bed60627e。",
+    "重新讀取 reviewer-prompt、8 份更新 packet、git diff HEAD^ HEAD、後續三張流程圖修正與 manifest 映射；以 flow_checker explain 確認 fingerprint 等於 packet。",
+    "已完整讀取 scripts/windows/install_windows_sender_task.ps1 及 tests/test_windows_compiled_start.py：預設 LHM/PawnIO API 固定 asset ID、octet-stream 與 User-Agent，驗證 SHA-256 後才解壓／執行；已安裝 PawnIO 2.0+ 可沿用，source 模式可沿用既有 LHM；custom LHM URL 沿用舊行為且不驗證 SHA-256，compiled 模式拒絕自訂路徑與 URL。",
+    "本輪本機執行 .venv/bin/python -m pytest -q tests/test_windows_compiled_start.py tests/test_windows_source_activation.py tests/test_windows_package_activation.py：38 passed。",
+    "上一次由同一 reviewer 實際完成的完整審查：",
+    "候選為工作樹，HEAD bcf88a499a6b8c739a57b1c3d5c6a182230db2f7；比較基準 3bf96916d5e5b40d585b1e073cbbec4bed60627e。",
+    "已讀 reviewer-prompt、對應 packet、docs/flows/contracts.md 與各自流程圖；寫出前以 flow_checker explain 核對 fingerprint。",
+    "已讀 scripts/release_controller.py:1–204、scripts/release_backend.py:1–299、.github/workflows/sender-release.yml:1–193，核對 preflight、checks、prepare、STAGING、READY、drain、公開驗證與重試。",
+    "已讀 sender.build、sender.release-inspection、共享 contracts；以測試名稱和實際執行確認 controller/backend 的失敗、重試和 read-only verify 介面。",
+    "本機執行 tests/test_release_candidate.py、tests/test_release_backend.py、tests/test_release_controller.py：116 passed。"
+  ],
+  "limitations": [
+    "不代表已實際建立或發布 release；既有 backend 指向已退役的獨立 release repo，其限制已寫入共享 contracts。",
+    "主代理提供資訊：make check 638 passed、17 skipped；Windows 11 真機安裝與 MQTT、PowerShell 5.1 asset API 和 SHA-256 均已成功。該實機及完整測試結果由主代理轉述，本 reviewer 未獨立執行。"
+  ]
+}

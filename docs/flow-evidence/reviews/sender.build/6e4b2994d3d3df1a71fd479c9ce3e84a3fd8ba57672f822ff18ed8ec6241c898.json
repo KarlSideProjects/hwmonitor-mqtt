@@ -1,0 +1,17 @@
+{
+  "feature": "sender.build",
+  "fingerprint": "6e4b2994d3d3df1a71fd479c9ce3e84a3fd8ba57672f822ff18ed8ec6241c898",
+  "reviewer": "/root/source_review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "候選為工作樹，HEAD bcf88a499a6b8c739a57b1c3d5c6a182230db2f7；比較基準 3bf96916d5e5b40d585b1e073cbbec4bed60627e。",
+    "已讀 reviewer-prompt、對應 packet、docs/flows/contracts.md 與各自流程圖；寫出前以 flow_checker explain 核對 fingerprint。",
+    "已讀 .github/workflows/sender-linux-build.yml:1–136、protected-windows-package.yml:1–279、sender-release.yml:1–193、ci.yml:1–155。",
+    "已讀 scripts/build_sender_package.py:1–153、capture_sender_build.py:1–188、create_sender_build_record.py:1–180、sender_build_inputs.py:1–190、windows/package_sender.py:1–80、windows/collect_notices.py:1–165、linux_arm64/gcc.py:1–362，核對建置與驗證交接。",
+    "本機執行 test_build_sender_package.py、test_sender_build_record.py、test_windows_package_build.py、test_compiled_bootstrap.py、test_sender_archive.py、test_install_sh.py、test_windows_package_activation.py：66 passed。"
+  ],
+  "limitations": [
+    "未在本次審查執行完整 Linux x64/ARM64 或 Windows 編譯及產物驗收；本 verdict 只認定所審流程文件與來源一致。"
+  ]
+}

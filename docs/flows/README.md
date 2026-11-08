@@ -11,6 +11,7 @@ This bounded inventory describes sender distribution, inspection, build and rele
 | `sender.build` | [Flow](sender.build.mmd) | Linux and Windows build workflows, package and evidence producers, ARM startup inputs; project maintainers |
 | `sender.release-orchestration` | [Flow](sender.release-orchestration.mmd) | Release workflow, controller, backend, version, asset checker and loopback prototype; project maintainers |
 | `sender.compiled-lifecycle` | [Flow](sender.compiled-lifecycle.mmd) | Compiled install and upgrade controllers, platform installers and task scripts; project maintainers |
+| `sender.source-lifecycle` | [Flow](sender.source-lifecycle.mmd) | Source installers, archive validation, platform activation and recovery; project maintainers |
 
 [Shared contracts](contracts.md) describes the boundaries. The existing README and LICENSE own the published project license statement. The dependency manifest owns declared dependencies, not a released bill of materials.
 

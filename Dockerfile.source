@@ -1,0 +1,12 @@
+FROM python:3.11-slim
+
+RUN arch="$(dpkg --print-architecture)" && apt-get update && apt-get install -y --no-install-recommends \
+    pciutils procps smartmontools $(if [ "$arch" = amd64 ]; then echo intel-gpu-tools; fi) \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir psutil==7.1.1 paho-mqtt==2.1.0 python-dotenv==1.1.1
+
+ENV PYTHONUNBUFFERED=1
+WORKDIR /app
+COPY hwmonitor_mqtt /app/hwmonitor_mqtt
+CMD ["python", "-m", "hwmonitor_mqtt.agents.agent_sender_async"]

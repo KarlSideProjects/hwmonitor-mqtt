@@ -1,0 +1,17 @@
+{
+  "feature": "sender.smart-discovery",
+  "fingerprint": "c515da743770f8f2f78cdf91dfb3100e2d4582232e4507560917cf207fb76a6d",
+  "reviewer": "/root/source_review",
+  "verdict": "pass",
+  "findings": [],
+  "evidence": [
+    "候選為工作樹，HEAD bcf88a499a6b8c739a57b1c3d5c6a182230db2f7；比較基準 3bf96916d5e5b40d585b1e073cbbec4bed60627e。",
+    "已讀 reviewer-prompt、對應 packet、docs/flows/contracts.md 與各自流程圖；寫出前以 flow_checker explain 核對 fingerprint。",
+    "已讀 sender.smart-discovery 流程圖、共享 contracts，以及 hwmonitor_mqtt/collectors/smart.py:1–100 的 discovery、fallback 與例外處理。",
+    "已檢視 tests/test_smart_collector.py 中 executable lookup、scan、PVE fallback 與 unavailable 測試；對照 packet 確認相關直接來源與流程未變。",
+    "本機執行 .venv/bin/python -m pytest -q tests/test_smart_collector.py：21 passed。"
+  ],
+  "limitations": [
+    "依流程索引，本範圍不涵蓋 SMART normalization、警示門檻及 PVE fallback 的完整內部實作。"
+  ]
+}

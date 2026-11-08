@@ -1,0 +1,4 @@
+services:
+  sys_agent:
+    build:
+      dockerfile: Dockerfile.source
