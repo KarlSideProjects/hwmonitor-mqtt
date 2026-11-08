@@ -252,7 +252,7 @@
     {
       "path": "scripts/windows/install_windows_sender_task.ps1",
       "kind": "file",
-      "md5": "2639c0169423f190b19011168cd43da8"
+      "md5": "65fc1f65baf9d344aab7d740bc3abd0c"
     },
     {
       "path": ".github/workflows/sender-linux-build.yml",
@@ -622,7 +622,7 @@
     {
       "path": "tests/test_windows_compiled_start.py",
       "kind": "file",
-      "md5": "9c9af1a68b6d4e75095d281ffe5e9137"
+      "md5": "e07e60465b2da1c390c0a10806ec0348"
     },
     {
       "path": "tests/test_windows_package_activation.py",
@@ -2534,6 +2534,14 @@
         {
           "node": "G",
           "path": "bootstrap-source.ps1"
+        },
+        {
+          "node": "M",
+          "path": "scripts/windows/install_windows_sender_task.ps1"
+        },
+        {
+          "node": "M",
+          "path": "tests/test_windows_compiled_start.py"
         }
       ],
       "depends_on": [

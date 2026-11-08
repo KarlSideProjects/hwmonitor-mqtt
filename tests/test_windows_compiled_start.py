@@ -41,13 +41,45 @@ def test_compiled_install_does_not_reuse_unverified_lhm(tmp_path):
     old_lhm.write_bytes(b"unverified")
     script = Path(__file__).resolve().parents[1] / "scripts/windows/install_windows_sender_task.ps1"
     shell = r'''
-function Invoke-WebRequest { param([switch]$UseBasicParsing, $Uri, $OutFile) throw 'pinned LHM download attempted' }
+function Invoke-WebRequest { param([switch]$UseBasicParsing, $Uri, $OutFile, $Headers) throw 'pinned LHM download attempted' }
 try { & $env:INSTALL_SCRIPT -ProjectRoot $env:PROJECT_ROOT -SenderExe $env:SENDER_EXE -LhmInstallDir $env:NEW_LHM -EnsurePawnIo:$false -AtStartup; exit 0 } catch { Write-Output $_; exit 1 }
 '''
     result = run_pwsh(shell, env={"INSTALL_SCRIPT": str(script), "PROJECT_ROOT": str(tmp_path), "SENDER_EXE": str(sender), "NEW_LHM": str(tmp_path / "new-lhm"), "TEMP": str(tmp_path)})
     assert result.returncode != 0
     assert "pinned LHM download attempted" in result.stdout
     assert old_lhm.read_bytes() == b"unverified"
+
+
+@pytest.mark.parametrize(('function', 'url_variable', 'asset_id'), [
+    ('Ensure-LhmExecutable', 'LhmDefaultUrl', '355828308'),
+    ('Ensure-PawnIo', 'PawnIoUrl', '374375077'),
+])
+def test_windows_hardware_download_uses_github_asset_api(tmp_path, function, url_variable, asset_id):
+    script = Path(__file__).resolve().parents[1] / 'scripts/windows/install_windows_sender_task.ps1'
+    shell = r'''
+$text = Get-Content -Raw $env:INSTALL_SCRIPT
+$tokens = $null; $errors = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$tokens, [ref]$errors)
+$fn = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $env:FUNCTION }, $true)
+Invoke-Expression $fn.Extent.Text
+$assignment = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and $n.Left.VariablePath.UserPath -eq $env:URL_VARIABLE }, $true)
+Invoke-Expression $assignment.Extent.Text
+function Resolve-LhmExePath { return $null }
+function Get-PawnIoVersion { return $null }
+function Invoke-WebRequest { param([switch]$UseBasicParsing, $Uri, $OutFile, $Headers)
+    if ($Uri -notmatch ('/releases/assets/' + $env:ASSET_ID + '$') -or $Headers.Accept -ne 'application/octet-stream') { throw 'wrong asset request' }
+    throw 'expected asset request'
+}
+try {
+    if ($env:FUNCTION -eq 'Ensure-LhmExecutable') { Ensure-LhmExecutable -Candidate '' -InstallDir $env:INSTALL_DIR -RootPath $env:INSTALL_DIR -InstallIfMissing $true -DownloadUrl '' }
+    else { Ensure-PawnIo }
+} catch { Write-Output $_; if ("$_" -match 'expected asset request') { exit 0 }; exit 1 }
+exit 1
+'''
+    result = run_pwsh(shell, env={'INSTALL_SCRIPT': str(script), 'FUNCTION': function,
+                                 'URL_VARIABLE': url_variable, 'ASSET_ID': asset_id,
+                                 'INSTALL_DIR': str(tmp_path / 'lhm'), 'TEMP': str(tmp_path)})
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_compiled_sender_reads_settings_from_task_working_directory(tmp_path):

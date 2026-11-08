@@ -19,7 +19,7 @@ flowchart TD
     R["Windows requires elevated x64 PowerShell, trusted paths and Visual C++ runtime"]
     S["Preserve existing protected MQTT settings or create them before activation"]
     T["Recognize and export prior task, stop if running and swap package"]
-    U["Install pinned LHM; reuse PawnIO at least 2.0 or install pinned 2.2; register SYSTEM startup task"]
+    U["Download pinned LHM and PawnIO via GitHub asset API with SHA-256 checks; reuse PawnIO at least 2.0; register SYSTEM startup task"]
     V["Start task and require running state for five seconds; commit source marker"]
     W["On failure restore package and prior task XML and running state where possible"]
     X["Preparation side effects can persist: PVE identity and CA, Docker, Windows driver and settings"]

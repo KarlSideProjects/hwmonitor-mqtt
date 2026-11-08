@@ -152,7 +152,7 @@ function Resolve-LhmExePath {
 }
 
 # Pinned: LHM 0.9.5 silently removed its WMI provider; upgrades must be a reviewed change.
-$LhmDefaultUrl = "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v0.9.6/LibreHardwareMonitor.zip"
+$LhmDefaultUrl = "https://api.github.com/repos/LibreHardwareMonitor/LibreHardwareMonitor/releases/assets/355828308"
 $LhmDefaultSha256 = "086D9F1B5A99E643EDC2CFAAAC16051685B551E4C5AC0B32A57C58C0E529C001"
 
 function Ensure-LhmExecutable {
@@ -183,7 +183,11 @@ function Ensure-LhmExecutable {
     try {
         $url = if ([string]::IsNullOrWhiteSpace($DownloadUrl)) { $LhmDefaultUrl } else { $DownloadUrl }
         Write-Host "Downloading LibreHardwareMonitor from: $url"
-        Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zipPath
+        if ($url -eq $LhmDefaultUrl) {
+            Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zipPath -Headers @{ Accept = 'application/octet-stream'; 'User-Agent' = 'hwmonitor-mqtt' }
+        } else {
+            Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zipPath
+        }
         if ($url -eq $LhmDefaultUrl) {
             $hash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash
             if ($hash -ne $LhmDefaultSha256) {
@@ -224,7 +228,7 @@ function Ensure-LhmExecutable {
 }
 
 # LibreHardwareMonitor >= 0.9.5 reads CPU temperatures through the PawnIO driver instead of WinRing0.
-$PawnIoUrl = "https://github.com/namazso/PawnIO.Setup/releases/download/2.2.0/PawnIO_setup.exe"
+$PawnIoUrl = "https://api.github.com/repos/namazso/PawnIO.Setup/releases/assets/374375077"
 $PawnIoSha256 = "1F519A22E47187F70A1379A48CA604981C4FCF694F4E65B734AAA74A9FBA3032"
 
 function Get-PawnIoVersion {
@@ -254,7 +258,7 @@ function Ensure-PawnIo {
     $setup = Join-Path $tmpRoot "PawnIO_setup.exe"
     try {
         Write-Output "Downloading PawnIO from: $PawnIoUrl"
-        Invoke-WebRequest -UseBasicParsing -Uri $PawnIoUrl -OutFile $setup
+        Invoke-WebRequest -UseBasicParsing -Uri $PawnIoUrl -OutFile $setup -Headers @{ Accept = 'application/octet-stream'; 'User-Agent' = 'hwmonitor-mqtt' }
         $hash = (Get-FileHash -Path $setup -Algorithm SHA256).Hash
         if ($hash -ne $PawnIoSha256) {
             throw "PawnIO installer SHA-256 mismatch: $hash"
