@@ -12,7 +12,7 @@ def source_tree(base, version):
     (base / 'scripts/windows').mkdir(parents=True)
     (base / 'scripts/windows/install_windows_sender_task.ps1').write_text('param($ProjectRoot, [switch]$AtStartup)\n')
     (base / 'scripts/windows/start_windows_sender.ps1').write_text(version)
-    for name in ('pyproject.toml', 'uv.lock', 'install.sh', '.python-version'):
+    for name in ('pyproject.toml', 'uv.lock', 'install.sh', '.python-version', 'README.md'):
         (base / name).write_text(version)
 
 
@@ -93,6 +93,7 @@ function powershell.exe { $global:LASTEXITCODE = 0 }
     assert result.returncode == 0, result.stderr
     assert (root / 'hwmonitor_mqtt/sender.py').read_text() == 'new'
     assert (root / '.python-version').read_text() == 'new'
+    assert (root / 'README.md').read_text() == 'new'
     assert (root / '.env').read_text() == 'private settings'
     assert (root / '.hwmonitor-mqtt-bootstrap').read_text() == 'a' * 40 + '\n'
     assert not list(root.glob('source-backup-*'))

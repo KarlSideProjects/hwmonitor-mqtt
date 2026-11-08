@@ -57,7 +57,7 @@ if (Test-Path $root) {
     Assert-TrustedItem $root $false
     foreach ($relative in @('.env', '.hwmonitor-mqtt-bootstrap', '.hwmonitor-mqtt-bootstrap-pending',
             '.source-install.lock', 'scripts', 'package', 'hwmonitor_mqtt', '.venv', '.uv-cache',
-            '.uv-python', 'third_party', 'pyproject.toml', 'uv.lock', 'install.sh', '.python-version')) {
+            '.uv-python', 'third_party', 'pyproject.toml', 'uv.lock', 'install.sh', '.python-version', 'README.md')) {
         $path = Join-Path $root $relative
         if (Test-Path -LiteralPath $path) {
             Assert-TrustedItem $path $false ($relative -eq '.env')

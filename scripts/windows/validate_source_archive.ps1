@@ -43,7 +43,7 @@ try {
     }
     foreach ($required in @('hwmonitor_mqtt/agents/agent_sender_windows.py',
             'scripts/windows/install_windows_sender_task.ps1', 'scripts/windows/start_windows_sender.ps1',
-            'scripts/windows/activate_source.ps1', 'pyproject.toml', 'uv.lock', 'install.sh', '.python-version')) {
+            'scripts/windows/activate_source.ps1', 'pyproject.toml', 'uv.lock', 'install.sh', '.python-version', 'README.md')) {
         if (-not $files.Contains($required)) { throw 'Source archive is incomplete.' }
     }
     try {

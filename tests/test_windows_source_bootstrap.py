@@ -21,7 +21,7 @@ def test_download_pins_commit_and_validates_archive_before_activation(tmp_path):
         for name in ('hwmonitor_mqtt/agents/agent_sender_windows.py',
                      'scripts/windows/install_windows_sender_task.ps1',
                      'scripts/windows/start_windows_sender.ps1',
-                     'scripts/windows/activate_source.ps1', 'pyproject.toml', 'uv.lock', 'install.sh', '.python-version'):
+                     'scripts/windows/activate_source.ps1', 'pyproject.toml', 'uv.lock', 'install.sh', '.python-version', 'README.md'):
             content.writestr(prefix + name, 'content')
     stage = tmp_path / 'work'
     stage.mkdir()

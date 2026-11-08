@@ -14,7 +14,7 @@ PREFIX = 'hwmonitor-mqtt-' + COMMIT + '/'
 REQUIRED = ('hwmonitor_mqtt/agents/agent_sender_windows.py',
             'scripts/windows/install_windows_sender_task.ps1',
             'scripts/windows/start_windows_sender.ps1', 'scripts/windows/activate_source.ps1',
-            'pyproject.toml', 'uv.lock', 'install.sh', '.python-version')
+            'pyproject.toml', 'uv.lock', 'install.sh', '.python-version', 'README.md')
 
 
 def make_zip(path, extra=()):

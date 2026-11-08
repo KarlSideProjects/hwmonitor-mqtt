@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = 'Stop'
 if ($Source -cnotmatch '^[a-f0-9]{40}$') { throw 'Invalid source commit.' }
 foreach ($required in @('hwmonitor_mqtt', 'scripts/windows/install_windows_sender_task.ps1',
-        'scripts/windows/start_windows_sender.ps1', 'pyproject.toml', 'uv.lock', 'install.sh', '.python-version')) {
+        'scripts/windows/start_windows_sender.ps1', 'pyproject.toml', 'uv.lock', 'install.sh', '.python-version', 'README.md')) {
     if (-not (Test-Path -LiteralPath (Join-Path $StagedSource $required))) { throw 'Staged source is incomplete.' }
 }
 $taskName = 'HWMonitorMQTTSender'
@@ -30,7 +30,7 @@ $backup = Join-Path $ProjectRoot ('source-backup-' + [guid]::NewGuid().ToString(
 $marker = Join-Path $ProjectRoot '.hwmonitor-mqtt-bootstrap'
 $markerTemp = Join-Path $ProjectRoot ('.marker-' + [guid]::NewGuid().ToString('N'))
 $markerBackup = Join-Path $ProjectRoot ('.marker-backup-' + [guid]::NewGuid().ToString('N'))
-$names = @('hwmonitor_mqtt', 'scripts', 'pyproject.toml', 'uv.lock', 'install.sh', '.python-version',
+$names = @('hwmonitor_mqtt', 'scripts', 'pyproject.toml', 'uv.lock', 'install.sh', '.python-version', 'README.md',
            '.venv', '.uv-cache', '.uv-python', 'third_party')
 $movedOld = [Collections.Generic.List[string]]::new()
 $movedNew = [Collections.Generic.List[string]]::new()
