@@ -1,0 +1,11 @@
+flowchart TD
+    A["Select repository, existing Actions run and bounded wait"]
+    B["Observe run and job states; preserve handle on API failure"]
+    C["Emit changed metadata only; privately retain completed failure diagnostics"]
+    D["Return pending at deadline or terminal run verdict"]
+    E["Repository policy identifies required checks and scoped independent review"]
+    A --> B
+    B --> C
+    C -->|live and before deadline| B
+    C --> D
+    E --> A

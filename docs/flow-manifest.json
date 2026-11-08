@@ -154,7 +154,20 @@
       "tests/test_windows_source_activation.py",
       "tests/test_windows_source_archive.py",
       "tests/test_windows_source_bootstrap.py",
-      "tests/test_windows_source_trust.py"
+      "tests/test_windows_source_trust.py",
+      "scripts/watch_checks.py",
+      "tests/test_watch_checks.py",
+      "scripts/github-required-checks.json",
+      "tests/test_required_checks.py",
+      "docs/agents/delivery.md",
+      "docs/flows/development.delivery-baseline.md",
+      "scripts/release-tests/source_acceptance.py",
+      "scripts/release-tests/source_guest.sh",
+      "scripts/release-tests/source_fixture.py",
+      "tests/test_source_acceptance.py",
+      ".github/workflows/source-acceptance.yml",
+      "scripts/release-tests/cloud-images.json",
+      "scripts/release-tests/README.md"
     ],
     "exclude": {}
   },
@@ -472,7 +485,7 @@
     {
       "path": "tests/test_release_workflow.py",
       "kind": "file",
-      "md5": "ec9300d630cfaea7555cbb5a59655038"
+      "md5": "57b390c9152d60b5579bd99c76b69160"
     },
     {
       "path": "tests/test_compiled_bootstrap_integration.py",
@@ -787,7 +800,7 @@
     {
       "path": ".github/workflows/ci.yml",
       "kind": "file",
-      "md5": "174752b548eca0c063ddb39b0cc82ad8"
+      "md5": "6b9beb2fa8e4b16d062d8053576613d1"
     },
     {
       "path": "docs/release/sender-orchestration-wip.md",
@@ -923,6 +936,71 @@
       "path": "tests/test_windows_source_trust.py",
       "kind": "file",
       "md5": "10fc42d6d632fd429790c91b9084e57f"
+    },
+    {
+      "path": "scripts/watch_checks.py",
+      "kind": "file",
+      "md5": "0e3dbfeaded2f5529622486a4597815c"
+    },
+    {
+      "path": "tests/test_watch_checks.py",
+      "kind": "file",
+      "md5": "4679df23c8fa25128925d3843dfb4983"
+    },
+    {
+      "path": "scripts/github-required-checks.json",
+      "kind": "file",
+      "md5": "b9b9f552898b2b16cd558947e463ad93"
+    },
+    {
+      "path": "tests/test_required_checks.py",
+      "kind": "file",
+      "md5": "87472fe39d1f6ccdf09c426c21020299"
+    },
+    {
+      "path": "docs/agents/delivery.md",
+      "kind": "file",
+      "md5": "e1847b9dc921d349aa6a2ebbde69e847"
+    },
+    {
+      "path": "docs/flows/development.delivery-baseline.md",
+      "kind": "file",
+      "md5": "11fe43d5dafb5c742f5e8901eb246b46"
+    },
+    {
+      "path": "scripts/release-tests/source_acceptance.py",
+      "kind": "file",
+      "md5": "1b5e9e2ac90878826b8794f97974c397"
+    },
+    {
+      "path": "scripts/release-tests/source_guest.sh",
+      "kind": "file",
+      "md5": "f627f5d88f33fc1da5250048cd137bbb"
+    },
+    {
+      "path": "scripts/release-tests/source_fixture.py",
+      "kind": "file",
+      "md5": "bc8dbada9ca331cabab37f96b7a94c1a"
+    },
+    {
+      "path": "tests/test_source_acceptance.py",
+      "kind": "file",
+      "md5": "0cd39a269059b14bcf9f954298dae39c"
+    },
+    {
+      "path": ".github/workflows/source-acceptance.yml",
+      "kind": "file",
+      "md5": "0ecc64ded6187641fdcb007594dd2b2d"
+    },
+    {
+      "path": "scripts/release-tests/cloud-images.json",
+      "kind": "file",
+      "md5": "9541137c5049744b44e463fae483ac63"
+    },
+    {
+      "path": "scripts/release-tests/README.md",
+      "kind": "file",
+      "md5": "0196a6a7102f0d115443d8877babc5ab"
     }
   ],
   "features": [
@@ -1139,7 +1217,24 @@
           "path": "tests/test_sender_archive.py"
         }
       ],
-      "depends_on": []
+      "depends_on": [],
+      "policy_inputs": [
+        "docker-compose.linux.yml",
+        "docs/deployment/installation.md",
+        "hwmonitor_mqtt/clients/pve.py",
+        "hwmonitor_mqtt/platforms/detect.py",
+        "hwmonitor_mqtt/platforms/install.py",
+        "hwmonitor_mqtt/platforms/pve_bootstrap.py",
+        "hwmonitor_mqtt/platforms/pve_token.py",
+        "install.sh",
+        "scripts/windows/install_windows_sender_task.ps1",
+        "scripts/windows/start_windows_sender.ps1",
+        "scripts/windows/uninstall_windows_sender_task.ps1",
+        "tests/_pwsh.py",
+        "tests/test_install_sh.py",
+        "tests/test_powershell_syntax.py",
+        "tests/test_remote_bootstrap.py"
+      ]
     },
     {
       "id": "sender.license",
@@ -1333,7 +1428,16 @@
           "path": "release-notices/windows-x64-cpython-3.13.17/runtime-bundle.txt"
         }
       ],
-      "depends_on": []
+      "depends_on": [],
+      "policy_inputs": [
+        "docs/configuration/pve.env.example",
+        "tests/fixtures/release-notices/paho-mqtt.txt",
+        "tests/fixtures/release-notices/psutil.txt",
+        "tests/fixtures/release-notices/python-dotenv.txt",
+        "tests/fixtures/release-notices/python.txt",
+        "tests/fixtures/release-notices/pythonnet.txt",
+        "tests/fixtures/release-notices/wmi.txt"
+      ]
     },
     {
       "id": "sender.smart-discovery",
@@ -1392,7 +1496,10 @@
           "path": "hwmonitor_mqtt/collectors/smart.py"
         }
       ],
-      "depends_on": []
+      "depends_on": [],
+      "policy_inputs": [
+        "hwmonitor_mqtt/clients/pve.py"
+      ]
     },
     {
       "id": "sender.build",
@@ -1861,9 +1968,68 @@
         {
           "node": "F",
           "path": "tests/test_build_sender_package.py"
+        },
+        {
+          "node": "U",
+          "path": "scripts/release-tests/source_acceptance.py"
+        },
+        {
+          "node": "U",
+          "path": "scripts/release-tests/source_guest.sh"
+        },
+        {
+          "node": "U",
+          "path": "scripts/release-tests/source_fixture.py"
+        },
+        {
+          "node": "U",
+          "path": "tests/test_source_acceptance.py"
+        },
+        {
+          "node": "U",
+          "path": ".github/workflows/source-acceptance.yml"
+        },
+        {
+          "node": "U",
+          "path": "scripts/release-tests/cloud-images.json"
+        },
+        {
+          "node": "U",
+          "path": "scripts/release-tests/README.md"
         }
       ],
-      "depends_on": []
+      "depends_on": [],
+      "policy_inputs": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/source-acceptance.yml",
+        "Makefile",
+        "docker-compose.linux.yml",
+        "docs/configuration/pve.env.example",
+        "hwmonitor_mqtt/clients/pve.py",
+        "hwmonitor_mqtt/platforms/detect.py",
+        "hwmonitor_mqtt/platforms/install.py",
+        "hwmonitor_mqtt/platforms/pve_bootstrap.py",
+        "hwmonitor_mqtt/platforms/pve_token.py",
+        "scripts/release-tests/pve_acceptance.py",
+        "scripts/release-tests/pve_provision.sh",
+        "scripts/release-tests/source_acceptance.py",
+        "scripts/release-tests/source_fixture.py",
+        "scripts/release-tests/source_guest.sh",
+        "scripts/windows/install_windows_sender_task.ps1",
+        "scripts/windows/start_windows_sender.ps1",
+        "tests/_pwsh.py",
+        "tests/fixtures/release-notices/paho-mqtt.txt",
+        "tests/fixtures/release-notices/psutil.txt",
+        "tests/fixtures/release-notices/python-dotenv.txt",
+        "tests/fixtures/release-notices/python.txt",
+        "tests/fixtures/release-notices/pythonnet.txt",
+        "tests/fixtures/release-notices/wmi.txt",
+        "tests/test_powershell_syntax.py",
+        "tests/test_source_acceptance.py",
+        "uv.lock",
+        "scripts/release-tests/cloud-images.json",
+        "scripts/release-tests/README.md"
+      ]
     },
     {
       "id": "sender.release-orchestration",
@@ -2013,6 +2179,12 @@
       "depends_on": [
         "sender.build",
         "sender.release-inspection"
+      ],
+      "policy_inputs": [
+        ".github/workflows/ci.yml",
+        "Makefile",
+        "tests/_pwsh.py",
+        "tests/test_powershell_syntax.py"
       ]
     },
     {
@@ -2309,9 +2481,21 @@
         "sender.build"
       ],
       "policy_inputs": [
+        "docker-compose.linux.yml",
+        "docs/configuration/pve.env.example",
+        "docs/deployment/installation.md",
         "hwmonitor_mqtt/agents/agent_sender_async.py",
         "hwmonitor_mqtt/agents/agent_sender_windows.py",
+        "hwmonitor_mqtt/clients/pve.py",
+        "hwmonitor_mqtt/platforms/detect.py",
+        "hwmonitor_mqtt/platforms/install.py",
+        "hwmonitor_mqtt/platforms/pve_bootstrap.py",
+        "hwmonitor_mqtt/platforms/pve_token.py",
+        "scripts/windows/install_windows_sender_task.ps1",
+        "scripts/windows/start_windows_sender.ps1",
+        "tests/_pwsh.py",
         "tests/test_esp_sender_profile.py",
+        "tests/test_powershell_syntax.py",
         "tests/test_windows_sender_profile.py"
       ]
     },
@@ -2542,12 +2726,60 @@
         {
           "node": "M",
           "path": "tests/test_windows_compiled_start.py"
+        },
+        {
+          "node": "AA",
+          "path": "scripts/release-tests/source_acceptance.py"
+        },
+        {
+          "node": "AA",
+          "path": "scripts/release-tests/source_guest.sh"
+        },
+        {
+          "node": "AA",
+          "path": "scripts/release-tests/source_fixture.py"
+        },
+        {
+          "node": "AA",
+          "path": "tests/test_source_acceptance.py"
+        },
+        {
+          "node": "AA",
+          "path": ".github/workflows/source-acceptance.yml"
+        },
+        {
+          "node": "AA",
+          "path": "scripts/release-tests/cloud-images.json"
+        },
+        {
+          "node": "AA",
+          "path": "scripts/release-tests/README.md"
         }
       ],
       "depends_on": [
         "sender.distribution"
       ],
       "policy_inputs": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/source-acceptance.yml",
+        "docs/deployment/installation.md",
+        "hwmonitor_mqtt/clients/pve.py",
+        "hwmonitor_mqtt/platforms/detect.py",
+        "hwmonitor_mqtt/platforms/install.py",
+        "hwmonitor_mqtt/platforms/pve_bootstrap.py",
+        "hwmonitor_mqtt/platforms/pve_token.py",
+        "install.sh",
+        "pyproject.toml",
+        "scripts/release-tests/pve_acceptance.py",
+        "scripts/release-tests/pve_provision.sh",
+        "scripts/release-tests/source_acceptance.py",
+        "scripts/release-tests/source_fixture.py",
+        "scripts/release-tests/source_guest.sh",
+        "scripts/windows/install_windows_sender_task.ps1",
+        "scripts/windows/start_windows_sender.ps1",
+        "tests/_pwsh.py",
+        "tests/test_powershell_syntax.py",
+        "tests/test_source_acceptance.py",
         "tests/test_source_archive.py",
         "tests/test_source_bootstrap.py",
         "tests/test_source_config.py",
@@ -2560,7 +2792,74 @@
         "tests/test_windows_source_activation.py",
         "tests/test_windows_source_archive.py",
         "tests/test_windows_source_bootstrap.py",
-        "tests/test_windows_source_trust.py"
+        "tests/test_windows_source_trust.py",
+        "uv.lock",
+        "scripts/release-tests/cloud-images.json",
+        "scripts/release-tests/README.md"
+      ]
+    },
+    {
+      "id": "development.delivery",
+      "flow": "docs/flows/development.delivery.mmd",
+      "mappings": [
+        {
+          "node": "A",
+          "path": "scripts/watch_checks.py"
+        },
+        {
+          "node": "A",
+          "path": "tests/test_watch_checks.py"
+        },
+        {
+          "node": "B",
+          "path": "scripts/watch_checks.py"
+        },
+        {
+          "node": "B",
+          "path": "tests/test_watch_checks.py"
+        },
+        {
+          "node": "C",
+          "path": "scripts/watch_checks.py"
+        },
+        {
+          "node": "C",
+          "path": "tests/test_watch_checks.py"
+        },
+        {
+          "node": "D",
+          "path": "scripts/watch_checks.py"
+        },
+        {
+          "node": "D",
+          "path": "tests/test_watch_checks.py"
+        },
+        {
+          "node": "E",
+          "path": "scripts/github-required-checks.json"
+        },
+        {
+          "node": "E",
+          "path": "tests/test_required_checks.py"
+        },
+        {
+          "node": "E",
+          "path": "docs/agents/delivery.md"
+        },
+        {
+          "node": "E",
+          "path": "docs/flows/development.delivery-baseline.md"
+        }
+      ],
+      "depends_on": [],
+      "policy_inputs": [
+        ".github/workflows/ci.yml",
+        "Makefile",
+        "tests/test_watch_checks.py",
+        "scripts/github-required-checks.json",
+        "tests/test_required_checks.py",
+        "docs/agents/delivery.md",
+        "docs/flows/development.delivery-baseline.md"
       ]
     }
   ],
@@ -2628,32 +2927,8 @@
     "tools/flow-docs/flow_parsers.py",
     "tools/flow-docs/requirements-ast.txt",
     "docs/flows/contracts.md",
-    "install.sh",
-    "scripts/windows/install_windows_sender_task.ps1",
-    "scripts/windows/start_windows_sender.ps1",
-    "hwmonitor_mqtt/platforms/install.py",
-    "hwmonitor_mqtt/platforms/pve_bootstrap.py",
-    "hwmonitor_mqtt/platforms/pve_token.py",
-    "tests/test_remote_bootstrap.py",
-    "tests/test_install_sh.py",
-    "tests/_pwsh.py",
-    "tests/test_powershell_syntax.py",
-    "Makefile",
-    ".github/workflows/ci.yml",
-    "uv.lock",
-    "hwmonitor_mqtt/platforms/detect.py",
-    "hwmonitor_mqtt/clients/pve.py",
-    "docs/configuration/pve.env.example",
-    "docs/deployment/installation.md",
-    "docker-compose.linux.yml",
-    "scripts/windows/uninstall_windows_sender_task.ps1",
-    "tests/fixtures/release-notices/paho-mqtt.txt",
-    "tests/fixtures/release-notices/psutil.txt",
-    "tests/fixtures/release-notices/python-dotenv.txt",
-    "tests/fixtures/release-notices/python.txt",
-    "tests/fixtures/release-notices/pythonnet.txt",
-    "tests/fixtures/release-notices/wmi.txt",
-    "tests/test_flow_explain.py"
+    "tests/test_flow_explain.py",
+    "tests/test_flow_policy_scope.py"
   ],
   "limits": {
     "nodes": 25,

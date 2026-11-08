@@ -1,4 +1,38 @@
-# Compiled Linux release test support
+# Sender acceptance tools
+
+## Source installation
+
+`source_acceptance.py` tests an exact committed source SHA in a disposable full
+QEMU VM. It reads the one-line command from that commit's README, substitutes only
+candidate downloads and interactive answers, and performs real installation,
+reinstallation, settings preservation and non-retained MQTT observations.
+This tests candidate installation; it does not establish public GitHub availability
+or physical sensor accuracy.
+
+The runner needs `git`, `ssh`, `scp`, `ssh-keygen`, `cloud-localds`, `qemu-img` and
+the platform's QEMU executable. ARM64 also needs `qemu-efi-aarch64`; it uses a full
+ARM64 VM rather than user-mode binary emulation. PVE provisions the signed PVE
+packages using `pve_provision.sh` and boots its kernel before installation.
+Use `source_acceptance.py --help` for the required source, platform, cloud-image,
+SHA-512 and output arguments. The output must be new under a trusted private
+parent directory; existing directories and writable shared parents are rejected.
+
+Success requires first installation, reinstallation, settings preservation and
+fresh MQTT data from both runs. `receipt.json` records these results, the source
+and cloud-image identities, and the actual harness hashes. `run.log` is sanitized
+and bounded. The default cleanup stops the owned QEMU process and removes its
+private disk, key and raw log on both success and failure. An explicit
+`--retain-on-failure` keeps failed-run private data and reports that in the receipt;
+never upload that directory.
+
+`.github/workflows/source-acceptance.yml` runs the heavy VM matrix weekly or by
+manual dispatch on GitHub-hosted runners. The committed `cloud-images.json` owns
+dated Debian image URLs and SHA-512 values. Update them together after comparing
+the official Debian checksum list; preserve dated inputs for reproducibility.
+Only the small receipt and sanitized log are uploaded. A failed preflight produces
+a failed receipt instead of a skipped success.
+
+## Compiled Linux releases
 
 `docker_acceptance.py` runs the supplied official bootstrap and compiled archive in a disposable nested Docker daemon. The caller must supply exact candidate paths, archive digest, source commit, version, platform, and a new output directory. The previous archive must have a different digest, source commit, and version. The host architecture must match the platform; run ARM64 on an ARM64 host or a full ARM64 VM. Docker, network access for image and package downloads, and permission to run a privileged nested daemon are required.
 

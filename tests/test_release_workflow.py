@@ -165,7 +165,7 @@ def test_source_checks_have_one_pr_and_master_path_and_keep_native_windows():
     assert 'uses: ./.github/workflows/ci.yml' in workflow.split('  checks:', 1)[1].split('  linux-build:', 1)[0]
     assert 'native-install-smoke:' in ci and 'windows-sender:' in ci
     assert 'PWSH_EXE: powershell.exe' in ci and 'PWSH_EXE: pwsh' in ci
-    assert ci.count('ref: ${{ inputs.source || github.sha }}') == 4
+    assert ci.count('ref: ${{ inputs.source || github.sha }}') == 5
 
 
 def test_missing_publisher_credential_gates_builds_and_checks():
