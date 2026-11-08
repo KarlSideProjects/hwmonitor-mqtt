@@ -184,7 +184,11 @@ function Ensure-LhmExecutable {
         $url = if ([string]::IsNullOrWhiteSpace($DownloadUrl)) { $LhmDefaultUrl } else { $DownloadUrl }
         Write-Host "Downloading LibreHardwareMonitor from: $url"
         if ($url -eq $LhmDefaultUrl) {
-            Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zipPath -Headers @{ Accept = 'application/octet-stream'; 'User-Agent' = 'hwmonitor-mqtt' }
+            try {
+                Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zipPath -Headers @{ Accept = 'application/octet-stream'; 'User-Agent' = 'hwmonitor-mqtt' }
+            } catch {
+                Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v0.9.6/LibreHardwareMonitor.zip' -OutFile $zipPath
+            }
         } else {
             Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zipPath
         }
@@ -258,7 +262,11 @@ function Ensure-PawnIo {
     $setup = Join-Path $tmpRoot "PawnIO_setup.exe"
     try {
         Write-Output "Downloading PawnIO from: $PawnIoUrl"
-        Invoke-WebRequest -UseBasicParsing -Uri $PawnIoUrl -OutFile $setup -Headers @{ Accept = 'application/octet-stream'; 'User-Agent' = 'hwmonitor-mqtt' }
+        try {
+            Invoke-WebRequest -UseBasicParsing -Uri $PawnIoUrl -OutFile $setup -Headers @{ Accept = 'application/octet-stream'; 'User-Agent' = 'hwmonitor-mqtt' }
+        } catch {
+            Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/namazso/PawnIO.Setup/releases/download/2.2.0/PawnIO_setup.exe' -OutFile $setup
+        }
         $hash = (Get-FileHash -Path $setup -Algorithm SHA256).Hash
         if ($hash -ne $PawnIoSha256) {
             throw "PawnIO installer SHA-256 mismatch: $hash"

@@ -252,7 +252,7 @@
     {
       "path": "scripts/windows/install_windows_sender_task.ps1",
       "kind": "file",
-      "md5": "65fc1f65baf9d344aab7d740bc3abd0c"
+      "md5": "3b6586738ebd5f2851a29433ee3ec7db"
     },
     {
       "path": ".github/workflows/sender-linux-build.yml",
@@ -622,7 +622,7 @@
     {
       "path": "tests/test_windows_compiled_start.py",
       "kind": "file",
-      "md5": "e07e60465b2da1c390c0a10806ec0348"
+      "md5": "ad4974c39f58e98452c1da34d140f201"
     },
     {
       "path": "tests/test_windows_package_activation.py",
@@ -797,12 +797,12 @@
     {
       "path": "bootstrap-source.sh",
       "kind": "file",
-      "md5": "e7c580ad320862229a1d77fa67b0b1f8"
+      "md5": "5eb3bb58f72af3b88ea3dc9f58c599d9"
     },
     {
       "path": "bootstrap-source.ps1",
       "kind": "file",
-      "md5": "29fcbc2d9301900e4d1f946444a97177"
+      "md5": "55ebe0d846d021d119cf65b9a22fc4c3"
     },
     {
       "path": "Dockerfile.source",
@@ -837,7 +837,7 @@
     {
       "path": "scripts/source_docker.py",
       "kind": "file",
-      "md5": "efa9b103baa5e97f5483d6b62495120b"
+      "md5": "3f4f85538b2df818d61f1d4ea62ef39a"
     },
     {
       "path": "scripts/source_linux_install.py",
@@ -867,7 +867,7 @@
     {
       "path": "tests/test_source_bootstrap.py",
       "kind": "file",
-      "md5": "312c4a85136666e32b4c752f3ea291e1"
+      "md5": "9d64e6b7aa6bc28591125c13a5878851"
     },
     {
       "path": "tests/test_source_config.py",
@@ -882,7 +882,7 @@
     {
       "path": "tests/test_source_docker.py",
       "kind": "file",
-      "md5": "73cbb2b1501e512cc510b2bb92d2d6fc"
+      "md5": "e9541793704b9a8d68cdca4460ab0c48"
     },
     {
       "path": "tests/test_source_install.py",
@@ -917,7 +917,7 @@
     {
       "path": "tests/test_windows_source_bootstrap.py",
       "kind": "file",
-      "md5": "f71c860a1d9abe4a9bd895d97b56e368"
+      "md5": "cb9f28084fe1413d224f1804f6d209d4"
     },
     {
       "path": "tests/test_windows_source_trust.py",

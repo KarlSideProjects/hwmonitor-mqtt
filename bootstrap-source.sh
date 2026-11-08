@@ -117,10 +117,16 @@ fi
 
 tmp=$(mktemp -d)
 trap 'rm -rf -- "$tmp"' EXIT
-curl --fail --location --silent --show-error \
+if curl --fail --location --silent --show-error \
     https://api.github.com/repos/KarlSideProjects/hwmonitor-mqtt/commits/master \
-    --output "$tmp/commit.json"
-commit=$(python3 -c 'import json,re,sys; s=json.load(open(sys.argv[1])).get("sha", ""); sys.exit("Invalid source commit") if not isinstance(s, str) or not re.fullmatch("[0-9a-f]{40}", s) else print(s)' "$tmp/commit.json")
+    --output "$tmp/commit.json"; then
+    commit=$(python3 -c 'import json,re,sys; s=json.load(open(sys.argv[1])).get("sha", ""); sys.exit("Invalid source commit") if not isinstance(s, str) or not re.fullmatch("[0-9a-f]{40}", s) else print(s)' "$tmp/commit.json")
+else
+    curl --fail --location --silent --show-error --max-filesize 10485760 \
+        'https://github.com/KarlSideProjects/hwmonitor-mqtt.git/info/refs?service=git-upload-pack' \
+        --output "$tmp/refs"
+    commit=$(python3 -c 'import pathlib,re,sys; b=pathlib.Path(sys.argv[1]).read_bytes(); m=[x.group(2).decode() for line in b.splitlines() if (x:=re.fullmatch(rb"([0-9a-f]{4})([0-9a-f]{40}) refs/heads/master",line)) and int(x.group(1),16)==len(line)+1]; sys.exit("Invalid source commit") if len(m)!=1 else print(m[0])' "$tmp/refs")
+fi
 curl --fail --location --silent --show-error \
     "https://raw.githubusercontent.com/KarlSideProjects/hwmonitor-mqtt/$commit/scripts/source_archive.py" \
     --output "$tmp/source_archive.py"

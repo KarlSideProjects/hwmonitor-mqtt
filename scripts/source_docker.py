@@ -26,7 +26,7 @@ class DockerActivation:
     def _inspect(self):
         result = self._run(['docker', 'inspect', 'sys-agent', '--format', '{{json .}}'])
         if result.returncode:
-            if 'No such object' in result.stderr:
+            if 'no such object' in result.stderr.lower():
                 return None
             raise RuntimeError('cannot inspect existing sender container')
         try:

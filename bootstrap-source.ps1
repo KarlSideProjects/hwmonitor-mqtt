@@ -3,7 +3,18 @@ $root = Join-Path $env:ProgramData 'hwmonitor-mqtt'
 $temp = Join-Path $env:ProgramData ('hwmonitor-mqtt-stage-' + [guid]::NewGuid().ToString('N'))
 # Begin source download
 function Get-VerifiedSource([string]$WorkDirectory) {
-    $commit = [string](Invoke-RestMethod -Uri 'https://api.github.com/repos/KarlSideProjects/hwmonitor-mqtt/commits/master' -Headers @{ 'User-Agent' = 'hwmonitor-mqtt-bootstrap' }).sha
+    try {
+        $commit = [string](Invoke-RestMethod -Uri 'https://api.github.com/repos/KarlSideProjects/hwmonitor-mqtt/commits/master' -Headers @{ 'User-Agent' = 'hwmonitor-mqtt-bootstrap' }).sha
+    } catch {
+        $refs = Join-Path $WorkDirectory 'source-refs'
+        Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/KarlSideProjects/hwmonitor-mqtt.git/info/refs?service=git-upload-pack' -OutFile $refs
+        if ((Get-Item -LiteralPath $refs).Length -gt 10485760) { throw 'Invalid source references.' }
+        $matches = @([IO.File]::ReadAllText($refs, [Text.Encoding]::ASCII) -split "`n" | Where-Object {
+            $_ -cmatch '^([0-9a-f]{4})([0-9a-f]{40}) refs/heads/master$' -and [Convert]::ToInt32($_.Substring(0, 4), 16) -eq $_.Length + 1
+        })
+        if ($matches.Count -ne 1) { throw 'Invalid source commit.' }
+        $commit = $matches[0].Substring(4, 40)
+    }
     if ($commit -cnotmatch '^[a-f0-9]{40}$') { throw 'Invalid source commit.' }
     $validator = Join-Path $WorkDirectory 'validate_source_archive.ps1'
     $archive = Join-Path $WorkDirectory 'source.zip'

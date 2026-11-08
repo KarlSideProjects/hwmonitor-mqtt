@@ -27,7 +27,8 @@ def source_config(root):
         'context': str(root), 'dockerfile': 'Dockerfile.source'}}}})
 
 
-def test_fresh_install_builds_source_and_requires_stable_sender(tmp_path):
+@pytest.mark.parametrize('missing_error', ['No such object: sys-agent', 'error: no such object: sys-agent'])
+def test_fresh_install_builds_source_and_requires_stable_sender(tmp_path, missing_error):
     calls = []
     def run(args, **kwargs):
         calls.append(args)
@@ -36,7 +37,7 @@ def test_fresh_install_builds_source_and_requires_stable_sender(tmp_path):
         if args[:3] == ['docker', 'inspect', 'sys-agent']:
             count = sum(c[:3] == args[:3] for c in calls)
             if count <= 2:
-                return subprocess.CompletedProcess(args, 1, '', 'No such object: sys-agent')
+                return subprocess.CompletedProcess(args, 1, '', missing_error)
             return subprocess.CompletedProcess(args, 0, inspect(tmp_path), '')
         return subprocess.CompletedProcess(args, 0, '', '')
     activation = DockerActivation(tmp_path, run=run, sleep=lambda _: None, which=lambda _: None)

@@ -1,6 +1,8 @@
 from pathlib import Path
 import zipfile
 
+import pytest
+
 from _pwsh import run_pwsh
 
 
@@ -14,7 +16,8 @@ def download_function():
     return text.split('# Begin source download', 1)[1].split('# End source download', 1)[0]
 
 
-def test_download_pins_commit_and_validates_archive_before_activation(tmp_path):
+@pytest.mark.parametrize('api_limited', [False, True])
+def test_download_pins_commit_and_validates_archive_before_activation(tmp_path, api_limited):
     archive = tmp_path / 'source.zip'
     prefix = 'hwmonitor-mqtt-' + COMMIT + '/'
     with zipfile.ZipFile(archive, 'w') as content:
@@ -27,14 +30,14 @@ def test_download_pins_commit_and_validates_archive_before_activation(tmp_path):
     stage.mkdir()
     shell = r'''
 $global:urls = [Collections.Generic.List[string]]::new()
-function Invoke-RestMethod { param($Uri, $Headers) @{ sha = $env:COMMIT } }
-function Invoke-WebRequest { param([switch]$UseBasicParsing, $Uri, $OutFile) $global:urls.Add($Uri); if ($Uri.EndsWith('.zip')) { Copy-Item $env:ARCHIVE $OutFile } else { Copy-Item $env:VALIDATOR $OutFile } }
+function Invoke-RestMethod { param($Uri, $Headers) if ($env:API_LIMITED -eq '1') { throw 'HTTP 403' }; @{ sha = $env:COMMIT } }
+function Invoke-WebRequest { param([switch]$UseBasicParsing, $Uri, $OutFile) if ($Uri.Contains('info/refs')) { [IO.File]::WriteAllText($OutFile, ('003f' + $env:COMMIT + " refs/heads/master`n")); return }; $global:urls.Add($Uri); if ($Uri.EndsWith('.zip')) { Copy-Item $env:ARCHIVE $OutFile } else { Copy-Item $env:VALIDATOR $OutFile } }
 ''' + download_function() + r'''
 $result = Get-VerifiedSource -WorkDirectory $env:WORK
 if ($result.Commit -ne $env:COMMIT -or -not (Test-Path (Join-Path $result.Path 'uv.lock'))) { throw 'source missing' }
 if ($global:urls.Count -ne 2 -or @($global:urls | Where-Object { -not $_.Contains($env:COMMIT) }).Count -ne 0) { throw 'URLs not pinned' }
 '''
-    result = run_pwsh(shell, env={'WORK': str(stage), 'COMMIT': COMMIT, 'ARCHIVE': str(archive),
+    result = run_pwsh(shell, env={'WORK': str(stage), 'COMMIT': COMMIT, 'API_LIMITED': str(int(api_limited)), 'ARCHIVE': str(archive),
                                   'VALIDATOR': str(ROOT / 'scripts/windows/validate_source_archive.ps1')})
     assert result.returncode == 0, result.stderr
 
@@ -49,4 +52,21 @@ try { Get-VerifiedSource -WorkDirectory $env:WORK | Out-Null; throw 'accepted in
 catch { if ($global:downloads -ne 0 -or $_.Exception.Message -ne 'Invalid source commit.') { throw }; exit 0 }
 '''
     result = run_pwsh(shell, env={'WORK': str(tmp_path)})
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize('refs', ['', '0000' + 'a' * 40 + ' refs/heads/master\n',
+                                  ('003f' + 'a' * 40 + ' refs/heads/master\n') * 2])
+def test_fallback_rejects_invalid_or_ambiguous_master_refs(tmp_path, refs):
+    shell = r'''
+function Invoke-RestMethod { param($Uri, $Headers) throw 'HTTP 403' }
+function Invoke-WebRequest { param([switch]$UseBasicParsing, $Uri, $OutFile)
+    if (-not $Uri.Contains('info/refs')) { throw 'unexpected download' }
+    [IO.File]::WriteAllText($OutFile, $env:REFS)
+}
+''' + download_function() + r'''
+try { Get-VerifiedSource -WorkDirectory $env:WORK | Out-Null; throw 'accepted invalid refs' }
+catch { if ($_.Exception.Message -ne 'Invalid source commit.') { throw }; exit 0 }
+'''
+    result = run_pwsh(shell, env={'WORK': str(tmp_path), 'REFS': refs})
     assert result.returncode == 0, result.stderr
