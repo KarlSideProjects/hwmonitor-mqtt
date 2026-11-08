@@ -110,7 +110,10 @@ printf '{"sha":"../bad"}' > "$2"
 
 
 @pytest.mark.parametrize('refs', ['', '0000' + 'a' * 40 + ' refs/heads/master\n',
-                                  ('003f' + 'a' * 40 + ' refs/heads/master\n') * 2])
+                                  ('003f' + 'a' * 40 + ' refs/heads/master\n') * 2,
+                                  '001e# service=git-upload-pack\n0000' + ('003f' + 'a' * 40 + ' refs/heads/master\n') * 2 + '0000',
+                                  'not-a-git-advertisement\n003f' + 'a' * 40 + ' refs/heads/master\n',
+                                  '001e# service=git-upload-pack\n0000003f' + 'a' * 40 + ' refs/heads/master\n0008xx'])
 def test_invalid_fallback_refs_stop_before_source_download(tmp_path, refs):
     bindir = tmp_path / 'bin'
     bindir.mkdir()
@@ -191,7 +194,7 @@ done
 printf '%s\\n' "$url" >> "$CALLS"
 case "$url" in
   */commits/master) if [ "$API_LIMITED" = 1 ]; then exit 22; fi; printf '{"sha":"%s"}' "$COMMIT" > "$out" ;;
-  *info/refs*) printf '003f%s refs/heads/master\n' "$COMMIT" > "$out" ;;
+  *info/refs*) printf '001e# service=git-upload-pack\n0000003f%s refs/heads/master\n0000' "$COMMIT" > "$out" ;;
   */scripts/source_archive.py) cp "$HELPER" "$out" ;;
   *.tar.gz) cp "$ARCHIVE" "$out" ;;
   *) exit 1 ;;

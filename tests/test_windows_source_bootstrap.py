@@ -31,7 +31,7 @@ def test_download_pins_commit_and_validates_archive_before_activation(tmp_path, 
     shell = r'''
 $global:urls = [Collections.Generic.List[string]]::new()
 function Invoke-RestMethod { param($Uri, $Headers) if ($env:API_LIMITED -eq '1') { throw 'HTTP 403' }; @{ sha = $env:COMMIT } }
-function Invoke-WebRequest { param([switch]$UseBasicParsing, $Uri, $OutFile) if ($Uri.Contains('info/refs')) { [IO.File]::WriteAllText($OutFile, ('003f' + $env:COMMIT + " refs/heads/master`n")); return }; $global:urls.Add($Uri); if ($Uri.EndsWith('.zip')) { Copy-Item $env:ARCHIVE $OutFile } else { Copy-Item $env:VALIDATOR $OutFile } }
+function Invoke-WebRequest { param([switch]$UseBasicParsing, $Uri, $OutFile) if ($Uri.Contains('info/refs')) { [IO.File]::WriteAllText($OutFile, ("001e# service=git-upload-pack`n0000003f" + $env:COMMIT + " refs/heads/master`n0000")); return }; $global:urls.Add($Uri); if ($Uri.EndsWith('.zip')) { Copy-Item $env:ARCHIVE $OutFile } else { Copy-Item $env:VALIDATOR $OutFile } }
 ''' + download_function() + r'''
 $result = Get-VerifiedSource -WorkDirectory $env:WORK
 if ($result.Commit -ne $env:COMMIT -or -not (Test-Path (Join-Path $result.Path 'uv.lock'))) { throw 'source missing' }
@@ -56,7 +56,10 @@ catch { if ($global:downloads -ne 0 -or $_.Exception.Message -ne 'Invalid source
 
 
 @pytest.mark.parametrize('refs', ['', '0000' + 'a' * 40 + ' refs/heads/master\n',
-                                  ('003f' + 'a' * 40 + ' refs/heads/master\n') * 2])
+                                  ('003f' + 'a' * 40 + ' refs/heads/master\n') * 2,
+                                  '001e# service=git-upload-pack\n0000' + ('003f' + 'a' * 40 + ' refs/heads/master\n') * 2 + '0000',
+                                  'not-a-git-advertisement\n003f' + 'a' * 40 + ' refs/heads/master\n',
+                                  '001e# service=git-upload-pack\n0000003f' + 'a' * 40 + ' refs/heads/master\n0008xx'])
 def test_fallback_rejects_invalid_or_ambiguous_master_refs(tmp_path, refs):
     shell = r'''
 function Invoke-RestMethod { param($Uri, $Headers) throw 'HTTP 403' }
