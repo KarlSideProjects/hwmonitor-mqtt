@@ -172,6 +172,6 @@ class DockerActivation:
     def finish(self):
         if self.pin is not None:
             self._check_pin()
-            if self._run(['docker', 'image', 'rm', self.pin]).returncode:
+            if self._run(['docker', 'image', 'rm', '--force', self.pin]).returncode:
                 raise RuntimeError('cannot remove rollback image tag')
             self.pin = None

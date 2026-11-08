@@ -110,6 +110,23 @@ def test_upgrade_failure_restores_pinned_image_and_previous_compose(tmp_path):
     assert any(call[:3] == ['docker', 'image', 'rm'] for call in calls)
 
 
+def test_finish_removes_rollback_tag_even_if_old_image_is_running(tmp_path):
+    calls = []
+    def run(args, **kwargs):
+        calls.append(args)
+        if args[:3] == ['docker', 'image', 'inspect']:
+            return subprocess.CompletedProcess(args, 0, 'sha256:oldimage\n', '')
+        if args[:3] == ['docker', 'image', 'rm'] and '--force' not in args:
+            return subprocess.CompletedProcess(args, 1, '', 'container is using its referenced image')
+        return subprocess.CompletedProcess(args, 0, '', '')
+    activation = DockerActivation(tmp_path, run=run)
+    activation.previous = {'Image': 'sha256:oldimage'}
+    activation.pin = 'hwmonitor-mqtt-rollback:test'
+    activation.finish()
+    assert activation.pin is None
+    assert any(call[:3] == ['docker', 'image', 'rm'] and '--force' in call for call in calls)
+
+
 def test_upgrade_refuses_a_sender_replaced_after_preparation(tmp_path):
     calls = []
     def run(args, **kwargs):

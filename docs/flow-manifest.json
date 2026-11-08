@@ -837,7 +837,7 @@
     {
       "path": "scripts/source_docker.py",
       "kind": "file",
-      "md5": "3f4f85538b2df818d61f1d4ea62ef39a"
+      "md5": "08bba571b8d9d4af83873fb61dfe2b6b"
     },
     {
       "path": "scripts/source_linux_install.py",
@@ -882,7 +882,7 @@
     {
       "path": "tests/test_source_docker.py",
       "kind": "file",
-      "md5": "e9541793704b9a8d68cdca4460ab0c48"
+      "md5": "f82eb8951763bba5dc66355d690049f5"
     },
     {
       "path": "tests/test_source_install.py",
