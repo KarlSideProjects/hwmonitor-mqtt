@@ -145,3 +145,23 @@ try { & $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedSource $env:STAGE -Source (
     assert (root / 'hwmonitor_mqtt/sender.py').read_text() == 'old'
     assert (root / 'scripts/windows/start_windows_sender.ps1').read_text() == 'old'
     assert (root / '.env').read_text() == 'private settings'
+
+
+def test_redirected_native_progress_does_not_abort_successful_install(tmp_path):
+    root, stage = tmp_path / 'root', tmp_path / 'stage'
+    source_tree(root, 'old')
+    source_tree(stage, 'new')
+    (root / '.env').write_text('private settings')
+    shell = r'''
+$global:state = 'Ready'
+function Get-ScheduledTask { param($TaskName, $ErrorAction) [pscustomobject]@{State=$global:state;Actions=@([pscustomobject]@{Execute='powershell.exe';Arguments=('-File "' + (Join-Path $env:ROOT 'scripts/windows/start_windows_sender.ps1') + '" -ProjectRoot "' + $env:ROOT + '"')})} }
+function Export-ScheduledTask { param($TaskName) '<Task />' }
+function Start-ScheduledTask { param($TaskName) $global:state = 'Running' }
+function powershell.exe { Write-Error 'download progress'; $global:LASTEXITCODE = 0 }
+& $env:ACTIVATOR -ProjectRoot $env:ROOT -StagedSource $env:STAGE -Source ('a' * 40) *> $env:LOG
+'''
+    result = run_pwsh(shell, env={'ACTIVATOR': str(ACTIVATOR), 'ROOT': str(root), 'STAGE': str(stage),
+                                   'LOG': str(tmp_path / 'install.log')})
+    assert result.returncode == 0, result.stderr
+    assert (root / 'hwmonitor_mqtt/sender.py').read_text() == 'new'
+    assert (root / '.env').read_text() == 'private settings'

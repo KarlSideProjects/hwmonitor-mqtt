@@ -66,8 +66,13 @@ try {
         }
     }
     $installerAttempted = $true
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot 'scripts/windows/install_windows_sender_task.ps1') -ProjectRoot $ProjectRoot -AtStartup
-    if ($LASTEXITCODE -ne 0) { throw "Windows task installer failed with exit code $LASTEXITCODE" }
+    $previousErrorPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ProjectRoot 'scripts/windows/install_windows_sender_task.ps1') -ProjectRoot $ProjectRoot -AtStartup
+        $installerExit = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $previousErrorPreference }
+    if ($installerExit -ne 0) { throw "Windows task installer failed with exit code $installerExit" }
     Start-ScheduledTask -TaskName $taskName
     $deadline = [DateTime]::UtcNow.AddSeconds(10)
     do {
