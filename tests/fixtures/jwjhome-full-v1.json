@@ -1,0 +1,39 @@
+{
+  "ts": 1700000000,
+  "host": "PC-1",
+  "sender_version": null,
+  "system": null,
+  "cpu": {
+    "percent_total": 37.4
+  },
+  "memory": {
+    "ram": {
+      "percent": 51.2
+    }
+  },
+  "disk_io": null,
+  "temperatures": {
+    "cpu": [
+      {
+        "current": 71.2
+      }
+    ]
+  },
+  "network_io": null,
+  "gpu": null,
+  "gpus": null,
+  "disk_smart": {
+    "observed_at": null,
+    "status": "unavailable",
+    "alerts": [],
+    "devices": {}
+  },
+  "mqtt_stats": {
+    "publish_ok": 0,
+    "publish_err": 0,
+    "last_publish_rc": null,
+    "is_connected": false,
+    "reconnects": 0,
+    "last_error": null
+  }
+}
