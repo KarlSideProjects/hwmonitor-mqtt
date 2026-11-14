@@ -12,7 +12,10 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [IO.Compression.ZipFile]::OpenRead($Archive)
 try {
     if ($zip.Entries.Count -eq 0 -or $zip.Entries.Count -gt 50000) { throw 'Invalid source entry count.' }
-    $prefix = 'hwmonitor-mqtt-' + $Source + '/'
+    $prefixes = @(('hwmonitor-mqtt-' + $Source + '/'), ('JWJhome-agent-' + $Source + '/'))
+    $prefix = @($prefixes | Where-Object { $zip.Entries[0].FullName.StartsWith($_, [StringComparison]::Ordinal) })
+    if ($prefix.Count -ne 1) { throw 'Invalid source identity.' }
+    $prefix = $prefix[0]
     $names = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     $files = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     $total = 0L
@@ -53,4 +56,4 @@ try {
         throw
     }
 } finally { $zip.Dispose() }
-Join-Path $Destination ('hwmonitor-mqtt-' + $Source)
+Join-Path $Destination $prefix.TrimEnd('/')

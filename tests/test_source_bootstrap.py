@@ -146,10 +146,11 @@ esac
     assert not (tmp_path / 'unexpected').exists()
 
 
+@pytest.mark.parametrize('repo_root', ['hwmonitor-mqtt-', 'JWJhome-agent-'])
 @pytest.mark.parametrize('existing', [False, True])
 @pytest.mark.parametrize('target', ['linux', 'pve'])
 @pytest.mark.parametrize('api_limited', [False, True])
-def test_linux_bootstrap_passes_verified_source_to_installer(tmp_path, existing, target, api_limited):
+def test_linux_bootstrap_passes_verified_source_to_installer(tmp_path, existing, target, api_limited, repo_root):
     commit = 'a' * 40
     root = tmp_path / 'root'
     if existing:
@@ -159,7 +160,7 @@ def test_linux_bootstrap_passes_verified_source_to_installer(tmp_path, existing,
         (root / 'sender').write_text('old sender')
         (root / '.env').write_text('private settings')
         (root / '.env').chmod(0o600)
-    source = tmp_path / ('hwmonitor-mqtt-' + commit)
+    source = tmp_path / (repo_root + commit)
     (source / 'scripts').mkdir(parents=True)
     (source / 'hwmonitor_mqtt' / 'platforms').mkdir(parents=True)
     (source / 'hwmonitor_mqtt' / 'platforms' / 'detect.py').write_text(
