@@ -1,5 +1,6 @@
 param([Parameter(Mandatory=$true)][string]$State)
 $ErrorActionPreference='Stop'
+Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $validator=Join-Path (Split-Path $PSScriptRoot) 'scripts/windows/validate_source_archive.ps1'
 $commit='a'*40
