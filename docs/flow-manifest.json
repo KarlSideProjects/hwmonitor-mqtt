@@ -2921,10 +2921,10 @@
     },
     {
       "feature": "sender.source-lifecycle",
-      "fingerprint": "cd4a18d3065f644cfc943d689998878e2af3d8ed8dde25803f9245d8307ece5b",
-      "reviewer": "independent Codex subagent /root/retro_review",
+      "fingerprint": "ad3152f914ac350189453c965dc4fdba253970c5ad081118f80f4260e70671a9",
+      "reviewer": "independent Codex subagent /root/review_portable_unpack",
       "verdict": "pass",
-      "evidence": "docs/flow-evidence/reviews/sender.source-lifecycle/cd4a18d3065f644cfc943d689998878e2af3d8ed8dde25803f9245d8307ece5b.json"
+      "evidence": "docs/flow-evidence/reviews/sender.source-lifecycle/ad3152f914ac350189453c965dc4fdba253970c5ad081118f80f4260e70671a9.json"
     },
     {
       "feature": "development.delivery",
