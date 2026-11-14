@@ -810,7 +810,7 @@
     {
       "path": "bootstrap-source.sh",
       "kind": "file",
-      "md5": "4d9fdaf6041f57354c4c6606dbcc1281"
+      "md5": "b91a352d0ce06dbbf36d8625ea00e401"
     },
     {
       "path": "bootstrap-source.ps1",
@@ -870,7 +870,7 @@
     {
       "path": "scripts/windows/validate_source_archive.ps1",
       "kind": "file",
-      "md5": "b0d319b1f351fa5b9e26d91b00ec8ae7"
+      "md5": "6530af660a0cde46ef7edff1902d1965"
     },
     {
       "path": "tests/test_source_archive.py",
@@ -880,7 +880,7 @@
     {
       "path": "tests/test_source_bootstrap.py",
       "kind": "file",
-      "md5": "6c29fb6cdfc4c50299523f69bf022224"
+      "md5": "4c60ee373657920f8124149a04091a33"
     },
     {
       "path": "tests/test_source_config.py",
@@ -925,7 +925,7 @@
     {
       "path": "tests/test_windows_source_archive.py",
       "kind": "file",
-      "md5": "550a2cd595f8b48b6f6792c7be68e9d1"
+      "md5": "bcd74db0e4acd963f47689d64dc45a3f"
     },
     {
       "path": "tests/test_windows_source_bootstrap.py",
@@ -2800,7 +2800,8 @@
         "uv.lock",
         "scripts/release-tests/cloud-images.json",
         "scripts/release-tests/README.md",
-        "docs/configuration/pve.env.example"
+        "docs/configuration/pve.env.example",
+        "tests/windows_source_archive_compat.ps1"
       ]
     },
     {

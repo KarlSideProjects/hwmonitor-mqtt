@@ -3,7 +3,7 @@ flowchart TD
     B{"Windows or Linux/PVE"}
     C["Check privileged platform, trusted paths and prior installation"]
     D["Resolve master to one full commit through API or Git references on API failure; download source and validator for that commit"]
-    E["Reject unsafe archive paths, links, duplicate entries and excessive sizes"]
+    E["Require the pinned commit under the exact old or renamed repository root; reject mixed roots, unsafe paths, links, duplicates and excessive sizes"]
     W{"Windows installation already exists?"}
     X["Acquire existing installation lock before download"]
     Y["Create protected installation directory and acquire lock"]
