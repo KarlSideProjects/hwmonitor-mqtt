@@ -82,3 +82,17 @@ def test_rejects_missing_activation_script(tmp_path):
     result = validate(archive, destination)
     assert result.returncode != 0
     assert not destination.exists()
+
+
+def test_extracts_renamed_source_and_rejects_mixed_roots(tmp_path):
+    archive, destination = tmp_path / 'new.zip', tmp_path / 'new'
+    new_prefix = 'JWJhome-agent-' + COMMIT + '/'
+    with zipfile.ZipFile(archive, 'w') as content:
+        for name in REQUIRED:
+            content.writestr(new_prefix + name, 'content')
+    result = validate(archive, destination)
+    assert result.returncode == 0, result.stderr
+    assert (destination / new_prefix / REQUIRED[0]).is_file()
+    mixed = tmp_path / 'mixed.zip'
+    make_zip(mixed, [(new_prefix + 'extra', 'bad')])
+    assert validate(mixed, tmp_path / 'mixed').returncode != 0

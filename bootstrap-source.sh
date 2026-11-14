@@ -156,7 +156,7 @@ curl --fail --location --silent --show-error \
     "https://github.com/KarlSideProjects/hwmonitor-mqtt/archive/$commit.tar.gz" \
     --output "$tmp/source.tar.gz"
 source_dir=$(python3 "$tmp/source_archive.py" "$tmp/source.tar.gz" "$tmp/unpacked")
-[[ "$source_dir" == "$tmp/unpacked/hwmonitor-mqtt-$commit" && -f "$source_dir/scripts/source_linux_install.py" ]] || {
+[[ ( "$source_dir" == "$tmp/unpacked/hwmonitor-mqtt-$commit" || "$source_dir" == "$tmp/unpacked/JWJhome-agent-$commit" ) && -f "$source_dir/scripts/source_linux_install.py" ]] || {
     echo 'Downloaded source identity is invalid.' >&2; exit 1;
 }
 target=$(cd "$source_dir" && PYTHONPATH="$source_dir" python3 -c 'from hwmonitor_mqtt.platforms.detect import detect_target; t=detect_target(); print(t.system if t.system == "pve" or (t.system == "linux" and t.distribution in ("debian", "ubuntu", "raspbian")) else "unsupported")')
